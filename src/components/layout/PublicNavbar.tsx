@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MenuIcon, XIcon, ActivityIcon } from 'lucide-react';
+import { MenuIcon, XIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
 export function PublicNavbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -56,12 +56,13 @@ export function PublicNavbar() {
           {/* Logo */}
           <Link
             to="/"
-            className={`flex items-center gap-2 font-heading font-bold text-2xl tracking-tight transition-colors ${logoClasses}`}>
+            className={`flex items-center gap-3 font-heading font-bold text-2xl tracking-tight transition-colors ${logoClasses}`}>
 
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white shadow-lg">
-              <ActivityIcon className="w-5 h-5" />
-            </div>
-            AutoVital
+            <img
+              src="/logo.jpeg"
+              alt="AutoVital"
+              className="h-9 w-9 rounded-lg object-contain shadow-md bg-white" />
+            <span>AutoVital</span>
           </Link>
 
           {/* Desktop Nav */}

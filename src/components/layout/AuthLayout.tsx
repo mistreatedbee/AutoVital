@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ActivityIcon, ShieldCheckIcon, BellRingIcon } from 'lucide-react';
+import { ShieldCheckIcon, BellRingIcon } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 interface AuthLayoutProps {
@@ -17,12 +17,13 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         <div className="p-8 flex items-center">
           <Link
             to="/"
-            className="flex items-center gap-2 font-heading font-bold text-xl text-slate-900">
+            className="flex items-center gap-3 font-heading font-bold text-xl text-slate-900">
 
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white shadow-md">
-              <ActivityIcon className="w-5 h-5" />
-            </div>
-            AutoVital
+            <img
+              src="/logo.jpeg"
+              alt="AutoVital"
+              className="h-9 w-9 rounded-lg object-contain shadow-md bg-white" />
+            <span>AutoVital</span>
           </Link>
         </div>
 

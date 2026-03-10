@@ -1,11 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ActivityIcon,
-  TwitterIcon,
-  LinkedinIcon,
-  GithubIcon } from
-'lucide-react';
+import { TwitterIcon, LinkedinIcon, GithubIcon } from 'lucide-react';
 export function Footer() {
   const currentYear = new Date().getFullYear();
   return (
@@ -16,12 +11,13 @@ export function Footer() {
           <div className="lg:col-span-2">
             <Link
               to="/"
-              className="flex items-center gap-2 font-heading font-bold text-2xl text-white mb-6">
+              className="flex items-center gap-3 font-heading font-bold text-2xl text-white mb-6">
 
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white">
-                <ActivityIcon className="w-5 h-5" />
-              </div>
-              AutoVital
+              <img
+                src="/logo.jpeg"
+                alt="AutoVital"
+                className="h-9 w-9 rounded-lg object-contain bg-white shadow-md" />
+              <span>AutoVital</span>
             </Link>
             <p className="text-slate-400 mb-8 max-w-sm leading-relaxed">
               The intelligent vehicle maintenance tracking platform. Stay ahead

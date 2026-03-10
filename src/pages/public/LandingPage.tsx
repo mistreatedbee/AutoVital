@@ -71,7 +71,7 @@ export function LandingPage() {
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10">
-          <div className="text-center max-w-4xl mx-auto mb-20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-20">
             <motion.div
               initial={{
                 opacity: 0,
@@ -85,19 +85,25 @@ export function LandingPage() {
                 duration: 0.5
               }}>
 
-              <Badge
-                variant="dark"
-                className="mb-8 border-white/10 bg-white/5 text-primary-300 backdrop-blur-md px-4 py-1.5 shadow-2xl">
+              <div className="flex items-center justify-center lg:justify-start gap-4 mb-6">
+                <img
+                  src="/logo.jpeg"
+                  alt="AutoVital"
+                  className="h-12 w-12 rounded-xl object-contain bg-white shadow-lg" />
+                <Badge
+                  variant="dark"
+                  className="border-white/10 bg-white/5 text-primary-300 backdrop-blur-md px-4 py-1.5 shadow-2xl">
 
-                <span className="flex items-center gap-2 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-accent-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
-                  AutoVital 2.0 is now live
-                </span>
-              </Badge>
+                  <span className="flex items-center gap-2 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-accent-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
+                    AutoVital 2.0 is now live
+                  </span>
+                </Badge>
+              </div>
             </motion.div>
 
             <motion.h1
-              className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-white mb-8 leading-[1.1] font-heading tracking-tight"
+              className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-white mb-6 leading-[1.1] font-heading tracking-tight"
               initial={{
                 opacity: 0,
                 y: 20
@@ -118,7 +124,7 @@ export function LandingPage() {
             </motion.h1>
 
             <motion.p
-              className="text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed font-medium"
+              className="text-lg md:text-xl text-slate-300 mb-10 max-w-xl lg:max-w-none lg:pr-10 leading-relaxed font-medium"
               initial={{
                 opacity: 0,
                 y: 20
@@ -138,7 +144,7 @@ export function LandingPage() {
             </motion.p>
 
             <motion.div
-              className="flex flex-col sm:flex-row items-center justify-center gap-4"
+              className="flex flex-col sm:flex-row items-center lg:items-start justify-start gap-4"
               initial={{
                 opacity: 0,
                 y: 20
@@ -173,9 +179,9 @@ export function LandingPage() {
             </motion.div>
           </div>
 
-          {/* Detailed Dashboard Mockup */}
+          {/* Detailed Dashboard Mockup with motion */}
           <motion.div
-            className="relative mx-auto max-w-5xl perspective-1000"
+            className="relative mx-auto max-w-2xl lg:max-w-xl perspective-1000"
             initial={{
               opacity: 0,
               y: 60,
@@ -209,8 +215,8 @@ export function LandingPage() {
               </div>
 
               {/* Mockup Body */}
-              <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-2 space-y-6">
+              <div className="p-6 grid grid-cols-1 gap-6">
+                <div className="space-y-6">
                   {/* Vehicle Card */}
                   <div className="h-56 rounded-xl bg-gradient-to-br from-primary-900/40 to-dark border border-white/10 p-6 flex flex-col justify-between relative overflow-hidden group">
                     <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1561580125-028ee3bd62eb?q=80&w=800&auto=format&fit=crop')] opacity-20 mix-blend-overlay object-cover transition-transform duration-700 group-hover:scale-105" />
