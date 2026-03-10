@@ -38,7 +38,6 @@ export function LandingPage() {
     visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
   };
 
-  // Fade-up animation for hero elements
   const fadeUpVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: (delay: number) => ({
@@ -50,14 +49,14 @@ export function LandingPage() {
 
   return (
     <div className="w-full overflow-hidden font-body">
-      {/* HERO SECTION – Redesigned */}
-      <section className="relative bg-gradient-to-br from-[#1B1C5F] via-[#2C2E78] to-[#1B1C5F] text-white py-20 overflow-hidden">
-        {/* Decorative circles */}
-        <div className="absolute top-[-100px] left-[-100px] w-72 h-72 bg-yellow-500 opacity-10 rounded-full animate-pulse-slow"></div>
-        <div className="absolute bottom-[-150px] right-[-150px] w-96 h-96 bg-blue-500 opacity-10 rounded-full animate-pulse-slow"></div>
+      {/* HERO SECTION – White background, red text, larger */}
+      <section className="relative bg-white text-red-600 py-28 md:py-36 overflow-hidden">
+        {/* Decorative circles – subtle red tones */}
+        <div className="absolute top-[-100px] left-[-100px] w-72 h-72 bg-red-200 opacity-30 rounded-full animate-pulse-slow"></div>
+        <div className="absolute bottom-[-150px] right-[-150px] w-96 h-96 bg-red-300 opacity-20 rounded-full animate-pulse-slow"></div>
 
         <div className="container mx-auto px-4 relative z-10">
-          <div className="flex flex-col md:flex-row items-center gap-8">
+          <div className="flex flex-col md:flex-row items-center gap-12">
             {/* Text content */}
             <div className="md:w-1/2 space-y-6">
               <motion.h1
@@ -65,10 +64,10 @@ export function LandingPage() {
                 variants={fadeUpVariants}
                 initial="hidden"
                 animate="visible"
-                className="text-4xl md:text-5xl font-bold leading-tight"
+                className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight"
               >
                 Track Your Vehicle's Health{' '}
-                <span className="text-yellow-300">Before Problems Start.</span>
+                <span className="text-red-600">Before Problems Start.</span>
               </motion.h1>
 
               <motion.p
@@ -76,7 +75,7 @@ export function LandingPage() {
                 variants={fadeUpVariants}
                 initial="hidden"
                 animate="visible"
-                className="text-lg md:text-xl text-gray-300"
+                className="text-lg md:text-xl text-gray-600"
               >
                 The intelligent maintenance tracking platform that predicts repairs,
                 logs expenses, and ensures your vehicle stays reliable and safe on the road.
@@ -92,7 +91,7 @@ export function LandingPage() {
                 <Link to="/signup">
                   <Button
                     size="lg"
-                    className="w-full sm:w-auto text-lg px-8 shadow-[0_0_30px_rgba(234,179,8,0.4)] hover:shadow-[0_0_40px_rgba(234,179,8,0.6)] border-none"
+                    className="w-full sm:w-auto text-lg px-8 bg-red-600 text-white hover:bg-red-700 border-none shadow-lg"
                   >
                     Start Free Trial
                   </Button>
@@ -102,7 +101,7 @@ export function LandingPage() {
                     size="lg"
                     variant="outline"
                     icon={<PlayCircleIcon className="w-5 h-5" />}
-                    className="w-full sm:w-auto text-lg px-8 bg-transparent text-white border-white/30 hover:bg-white/10"
+                    className="w-full sm:w-auto text-lg px-8 bg-transparent text-red-600 border-red-300 hover:bg-red-50"
                   >
                     Watch Demo
                   </Button>
@@ -129,14 +128,14 @@ export function LandingPage() {
                     if (parent && !parent.querySelector('.placeholder')) {
                       const placeholder = document.createElement('div');
                       placeholder.className =
-                        'placeholder w-full h-64 bg-gradient-to-br from-yellow-400/20 to-blue-500/20 flex items-center justify-center rounded-xl';
-                      placeholder.innerHTML = '<div class="text-white text-2xl font-bold">AutoVital</div>';
+                        'placeholder w-full h-64 bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center rounded-xl';
+                      placeholder.innerHTML = '<div class="text-red-600 text-2xl font-bold">AutoVital</div>';
                       parent.appendChild(placeholder);
                     }
                   }}
                 />
                 {/* Glow behind logo */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-yellow-400 to-blue-500 opacity-20 rounded-xl blur-3xl animate-pulse-slow"></div>
+                <div className="absolute inset-0 bg-gradient-to-tr from-red-400 to-red-600 opacity-20 rounded-xl blur-3xl animate-pulse-slow"></div>
               </div>
             </motion.div>
           </div>
@@ -147,7 +146,7 @@ export function LandingPage() {
       <section className="py-12 border-b border-slate-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-sm font-bold text-slate-400 mb-8 uppercase tracking-widest">
-            Trusted by <span className="text-primary-600">10,432</span> vehicle owners and fleets
+            Trusted by <span className="text-red-600">10,432</span> vehicle owners and fleets
           </p>
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
             <span className="text-xl font-bold font-heading text-slate-800">AutoNation</span>
@@ -183,7 +182,7 @@ export function LandingPage() {
             viewport={{ once: true, margin: '-100px' }}
           >
             {/* Connecting Line */}
-            <div className="hidden md:block absolute top-16 left-[12.5%] right-[12.5%] h-0.5 bg-gradient-to-r from-primary-200 via-primary-400 to-primary-200 z-0" />
+            <div className="hidden md:block absolute top-16 left-[12.5%] right-[12.5%] h-0.5 bg-gradient-to-r from-red-200 via-red-400 to-red-200 z-0" />
 
             {[
               { icon: <ShieldCheckIcon />, title: 'Create Account', desc: 'Sign up securely in seconds.' },
@@ -196,8 +195,8 @@ export function LandingPage() {
                 variants={itemVariants}
                 className="relative z-10 flex flex-col items-center text-center group"
               >
-                <div className="w-32 h-32 rounded-3xl bg-white shadow-xl flex items-center justify-center text-primary-600 mb-8 border border-slate-100 group-hover:-translate-y-2 transition-transform duration-300 relative">
-                  <div className="absolute -top-4 -right-4 w-8 h-8 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center shadow-lg border-2 border-white z-20">
+                <div className="w-32 h-32 rounded-3xl bg-white shadow-xl flex items-center justify-center text-red-600 mb-8 border border-slate-100 group-hover:-translate-y-2 transition-transform duration-300 relative">
+                  <div className="absolute -top-4 -right-4 w-8 h-8 rounded-full bg-red-600 text-white font-bold flex items-center justify-center shadow-lg border-2 border-white z-20">
                     {idx + 1}
                   </div>
                   {cloneElement(step.icon as React.ReactElement, { className: 'w-12 h-12' })}
@@ -232,54 +231,44 @@ export function LandingPage() {
                 icon: <CarIcon />,
                 title: 'Vehicle Profiles',
                 desc: 'Store all details, VIN, specs, and photos in one beautiful dashboard.',
-                color: 'blue',
+                color: 'red',
               },
               {
                 icon: <WrenchIcon />,
                 title: 'Maintenance Logs',
                 desc: 'Keep a digital service book. Never lose a receipt or forget a repair again.',
-                color: 'emerald',
+                color: 'red',
               },
               {
                 icon: <BellRingIcon />,
                 title: 'Smart Reminders',
                 desc: 'Get notified before service is due based on time or tracked mileage.',
-                color: 'amber',
+                color: 'red',
               },
               {
                 icon: <TrendingDownIcon />,
                 title: 'Expense Tracking',
                 desc: 'Visualize your spending on fuel, repairs, and insurance over time.',
-                color: 'rose',
+                color: 'red',
               },
               {
                 icon: <ActivityIcon />,
                 title: 'Health Score',
                 desc: 'Our algorithm calculates a real-time health score based on service history.',
-                color: 'purple',
+                color: 'red',
               },
               {
                 icon: <FileTextIcon />,
                 title: 'Document Storage',
                 desc: 'Securely store insurance cards, registration, and warranties in the cloud.',
-                color: 'indigo',
+                color: 'red',
               },
             ].map((feature, idx) => {
               const colorMap: Record<string, string> = {
-                blue: 'bg-blue-50 text-blue-600 border-blue-100 group-hover:bg-blue-600 group-hover:text-white',
-                emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white',
-                amber: 'bg-amber-50 text-amber-600 border-amber-100 group-hover:bg-amber-600 group-hover:text-white',
-                rose: 'bg-rose-50 text-rose-600 border-rose-100 group-hover:bg-rose-600 group-hover:text-white',
-                purple: 'bg-purple-50 text-purple-600 border-purple-100 group-hover:bg-purple-600 group-hover:text-white',
-                indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white',
+                red: 'bg-red-50 text-red-600 border-red-100 group-hover:bg-red-600 group-hover:text-white',
               };
               const bgGradientMap: Record<string, string> = {
-                blue: 'hover:bg-gradient-to-br hover:from-blue-50/50 hover:to-white',
-                emerald: 'hover:bg-gradient-to-br hover:from-emerald-50/50 hover:to-white',
-                amber: 'hover:bg-gradient-to-br hover:from-amber-50/50 hover:to-white',
-                rose: 'hover:bg-gradient-to-br hover:from-rose-50/50 hover:to-white',
-                purple: 'hover:bg-gradient-to-br hover:from-purple-50/50 hover:to-white',
-                indigo: 'hover:bg-gradient-to-br hover:from-indigo-50/50 hover:to-white',
+                red: 'hover:bg-gradient-to-br hover:from-red-50/50 hover:to-white',
               };
               return (
                 <motion.div key={idx} variants={itemVariants}>
@@ -293,7 +282,7 @@ export function LandingPage() {
                     </div>
                     <h3 className="text-xl font-bold text-slate-900 mb-4 font-heading">{feature.title}</h3>
                     <p className="text-slate-600 leading-relaxed font-medium mb-6 flex-1">{feature.desc}</p>
-                    <div className="mt-auto flex items-center text-sm font-bold text-primary-600 opacity-0 group-hover:opacity-100 transition-opacity -translate-x-2 group-hover:translate-x-0 duration-300">
+                    <div className="mt-auto flex items-center text-sm font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity -translate-x-2 group-hover:translate-x-0 duration-300">
                       Learn more <ArrowRightIcon className="w-4 h-4 ml-1" />
                     </div>
                   </Card>
@@ -307,8 +296,8 @@ export function LandingPage() {
       {/* HEALTH SCORE SECTION (DARK) */}
       <section className="py-32 bg-dark relative overflow-hidden">
         <div className="absolute inset-0 bg-dot-pattern-dark opacity-30"></div>
-        <div className="absolute top-1/2 right-0 w-[800px] h-[800px] bg-primary-900/30 blur-[120px] rounded-full transform -translate-y-1/2 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-accent-900/20 blur-[100px] rounded-full pointer-events-none" />
+        <div className="absolute top-1/2 right-0 w-[800px] h-[800px] bg-red-900/30 blur-[120px] rounded-full transform -translate-y-1/2 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-red-900/20 blur-[100px] rounded-full pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
@@ -332,8 +321,8 @@ export function LandingPage() {
                   'Identifies neglected maintenance areas instantly',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-4 text-slate-300 font-medium text-lg">
-                    <div className="mt-1 w-6 h-6 rounded-full bg-accent-500/20 flex items-center justify-center shrink-0 border border-accent-500/50">
-                      <CheckCircle2Icon className="w-4 h-4 text-accent-400" />
+                    <div className="mt-1 w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 border border-red-500/50">
+                      <CheckCircle2Icon className="w-4 h-4 text-red-400" />
                     </div>
                     <span>{item}</span>
                   </li>
@@ -343,7 +332,7 @@ export function LandingPage() {
                 variant="primary"
                 size="lg"
                 icon={<ArrowRightIcon className="w-5 h-5" />}
-                className="shadow-[0_0_20px_rgba(18,115,234,0.3)]"
+                className="bg-red-600 hover:bg-red-700 shadow-[0_0_20px_rgba(220,38,38,0.3)]"
               >
                 See How It Works
               </Button>
@@ -359,7 +348,7 @@ export function LandingPage() {
               <div className="aspect-square max-w-lg mx-auto relative flex items-center justify-center">
                 {/* Animated SVG Ring */}
                 <svg
-                  className="absolute inset-0 w-full h-full transform -rotate-90 drop-shadow-[0_0_30px_rgba(57,211,83,0.3)]"
+                  className="absolute inset-0 w-full h-full transform -rotate-90 drop-shadow-[0_0_30px_rgba(220,38,38,0.3)]"
                   viewBox="0 0 100 100"
                 >
                   <circle cx="50" cy="50" r="42" fill="none" stroke="#1E293B" strokeWidth="8" />
@@ -368,7 +357,7 @@ export function LandingPage() {
                     cy="50"
                     r="42"
                     fill="none"
-                    stroke="#22C55E"
+                    stroke="#DC2626"
                     strokeWidth="8"
                     strokeLinecap="round"
                     strokeDasharray="264"
@@ -380,7 +369,7 @@ export function LandingPage() {
                 </svg>
 
                 <div className="absolute inset-4 rounded-full bg-slate-900/80 backdrop-blur-sm shadow-inner flex flex-col items-center justify-center text-center p-8 border border-white/5">
-                  <span className="text-accent-400 font-bold text-xl mb-2 tracking-widest uppercase">
+                  <span className="text-red-400 font-bold text-xl mb-2 tracking-widest uppercase">
                     Excellent
                   </span>
                   <span className="text-8xl font-extrabold text-white font-heading mb-2 tracking-tighter">
@@ -550,6 +539,7 @@ export function LandingPage() {
               description="Perfect for individuals with a single vehicle."
               features={['1 Vehicle Profile', 'Basic Maintenance Log', 'Standard Reminders', 'Email Support']}
               ctaText="Get Started Free"
+              accentColor="red"
             />
             <PricingCard
               name="Pro"
@@ -565,6 +555,7 @@ export function LandingPage() {
                 'Priority Support',
               ]}
               ctaText="Start 14-Day Trial"
+              accentColor="red"
             />
             <PricingCard
               name="Fleet"
@@ -579,6 +570,7 @@ export function LandingPage() {
                 '24/7 Phone Support',
               ]}
               ctaText="Contact Sales"
+              accentColor="red"
             />
           </div>
         </div>
@@ -617,7 +609,7 @@ export function LandingPage() {
       </section>
 
       {/* FINAL CTA */}
-      <section className="py-32 bg-animated-gradient relative overflow-hidden text-white">
+      <section className="py-32 bg-red-600 relative overflow-hidden text-white">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
@@ -627,19 +619,19 @@ export function LandingPage() {
           <h2 className="text-5xl md:text-6xl font-extrabold mb-8 font-heading tracking-tight leading-tight">
             Ready to Take Control of Your Vehicle's Health?
           </h2>
-          <p className="text-xl text-blue-100 mb-12 max-w-2xl mx-auto font-medium leading-relaxed">
+          <p className="text-xl text-red-100 mb-12 max-w-2xl mx-auto font-medium leading-relaxed">
             Stop guessing about maintenance. Start saving money and preventing breakdowns with AutoVital's intelligent tracking.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
             <Link to="/signup">
               <Button
                 size="lg"
-                className="w-full sm:w-auto text-lg px-10 py-4 bg-white text-primary-900 hover:bg-slate-50 border-none shadow-[0_0_40px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_rgba(255,255,255,0.5)] transition-all duration-300"
+                className="w-full sm:w-auto text-lg px-10 py-4 bg-white text-red-600 hover:bg-slate-50 border-none shadow-[0_0_40px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_rgba(255,255,255,0.5)] transition-all duration-300"
               >
                 Start Your Free Trial
               </Button>
             </Link>
-            <p className="text-blue-200 text-sm font-medium">No credit card required</p>
+            <p className="text-red-200 text-sm font-medium">No credit card required</p>
           </div>
         </div>
       </section>
