@@ -52,7 +52,7 @@ export function LandingPage() {
 
   const stats = [
     { value: '10,432', label: 'Active Users' },
-    { value: '$2,400', label: 'Avg. Annual Savings' },
+    { value: 'R2,400', label: 'Avg. Annual Savings' },
     { value: '98.4%', label: 'Uptime' },
     { value: '4.9★', label: 'User Rating' },
   ];
@@ -161,107 +161,122 @@ export function LandingPage() {
               </motion.div>
             </div>
 
-            {/* ── Right: Dashboard mockup card */}
+            {/* ── Right: Logo + floating cards */}
             <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.9, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="lg:w-[45%] w-full"
+              initial={{ opacity: 0, x: 60, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              transition={{ duration: 1.0, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="lg:w-[45%] w-full flex justify-center"
             >
-              <div className="relative">
-                {/* Main card */}
-                <div className="rounded-2xl border border-white/[0.07] bg-slate-900/80 backdrop-blur-xl shadow-[0_32px_80px_rgba(0,0,0,0.6)] overflow-hidden">
-                  {/* Fake browser chrome */}
-                  <div className="flex items-center gap-2 px-5 py-3.5 border-b border-white/[0.06] bg-slate-950/60">
-                    <div className="w-3 h-3 rounded-full bg-red-500/70" />
-                    <div className="w-3 h-3 rounded-full bg-amber-500/70" />
-                    <div className="w-3 h-3 rounded-full bg-green-500/70" />
-                    <div className="ml-4 flex-1 rounded-md bg-slate-800 h-6 px-3 flex items-center">
-                      <span className="text-slate-500 text-xs">app.autovital.io/dashboard</span>
-                    </div>
-                  </div>
-                  {/* Dashboard content */}
-                  <div className="p-6 space-y-5">
-                    {/* Header row */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mb-0.5">Vehicle Health</p>
-                        <p className="text-white font-bold text-lg">2021 Toyota Camry SE</p>
-                      </div>
-                      <div className="px-3 py-1 rounded-full bg-green-500/15 border border-green-500/25 text-green-400 text-xs font-bold">EXCELLENT</div>
-                    </div>
-                    {/* Score ring */}
-                    <div className="flex items-center gap-6">
-                      <div className="relative w-24 h-24 shrink-0">
-                        <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                          <circle cx="18" cy="18" r="14" fill="none" stroke="#1e293b" strokeWidth="3.5" />
-                          <motion.circle
-                            cx="18" cy="18" r="14"
-                            fill="none" stroke="#DC2626" strokeWidth="3.5"
-                            strokeLinecap="round"
-                            strokeDasharray="88"
-                            initial={{ strokeDashoffset: 88 }}
-                            animate={{ strokeDashoffset: 5.3 }}
-                            transition={{ duration: 1.8, delay: 0.8, ease: 'easeOut' }}
-                          />
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <span className="text-white text-2xl font-extrabold leading-none">94</span>
-                          <span className="text-slate-500 text-[10px]">/ 100</span>
-                        </div>
-                      </div>
-                      <div className="flex-1 space-y-2.5">
-                        {[
-                          { label: 'Engine', pct: 98, color: 'bg-green-500' },
-                          { label: 'Brakes', pct: 82, color: 'bg-amber-500' },
-                          { label: 'Tires', pct: 76, color: 'bg-amber-400' },
-                          { label: 'Fluids', pct: 95, color: 'bg-green-400' },
-                        ].map((item) => (
-                          <div key={item.label} className="flex items-center gap-3">
-                            <span className="text-slate-500 text-xs w-12">{item.label}</span>
-                            <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                              <motion.div
-                                className={`h-full ${item.color} rounded-full`}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${item.pct}%` }}
-                                transition={{ duration: 1.2, delay: 1, ease: 'easeOut' }}
-                              />
-                            </div>
-                            <span className="text-slate-400 text-xs w-8 text-right">{item.pct}%</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Next service row */}
-                    <div className="rounded-xl bg-slate-800/60 border border-white/[0.05] p-4 flex items-center gap-4">
-                      <div className="w-9 h-9 rounded-lg bg-red-600/20 flex items-center justify-center">
-                        <WrenchIcon className="w-4 h-4 text-red-400" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-white text-sm font-semibold">Oil Change Due</p>
-                        <p className="text-slate-500 text-xs">In 340 miles · March 24</p>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/25 text-amber-400 text-xs font-bold">Soon</span>
-                    </div>
-                  </div>
-                </div>
+              <div className="relative w-full max-w-lg">
 
-                {/* Floating badge */}
+                {/* Pulsing glow ring behind logo */}
                 <motion.div
-                  animate={{ y: [-6, 6, -6] }}
+                  animate={{ scale: [1, 1.08, 1], opacity: [0.25, 0.45, 0.25] }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                  className="absolute -bottom-5 -left-6 bg-slate-900 border border-white/10 rounded-xl p-3.5 shadow-2xl"
+                  className="absolute inset-[-32px] rounded-3xl bg-gradient-to-br from-red-600/30 to-red-900/10 blur-3xl pointer-events-none"
+                />
+
+                {/* Logo container */}
+                <motion.div
+                  whileHover={{ scale: 1.02, rotate: 0.5 }}
+                  transition={{ type: 'spring', stiffness: 180, damping: 18 }}
+                  className="relative rounded-3xl overflow-hidden border border-white/10 shadow-[0_40px_120px_rgba(0,0,0,0.75),0_0_60px_rgba(220,38,38,0.12)] bg-slate-950/70 backdrop-blur-sm p-8"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-red-600/20 flex items-center justify-center">
-                      <BellRingIcon className="w-4 h-4 text-red-400" />
-                    </div>
-                    <div>
-                      <p className="text-white text-xs font-bold">Smart Alert</p>
-                      <p className="text-slate-400 text-[10px]">Saved you from a $900 repair</p>
-                    </div>
-                  </div>
+                  <img
+                    src="/logo.jpeg"
+                    alt="AutoVital"
+                    className="w-full h-auto object-contain rounded-2xl"
+                    style={{ minHeight: '280px' }}
+                    onError={(e) => {
+                      const t = e.target as HTMLImageElement;
+                      t.style.display = 'none';
+                      const p = t.parentElement;
+                      if (p && !p.querySelector('.logo-fallback')) {
+                        const fb = document.createElement('div');
+                        fb.className = 'logo-fallback w-full flex items-center justify-center rounded-2xl bg-gradient-to-br from-red-900/40 to-slate-900';
+                        fb.style.minHeight = '280px';
+                        fb.innerHTML = '<span style="color:#ef4444;font-size:3rem;font-weight:900;letter-spacing:-0.04em">AutoVital</span>';
+                        p.appendChild(fb);
+                      }
+                    }}
+                  />
+                  {/* Subtle red shimmer overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-tr from-red-600/5 via-transparent to-red-400/5 rounded-3xl pointer-events-none" />
                 </motion.div>
+
+                {/* Floating badge — top right */}
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: 0.9, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute -top-6 -right-2 md:-right-8"
+                >
+                  <motion.div
+                    animate={{ y: [-6, 6, -6] }}
+                    transition={{ duration: 3.8, repeat: Infinity, ease: 'easeInOut' }}
+                    className="bg-slate-900/95 border border-white/10 rounded-2xl px-4 py-3 shadow-2xl backdrop-blur-md"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-green-500/15 flex items-center justify-center text-green-400 border border-green-500/25 shrink-0">
+                        <ShieldCheckIcon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-white text-sm font-bold leading-tight">Engine Health</p>
+                        <p className="text-green-400 text-xs font-semibold">98% Optimal</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+
+                {/* Floating badge — bottom left */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: 1.1, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute -bottom-6 -left-2 md:-left-8"
+                >
+                  <motion.div
+                    animate={{ y: [6, -6, 6] }}
+                    transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+                    className="bg-slate-900/95 border border-white/10 rounded-2xl px-4 py-3 shadow-2xl backdrop-blur-md"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-red-600/15 flex items-center justify-center text-red-400 border border-red-500/25 shrink-0">
+                        <BellRingIcon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-white text-sm font-bold leading-tight">Smart Alert</p>
+                        <p className="text-red-400 text-xs font-semibold">Saved you R900</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+
+                {/* Floating badge — mid right */}
+                <motion.div
+                  initial={{ opacity: 0, x: 20, scale: 0.9 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  transition={{ delay: 1.3, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute top-[55%] -right-2 md:-right-10"
+                >
+                  <motion.div
+                    animate={{ x: [4, -4, 4] }}
+                    transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+                    className="bg-slate-900/95 border border-white/10 rounded-2xl px-4 py-3 shadow-2xl backdrop-blur-md"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-amber-500/15 flex items-center justify-center text-amber-400 border border-amber-500/25 shrink-0">
+                        <WrenchIcon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-white text-sm font-bold leading-tight">Oil Change</p>
+                        <p className="text-amber-400 text-xs font-semibold">Due in 340 km</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+
               </div>
             </motion.div>
 
@@ -587,7 +602,7 @@ export function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             <PricingCard
               name="Starter"
-              price="$0"
+              price="R0"
               period="mo"
               description="Perfect for individuals with a single vehicle."
               features={['1 Vehicle Profile', 'Basic Maintenance Log', 'Standard Reminders', 'Email Support']}
@@ -596,7 +611,7 @@ export function LandingPage() {
             />
             <PricingCard
               name="Pro"
-              price="$9"
+              price="R169"
               period="mo"
               description="For enthusiasts and multi-car households."
               popular
@@ -612,7 +627,7 @@ export function LandingPage() {
             />
             <PricingCard
               name="Fleet"
-              price="$39"
+              price="R729"
               period="mo"
               description="For small businesses managing multiple vehicles."
               features={[
