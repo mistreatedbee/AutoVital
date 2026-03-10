@@ -58,7 +58,7 @@ const featureData = [
   value: 10
 }];
 
-const COLORS = ['#1273EA', '#39D353', '#F59E0B', '#8B5CF6'];
+const COLORS = ['#E31B23', '#3B82F6', '#9CA3AF', '#D1D5DB'];
 export function AdminAnalytics() {
   return (
     <div className="space-y-8">

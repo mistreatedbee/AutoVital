@@ -646,7 +646,7 @@ export function LandingPage() {
                     cy="50"
                     r="42"
                     fill="none"
-                    stroke="#39D353"
+                    stroke="#22C55E"
                     strokeWidth="8"
                     strokeLinecap="round"
                     strokeDasharray="264"

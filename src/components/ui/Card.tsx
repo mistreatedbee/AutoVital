@@ -20,7 +20,7 @@ export function Card({
   } else {
     styles += dark ?
     ' bg-slate-800 border border-slate-700' :
-    ' bg-white border border-slate-100 shadow-card';
+    ' bg-white border border-surface-200 shadow-card';
   }
   if (hover) {
     styles +=

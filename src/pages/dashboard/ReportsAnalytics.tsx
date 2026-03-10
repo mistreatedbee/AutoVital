@@ -65,7 +65,7 @@ const categoryData = [
   value: 600
 }];
 
-const COLORS = ['#1273EA', '#39D353', '#F59E0B', '#8B5CF6'];
+const COLORS = ['#E31B23', '#3B82F6', '#9CA3AF', '#D1D5DB'];
 export function ReportsAnalytics() {
   return (
     <div className="space-y-8">
@@ -181,13 +181,13 @@ export function ReportsAnalytics() {
                 <Bar
                   dataKey="Fuel"
                   stackId="a"
-                  fill="#1273EA"
+                  fill="#3B82F6"
                   radius={[0, 0, 4, 4]} />
 
                 <Bar
                   dataKey="Maintenance"
                   stackId="a"
-                  fill="#39D353"
+                  fill="#E31B23"
                   radius={[4, 4, 0, 0]} />
 
               </BarChart>

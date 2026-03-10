@@ -137,7 +137,7 @@ export function VehicleDetails() {
                 cy="50"
                 r="45"
                 fill="none"
-                stroke="#39D353"
+                stroke="#22C55E"
                 strokeWidth="10"
                 strokeDasharray="283"
                 strokeDashoffset="5.66"

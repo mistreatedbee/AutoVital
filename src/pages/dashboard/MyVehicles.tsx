@@ -99,7 +99,13 @@ export function MyVehicles() {
                   {vehicle.name}
                 </h3>
                 <Badge
-                  variant={vehicle.status === 'optimal' ? 'accent' : 'warning'}
+                  variant={
+                    vehicle.status === 'optimal'
+                      ? 'success'
+                      : vehicle.status === 'critical'
+                        ? 'critical'
+                        : 'warning'
+                  }
                   className="shadow-sm backdrop-blur-md bg-white/90">
 
                   {vehicle.health != null ? `${vehicle.health}% Health` : 'Health N/A'}

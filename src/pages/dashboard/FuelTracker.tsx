@@ -172,11 +172,11 @@ export function FuelTracker() {
                 <Line
                   type="monotone"
                   dataKey="mpg"
-                  stroke="#39D353"
+                  stroke="#3B82F6"
                   strokeWidth={3}
                   dot={{
                     r: 4,
-                    fill: '#39D353',
+                    fill: '#3B82F6',
                     strokeWidth: 2,
                     stroke: '#fff',
                   }}

@@ -158,7 +158,7 @@ export function AdminDashboard() {
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="p-4 flex items-center gap-4 border-slate-200">
-            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[#ECFDF3] text-[#22C55E] flex items-center justify-center shrink-0">
               <ServerIcon className="w-5 h-5" />
             </div>
             <div>
@@ -191,7 +191,7 @@ export function AdminDashboard() {
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-4 border-slate-200">
-            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[#ECFDF3] text-[#22C55E] flex items-center justify-center shrink-0">
               <AlertCircleIcon className="w-5 h-5" />
             </div>
             <div>

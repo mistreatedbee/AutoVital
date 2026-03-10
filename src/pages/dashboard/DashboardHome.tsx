@@ -337,7 +337,7 @@ export function DashboardHome() {
                   <span className="text-2xl font-bold text-slate-900">
                     $1,180
                   </span>
-                  <Badge variant="accent" className="text-[10px] px-2 py-0.5">
+                  <Badge variant="success" className="text-[10px] px-2 py-0.5">
                     -12% vs last period
                   </Badge>
                 </div>
@@ -366,8 +366,8 @@ export function DashboardHome() {
                       x2="0"
                       y2="1">
 
-                      <stop offset="5%" stopColor="#1273EA" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#1273EA" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#E31B23" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#E31B23" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
@@ -411,7 +411,7 @@ export function DashboardHome() {
                   <Area
                     type="monotone"
                     dataKey="amount"
-                    stroke="#1273EA"
+                    stroke="#E31B23"
                     strokeWidth={3}
                     fillOpacity={1}
                     fill="url(#colorAmount)"
@@ -452,7 +452,7 @@ export function DashboardHome() {
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
                   <div className="absolute top-3 right-3">
                     <Badge
-                      variant="accent"
+                      variant="success"
                       className="shadow-sm backdrop-blur-md bg-white/95 font-bold">
 
                       98% Health

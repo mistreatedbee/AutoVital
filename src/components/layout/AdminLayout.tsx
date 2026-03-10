@@ -85,21 +85,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     navigate('/login');
   };
   const SidebarContent = () =>
-  <div className="flex flex-col h-full bg-slate-900 text-slate-300 border-r border-slate-800">
+  <div className="flex flex-col h-full bg-[#111827] text-[#9CA3AF] border-r border-slate-800">
       {/* Brand */}
       <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800">
         <Link
         to="/admin"
         className="flex items-center gap-3 font-heading font-bold text-xl text-white">
 
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center text-white shadow-md">
+          <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white shadow-md">
             <ShieldAlertIcon className="w-5 h-5" />
           </div>
           AutoVital
         </Link>
         <Badge
         variant="dark"
-        className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-[10px] uppercase tracking-wider">
+        className="bg-primary-500/10 text-primary-300 border-primary-500/30 text-[10px] uppercase tracking-wider">
 
           Admin
         </Badge>
@@ -115,9 +115,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <Link
             key={link.name}
             to={link.path}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${isActive ? 'bg-rose-500/10 text-rose-400 font-medium' : 'hover:bg-slate-800 hover:text-white'}`}>
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+              isActive
+                ? 'bg-primary-500 text-white font-medium'
+                : 'hover:bg-slate-800 hover:text-white'
+            }`}>
 
-              <span className={isActive ? 'text-rose-500' : 'text-slate-500'}>
+              <span className={isActive ? 'text-white' : 'text-slate-500'}>
                 {link.icon}
               </span>
               {link.name}
@@ -150,7 +154,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     </div>;
 
   return (
-    <div className="min-h-screen flex bg-slate-50 font-body">
+    <div className="min-h-screen flex bg-surface-50 font-body">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-72 fixed inset-y-0 z-20">
         <SidebarContent />

@@ -80,14 +80,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     navigate('/login');
   };
   const SidebarContent = () =>
-  <div className="flex flex-col h-full bg-dark text-slate-300">
+  <div className="flex flex-col h-full bg-[#111827] text-[#9CA3AF]">
       {/* Brand */}
       <div className="h-20 flex items-center px-6 border-b border-slate-800">
         <Link
         to="/dashboard"
         className="flex items-center gap-3 font-heading font-bold text-xl text-white">
 
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white shadow-md">
+          <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white shadow-md">
             <ActivityIcon className="w-5 h-5" />
           </div>
           AutoVital
@@ -105,10 +105,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <Link
             key={link.name}
             to={link.path}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${isActive ? 'bg-primary-500/10 text-primary-400 font-medium' : 'hover:bg-slate-800 hover:text-white'}`}>
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+              isActive
+                ? 'bg-primary-500 text-white font-medium'
+                : 'hover:bg-slate-800 hover:text-white'
+            }`}>
 
               <span
-              className={isActive ? 'text-primary-500' : 'text-slate-500'}>
+              className={isActive ? 'text-white' : 'text-slate-500'}>
 
                 {link.icon}
               </span>
@@ -135,7 +139,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
         <button
         onClick={handleLogout}
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-rose-400 transition-colors">
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-primary-400 transition-colors">
 
           <LogOutIcon className="w-5 h-5" />
           Log Out
@@ -144,7 +148,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     </div>;
 
   return (
-    <div className="min-h-screen flex bg-slate-50 font-body">
+    <div className="min-h-screen flex bg-surface-50 font-body">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-72 fixed inset-y-0 z-20">
         <SidebarContent />
