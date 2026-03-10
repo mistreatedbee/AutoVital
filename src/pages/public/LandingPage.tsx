@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useId, memo } from 'react';
+import React, { Children, cloneElement } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -16,6 +16,9 @@ import {
   StarIcon,
   SparklesIcon,
   ZapIcon,
+  ChevronRightIcon,
+  GaugeIcon,
+  BarChart3Icon,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -24,739 +27,683 @@ import { SectionHeading } from '../../components/ui/SectionHeading';
 import { PricingCard } from '../../components/ui/PricingCard';
 import { Accordion } from '../../components/ui/Accordion';
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-interface Step {
-  icon: React.ReactElement;
-  title: string;
-  description: string;
-}
-
-interface Feature {
-  icon: React.ReactElement;
-  title: string;
-  description: string;
-  color: 'red' | 'blue' | 'green'; // extend as needed
-}
-
-interface Testimonial {
-  id: string;
-  quote: string;
-  author: string;
-  role: string;
-  avatar: string;
-}
-
-// -----------------------------------------------------------------------------
-// Constants (moved outside component to avoid recreation)
-// -----------------------------------------------------------------------------
-const STEPS: Step[] = [
-  {
-    icon: <ShieldCheckIcon />,
-    title: 'Create Account',
-    description: 'Sign up securely in seconds.',
-  },
-  {
-    icon: <CarIcon />,
-    title: 'Add Vehicle',
-    description: 'Enter your VIN or make/model.',
-  },
-  {
-    icon: <WrenchIcon />,
-    title: 'Log Maintenance',
-    description: 'Add past services and expenses.',
-  },
-  {
-    icon: <ActivityIcon />,
-    title: 'Get Insights',
-    description: 'Receive smart alerts and reports.',
-  },
-];
-
-const FEATURES: Feature[] = [
-  {
-    icon: <CarIcon />,
-    title: 'Vehicle Profiles',
-    description:
-      'Store all details, VIN, specs, and photos in one beautiful dashboard.',
-    color: 'red',
-  },
-  {
-    icon: <WrenchIcon />,
-    title: 'Maintenance Logs',
-    description:
-      'Keep a digital service book. Never lose a receipt or forget a repair again.',
-    color: 'red',
-  },
-  {
-    icon: <BellRingIcon />,
-    title: 'Smart Reminders',
-    description:
-      'Get notified before service is due based on time or tracked mileage.',
-    color: 'red',
-  },
-  {
-    icon: <TrendingDownIcon />,
-    title: 'Expense Tracking',
-    description:
-      'Visualize your spending on fuel, repairs, and insurance over time.',
-    color: 'red',
-  },
-  {
-    icon: <ActivityIcon />,
-    title: 'Health Score',
-    description:
-      'Our algorithm calculates a real-time health score based on service history.',
-    color: 'red',
-  },
-  {
-    icon: <FileTextIcon />,
-    title: 'Document Storage',
-    description:
-      'Securely store insurance cards, registration, and warranties in the cloud.',
-    color: 'red',
-  },
-];
-
-const TESTIMONIALS: Testimonial[] = [
-  {
-    id: '1',
-    quote:
-      '"AutoVital completely changed how I manage my cars. The smart reminders saved me from a blown timing belt that I had completely forgotten about."',
-    author: 'Michael T.',
-    role: 'Car Enthusiast',
-    avatar: 'https://i.pravatar.cc/150?img=11',
-  },
-  {
-    id: '2',
-    quote:
-      '"The expense tracking is eye-opening. I finally know exactly how much my commute is costing me. The interface is gorgeous and so easy to use."',
-    author: 'Sarah J.',
-    role: 'Daily Commuter',
-    avatar: 'https://i.pravatar.cc/150?img=5',
-  },
-  {
-    id: '3',
-    quote:
-      '"As a small business owner with 5 delivery vans, this platform is a lifesaver. I can track all maintenance in one dashboard instead of messy spreadsheets."',
-    author: 'David R.',
-    role: 'Fleet Manager',
-    avatar: 'https://i.pravatar.cc/150?img=33',
-  },
-];
-
-const PRICING_PLANS = [
-  {
-    name: 'Starter',
-    price: '$0',
-    period: 'mo',
-    description: 'Perfect for individuals with a single vehicle.',
-    features: [
-      '1 Vehicle Profile',
-      'Basic Maintenance Log',
-      'Standard Reminders',
-      'Email Support',
-    ],
-    ctaText: 'Get Started Free',
-    popular: false,
-  },
-  {
-    name: 'Pro',
-    price: '$9',
-    period: 'mo',
-    description: 'For enthusiasts and multi-car households.',
-    features: [
-      'Up to 5 Vehicles',
-      'Advanced Health Score',
-      'Expense & Fuel Tracking',
-      'Document Storage (10GB)',
-      'Priority Support',
-    ],
-    ctaText: 'Start 14-Day Trial',
-    popular: true,
-  },
-  {
-    name: 'Fleet',
-    price: '$39',
-    period: 'mo',
-    description: 'For small businesses managing multiple vehicles.',
-    features: [
-      'Unlimited Vehicles',
-      'Fleet Dashboard',
-      'Custom Maintenance Schedules',
-      'Data Export & Reporting',
-      '24/7 Phone Support',
-    ],
-    ctaText: 'Contact Sales',
-    popular: false,
-  },
-];
-
-const FAQ_ITEMS = [
-  {
-    question: 'How does the Health Score work?',
-    answer:
-      'Our proprietary algorithm analyzes your logged maintenance records, current mileage, and vehicle age against manufacturer recommended service intervals. It identifies missed services and calculates an overall reliability percentage.',
-  },
-  {
-    question: 'Can I import data from other apps or spreadsheets?',
-    answer:
-      'Yes! Pro and Fleet users can upload CSV files of their maintenance history, and our system will automatically parse and organize the records into your vehicle profiles.',
-  },
-  {
-    question: 'Is my data secure?',
-    answer:
-      'Absolutely. We use bank-level 256-bit encryption for all data transmission and storage. Your uploaded documents (like insurance and registration) are stored securely in AWS with strict access controls.',
-  },
-  {
-    question: 'Do I need an OBD2 scanner to use AutoVital?',
-    answer:
-      'No, AutoVital is designed to work perfectly with manual entry. However, we are working on integrations with popular OBD2 scanners to automatically pull mileage and diagnostic codes in a future update.',
-  },
-];
-
-// -----------------------------------------------------------------------------
-// Animation variants (reused)
-// -----------------------------------------------------------------------------
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-};
-
-const fadeUpVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (delay: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, delay },
-  }),
-};
-
-// -----------------------------------------------------------------------------
-// Helper: safely clone icon with className
-// -----------------------------------------------------------------------------
-const cloneIcon = (icon: React.ReactElement, className?: string) => {
-  return React.isValidElement(icon)
-    ? React.cloneElement(icon, { className, 'aria-hidden': true })
-    : icon;
-};
-
-// -----------------------------------------------------------------------------
-// Sub-components (memoized for performance)
-// -----------------------------------------------------------------------------
-const TrustLogos = memo(() => (
-  <section className="py-12 border-b border-slate-200 bg-white">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <p className="text-sm font-bold text-slate-400 mb-8 uppercase tracking-widest">
-        Trusted by <span className="text-red-600">10,432</span> vehicle owners and fleets
-      </p>
-      <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
-        <span className="text-xl font-bold font-heading text-slate-800">AutoNation</span>
-        <span className="text-slate-300 hidden md:block" aria-hidden="true">|</span>
-        <span className="text-xl font-bold font-heading text-slate-800">FleetWorks</span>
-        <span className="text-slate-300 hidden md:block" aria-hidden="true">|</span>
-        <span className="text-xl font-bold font-heading text-slate-800">DriveSafe</span>
-        <span className="text-slate-300 hidden md:block" aria-hidden="true">|</span>
-        <span className="text-xl font-bold font-heading text-slate-800">CarCare Pro</span>
-        <span className="text-slate-300 hidden md:block" aria-hidden="true">|</span>
-        <span className="text-xl font-bold font-heading text-slate-800">MechanicHub</span>
-      </div>
-    </div>
-  </section>
-));
-
-TrustLogos.displayName = 'TrustLogos';
-
-// -----------------------------------------------------------------------------
-// Main Component
-// -----------------------------------------------------------------------------
 export function LandingPage() {
-  const [heroImageError, setHeroImageError] = useState(false);
-  const gradientId = useId(); // unique ID for SVG gradient
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.12 },
+    },
+  };
 
-  const handleHeroImageError = useCallback(() => {
-    setHeroImageError(true);
-  }, []);
+  const itemVariants = {
+    hidden: { opacity: 0, y: 24 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
+  };
+
+  const fadeUpVariants = {
+    hidden: { opacity: 0, y: 28 },
+    visible: (delay: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] },
+    }),
+  };
+
+  const stats = [
+    { value: '10,432', label: 'Active Users' },
+    { value: '$2,400', label: 'Avg. Annual Savings' },
+    { value: '98.4%', label: 'Uptime' },
+    { value: '4.9★', label: 'User Rating' },
+  ];
 
   return (
-    <>
-      {/* Skip to content link for accessibility */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-white text-red-600 p-4 rounded-md shadow-lg z-50"
-      >
-        Skip to main content
-      </a>
+    <div className="w-full overflow-hidden font-body">
 
-      <div id="main-content" className="w-full overflow-hidden font-body">
-        {/* HERO SECTION */}
-        <section className="relative bg-white text-red-600 py-28 md:py-36 overflow-hidden">
-          {/* Decorative circles – hidden from screen readers */}
-          <div
-            className="absolute top-[-100px] left-[-100px] w-72 h-72 bg-red-200 opacity-30 rounded-full animate-pulse-slow"
-            aria-hidden="true"
-          />
-          <div
-            className="absolute bottom-[-150px] right-[-150px] w-96 h-96 bg-red-300 opacity-20 rounded-full animate-pulse-slow"
-            aria-hidden="true"
-          />
+      {/* ─── HERO ──────────────────────────────────────────────────────── */}
+      <section className="relative bg-[#0C0C0F] text-white min-h-[92vh] flex items-center overflow-hidden">
+        {/* Background grid */}
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)`,
+            backgroundSize: '48px 48px',
+          }}
+        />
+        {/* Red glow orbs */}
+        <div className="absolute top-[-200px] right-[-100px] w-[700px] h-[700px] rounded-full bg-red-700 opacity-[0.12] blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-100px] left-[-150px] w-[500px] h-[500px] rounded-full bg-red-900 opacity-[0.15] blur-[100px] pointer-events-none" />
 
-          <div className="container mx-auto px-4 relative z-10">
-            <div className="flex flex-col md:flex-row items-center gap-12">
-              {/* Text content */}
-              <div className="md:w-1/2 space-y-6">
-                <motion.h1
-                  custom={0}
-                  variants={fadeUpVariants}
-                  initial="hidden"
-                  animate="visible"
-                  className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight"
-                >
-                  Track Your Vehicle's Health{' '}
-                  <span className="text-red-600">Before Problems Start.</span>
-                </motion.h1>
+        <div className="container mx-auto px-6 lg:px-8 relative z-10 py-24 md:py-32">
+          <div className="flex flex-col lg:flex-row items-center gap-16 lg:gap-20">
 
-                <motion.p
-                  custom={0.2}
-                  variants={fadeUpVariants}
-                  initial="hidden"
-                  animate="visible"
-                  className="text-lg md:text-xl text-gray-600"
-                >
-                  The intelligent maintenance tracking platform that predicts repairs,
-                  logs expenses, and ensures your vehicle stays reliable and safe on the road.
-                </motion.p>
+            {/* ── Left: Copy */}
+            <div className="lg:w-[55%] space-y-8">
+              <motion.div custom={0} variants={fadeUpVariants} initial="hidden" animate="visible">
+                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-600/15 border border-red-500/25 text-red-400 text-sm font-semibold tracking-wide">
+                  <ZapIcon className="w-3.5 h-3.5" /> Intelligent Vehicle Management
+                </span>
+              </motion.div>
 
-                <motion.div
-                  custom={0.4}
-                  variants={fadeUpVariants}
-                  initial="hidden"
-                  animate="visible"
-                  className="flex flex-col sm:flex-row gap-4"
-                >
-                  <Link to="/signup">
-                    <Button
-                      size="lg"
-                      className="w-full sm:w-auto text-lg px-8 bg-red-600 text-white hover:bg-red-700 border-none shadow-lg"
-                    >
-                      Start Free Trial
-                    </Button>
-                  </Link>
-                  <Link to="/how-it-works">
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      icon={<PlayCircleIcon className="w-5 h-5" aria-hidden="true" />}
-                      className="w-full sm:w-auto text-lg px-8 bg-transparent text-red-600 border-red-300 hover:bg-red-50"
-                    >
-                      Watch Demo
-                    </Button>
-                  </Link>
-                </motion.div>
-              </div>
-
-              {/* Logo / Image with fallback */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="md:w-1/2 relative flex justify-center"
+              <motion.h1
+                custom={0.1}
+                variants={fadeUpVariants}
+                initial="hidden"
+                animate="visible"
+                className="text-5xl md:text-6xl xl:text-7xl font-extrabold leading-[1.06] tracking-tight"
               >
-                <div className="relative w-full max-w-md rounded-xl overflow-hidden shadow-xl">
-                  {!heroImageError ? (
-                    <img
-                      src="/logo.jpeg"
-                      alt="AutoVital – Vehicle Health Platform"
-                      className="w-full h-full object-contain"
-                      loading="lazy"
-                      width={500}
-                      height={300}
-                      onError={handleHeroImageError}
-                    />
-                  ) : (
-                    <div className="w-full h-64 bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center rounded-xl">
-                      <span className="text-red-600 text-2xl font-bold">AutoVital</span>
-                    </div>
-                  )}
-                  {/* Glow behind logo */}
-                  <div
-                    className="absolute inset-0 bg-gradient-to-tr from-red-400 to-red-600 opacity-20 rounded-xl blur-3xl animate-pulse-slow"
-                    aria-hidden="true"
-                  />
+                Know Your Car's{' '}
+                <span className="relative">
+                  <span className="text-red-500">Health</span>
+                  <svg
+                    className="absolute -bottom-2 left-0 w-full"
+                    height="6"
+                    viewBox="0 0 200 6"
+                    fill="none"
+                    preserveAspectRatio="none"
+                  >
+                    <path d="M0 3 Q50 0 100 3 Q150 6 200 3" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+                  </svg>
+                </span>
+                {' '}Before Problems Start.
+              </motion.h1>
+
+              <motion.p
+                custom={0.2}
+                variants={fadeUpVariants}
+                initial="hidden"
+                animate="visible"
+                className="text-lg md:text-xl text-slate-400 max-w-xl leading-relaxed"
+              >
+                The intelligent maintenance platform that predicts repairs, tracks expenses,
+                and keeps your vehicle running at its peak — before breakdowns catch you off guard.
+              </motion.p>
+
+              <motion.div
+                custom={0.3}
+                variants={fadeUpVariants}
+                initial="hidden"
+                animate="visible"
+                className="flex flex-col sm:flex-row gap-4 pt-2"
+              >
+                <Link to="/signup">
+                  <Button
+                    size="lg"
+                    className="group w-full sm:w-auto text-base px-8 bg-red-600 text-white hover:bg-red-500 border-none shadow-[0_0_40px_rgba(220,38,38,0.35)] hover:shadow-[0_0_60px_rgba(220,38,38,0.5)] transition-all duration-300 font-semibold"
+                  >
+                    Start Free Trial
+                    <ChevronRightIcon className="w-4 h-4 ml-1 inline group-hover:translate-x-0.5 transition-transform" />
+                  </Button>
+                </Link>
+                <Link to="/how-it-works">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    icon={<PlayCircleIcon className="w-5 h-5" />}
+                    className="w-full sm:w-auto text-base px-8 bg-transparent text-slate-300 border-slate-700 hover:bg-slate-800 hover:border-slate-600 font-semibold"
+                  >
+                    Watch Demo
+                  </Button>
+                </Link>
+              </motion.div>
+
+              {/* Micro trust signals */}
+              <motion.div custom={0.4} variants={fadeUpVariants} initial="hidden" animate="visible" className="flex items-center gap-6 pt-2">
+                <div className="flex -space-x-2">
+                  {[11, 5, 33, 25, 44].map((n) => (
+                    <img key={n} src={`https://i.pravatar.cc/40?img=${n}`} alt="" className="w-8 h-8 rounded-full border-2 border-[#0C0C0F] object-cover" />
+                  ))}
                 </div>
+                <p className="text-sm text-slate-500">
+                  Joined by <span className="text-white font-semibold">10,432</span> drivers this month
+                </p>
               </motion.div>
             </div>
-          </div>
-        </section>
 
-        <TrustLogos />
-
-        {/* HOW IT WORKS */}
-        <section className="py-32 bg-slate-50 relative">
-          <div className="absolute inset-0 bg-dot-pattern opacity-50" aria-hidden="true" />
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <SectionHeading
-              badge="Simple Process"
-              title="How AutoVital Works"
-              description="Get your vehicle's health under control in minutes, not hours."
-              centered
-              className="mb-20"
-            />
-
+            {/* ── Right: Dashboard mockup card */}
             <motion.div
-              className="grid grid-cols-1 md:grid-cols-4 gap-8 relative"
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: '-100px' }}
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.9, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="lg:w-[45%] w-full"
             >
-              {/* Connecting Line – hidden from screen readers */}
-              <div
-                className="hidden md:block absolute top-16 left-[12.5%] right-[12.5%] h-0.5 bg-gradient-to-r from-red-200 via-red-400 to-red-200 z-0"
-                aria-hidden="true"
-              />
-
-              {STEPS.map((step, idx) => (
-                <motion.div
-                  key={step.title} // better than index, but title is unique enough
-                  variants={itemVariants}
-                  className="relative z-10 flex flex-col items-center text-center group"
-                >
-                  <div className="w-32 h-32 rounded-3xl bg-white shadow-xl flex items-center justify-center text-red-600 mb-8 border border-slate-100 group-hover:-translate-y-2 transition-transform duration-300 relative">
-                    <div
-                      className="absolute -top-4 -right-4 w-8 h-8 rounded-full bg-red-600 text-white font-bold flex items-center justify-center shadow-lg border-2 border-white z-20"
-                      aria-label={`Step ${idx + 1}`}
-                    >
-                      {idx + 1}
+              <div className="relative">
+                {/* Main card */}
+                <div className="rounded-2xl border border-white/[0.07] bg-slate-900/80 backdrop-blur-xl shadow-[0_32px_80px_rgba(0,0,0,0.6)] overflow-hidden">
+                  {/* Fake browser chrome */}
+                  <div className="flex items-center gap-2 px-5 py-3.5 border-b border-white/[0.06] bg-slate-950/60">
+                    <div className="w-3 h-3 rounded-full bg-red-500/70" />
+                    <div className="w-3 h-3 rounded-full bg-amber-500/70" />
+                    <div className="w-3 h-3 rounded-full bg-green-500/70" />
+                    <div className="ml-4 flex-1 rounded-md bg-slate-800 h-6 px-3 flex items-center">
+                      <span className="text-slate-500 text-xs">app.autovital.io/dashboard</span>
                     </div>
-                    {cloneIcon(step.icon, 'w-12 h-12')}
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-3 font-heading">
-                    {step.title}
-                  </h3>
-                  <p className="text-slate-600 font-medium">{step.description}</p>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </section>
+                  {/* Dashboard content */}
+                  <div className="p-6 space-y-5">
+                    {/* Header row */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mb-0.5">Vehicle Health</p>
+                        <p className="text-white font-bold text-lg">2021 Toyota Camry SE</p>
+                      </div>
+                      <div className="px-3 py-1 rounded-full bg-green-500/15 border border-green-500/25 text-green-400 text-xs font-bold">EXCELLENT</div>
+                    </div>
+                    {/* Score ring */}
+                    <div className="flex items-center gap-6">
+                      <div className="relative w-24 h-24 shrink-0">
+                        <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#1e293b" strokeWidth="3.5" />
+                          <motion.circle
+                            cx="18" cy="18" r="14"
+                            fill="none" stroke="#DC2626" strokeWidth="3.5"
+                            strokeLinecap="round"
+                            strokeDasharray="88"
+                            initial={{ strokeDashoffset: 88 }}
+                            animate={{ strokeDashoffset: 5.3 }}
+                            transition={{ duration: 1.8, delay: 0.8, ease: 'easeOut' }}
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-white text-2xl font-extrabold leading-none">94</span>
+                          <span className="text-slate-500 text-[10px]">/ 100</span>
+                        </div>
+                      </div>
+                      <div className="flex-1 space-y-2.5">
+                        {[
+                          { label: 'Engine', pct: 98, color: 'bg-green-500' },
+                          { label: 'Brakes', pct: 82, color: 'bg-amber-500' },
+                          { label: 'Tires', pct: 76, color: 'bg-amber-400' },
+                          { label: 'Fluids', pct: 95, color: 'bg-green-400' },
+                        ].map((item) => (
+                          <div key={item.label} className="flex items-center gap-3">
+                            <span className="text-slate-500 text-xs w-12">{item.label}</span>
+                            <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                              <motion.div
+                                className={`h-full ${item.color} rounded-full`}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${item.pct}%` }}
+                                transition={{ duration: 1.2, delay: 1, ease: 'easeOut' }}
+                              />
+                            </div>
+                            <span className="text-slate-400 text-xs w-8 text-right">{item.pct}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Next service row */}
+                    <div className="rounded-xl bg-slate-800/60 border border-white/[0.05] p-4 flex items-center gap-4">
+                      <div className="w-9 h-9 rounded-lg bg-red-600/20 flex items-center justify-center">
+                        <WrenchIcon className="w-4 h-4 text-red-400" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-white text-sm font-semibold">Oil Change Due</p>
+                        <p className="text-slate-500 text-xs">In 340 miles · March 24</p>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/25 text-amber-400 text-xs font-bold">Soon</span>
+                    </div>
+                  </div>
+                </div>
 
-        {/* FEATURES GRID */}
-        <section className="py-32 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <SectionHeading
-              badge="Powerful Features"
-              title="Everything You Need to Manage Your Vehicles"
-              description="A comprehensive suite of tools designed to save you money and prevent breakdowns."
-              className="mb-20"
-            />
+                {/* Floating badge */}
+                <motion.div
+                  animate={{ y: [-6, 6, -6] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                  className="absolute -bottom-5 -left-6 bg-slate-900 border border-white/10 rounded-xl p-3.5 shadow-2xl"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-red-600/20 flex items-center justify-center">
+                      <BellRingIcon className="w-4 h-4 text-red-400" />
+                    </div>
+                    <div>
+                      <p className="text-white text-xs font-bold">Smart Alert</p>
+                      <p className="text-slate-400 text-[10px]">Saved you from a $900 repair</p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+
+          </div>
+
+          {/* ── Stats strip */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.6 }}
+            className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-px bg-white/[0.06] rounded-2xl overflow-hidden border border-white/[0.06]"
+          >
+            {stats.map((s) => (
+              <div key={s.label} className="bg-slate-900/50 backdrop-blur-sm px-8 py-6 text-center">
+                <p className="text-3xl font-extrabold text-white mb-1">{s.value}</p>
+                <p className="text-slate-500 text-sm font-medium">{s.label}</p>
+              </div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ─── TRUST LOGOS ───────────────────────────────────────────────── */}
+      <section className="py-10 border-b border-slate-100 bg-white">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <p className="text-xs font-bold text-slate-400 mb-7 uppercase tracking-widest">Trusted by leading vehicle companies</p>
+          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-14">
+            {['AutoNation', 'FleetWorks', 'DriveSafe', 'CarCare Pro', 'MechanicHub'].map((name, i, arr) => (
+              <React.Fragment key={name}>
+                <span className="text-base font-bold font-heading text-slate-400 hover:text-slate-700 transition-colors duration-200 cursor-default tracking-tight">{name}</span>
+                {i < arr.length - 1 && <span className="text-slate-200 hidden md:block text-lg">|</span>}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── HOW IT WORKS ──────────────────────────────────────────────── */}
+      <section className="py-28 bg-white relative">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <SectionHeading
+            badge="Simple Process"
+            title="Up and running in minutes"
+            description="Four steps to complete visibility over your vehicle's health."
+            centered
+            className="mb-20"
+          />
+
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-4 gap-6 relative"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-80px' }}
+          >
+            {/* Connecting line */}
+            <div className="hidden md:block absolute top-14 left-[15%] right-[15%] h-px bg-gradient-to-r from-transparent via-red-200 to-transparent z-0" />
+
+            {[
+              { icon: <ShieldCheckIcon />, title: 'Create Account', desc: 'Sign up securely in under 60 seconds.' },
+              { icon: <CarIcon />, title: 'Add Your Vehicle', desc: 'Enter your VIN or make, model, and year.' },
+              { icon: <WrenchIcon />, title: 'Log Maintenance', desc: 'Import past services or add them manually.' },
+              { icon: <ActivityIcon />, title: 'Get Insights', desc: 'Receive predictive alerts and health reports.' },
+            ].map((step, idx) => (
+              <motion.div
+                key={idx}
+                variants={itemVariants}
+                className="relative z-10 flex flex-col items-center text-center group"
+              >
+                <div className="relative mb-7">
+                  <div className="w-28 h-28 rounded-[20px] bg-slate-50 border border-slate-200 flex items-center justify-center text-red-600 shadow-sm group-hover:shadow-md group-hover:-translate-y-2 transition-all duration-300">
+                    {cloneElement(step.icon as React.ReactElement, { className: 'w-10 h-10' })}
+                  </div>
+                  <div className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center shadow-md border-2 border-white">
+                    {idx + 1}
+                  </div>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 mb-2 font-heading">{step.title}</h3>
+                <p className="text-slate-500 text-sm leading-relaxed px-2">{step.desc}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ─── FEATURES GRID ─────────────────────────────────────────────── */}
+      <section className="py-28 bg-[#F8F9FC]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <SectionHeading
+            badge="Features"
+            title="Everything your vehicle needs"
+            description="A comprehensive suite of tools built to save you money and prevent surprises."
+            className="mb-16"
+          />
+
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-80px' }}
+          >
+            {[
+              { icon: <CarIcon />, title: 'Vehicle Profiles', desc: 'Store VIN, specs, photos, and full history in one beautiful dashboard.' },
+              { icon: <WrenchIcon />, title: 'Maintenance Logs', desc: 'Keep a digital service book. Never lose a receipt or forget a repair.' },
+              { icon: <BellRingIcon />, title: 'Smart Reminders', desc: 'Get notified before service is due — by time, mileage, or both.' },
+              { icon: <TrendingDownIcon />, title: 'Expense Tracking', desc: 'Visualize spending across fuel, repairs, and insurance over time.' },
+              { icon: <GaugeIcon />, title: 'Health Score', desc: 'Real-time reliability score based on your full service history.' },
+              { icon: <FileTextIcon />, title: 'Document Storage', desc: 'Insurance cards, registration, and warranties — all in the cloud.' },
+            ].map((feature, idx) => (
+              <motion.div key={idx} variants={itemVariants}>
+                <Card className="group h-full p-7 border border-slate-200/80 bg-white hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 rounded-2xl">
+                  <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 mb-6 group-hover:bg-red-600 group-hover:text-white group-hover:border-red-600 transition-colors duration-300">
+                    {cloneElement(feature.icon as React.ReactElement, { className: 'w-5 h-5' })}
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 mb-2.5 font-heading">{feature.title}</h3>
+                  <p className="text-slate-500 leading-relaxed text-sm flex-1">{feature.desc}</p>
+                  <div className="mt-5 flex items-center text-sm font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1 group-hover:translate-x-0 duration-300">
+                    Learn more <ArrowRightIcon className="w-3.5 h-3.5 ml-1" />
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ─── HEALTH SCORE (DARK) ───────────────────────────────────────── */}
+      <section className="py-28 bg-[#0C0C0F] relative overflow-hidden">
+        <div className="absolute top-1/2 right-0 w-[700px] h-[700px] bg-red-900/20 blur-[140px] rounded-full transform -translate-y-1/2 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-red-900/10 blur-[120px] rounded-full pointer-events-none" />
+
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
             <motion.div
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: '-100px' }}
+              initial={{ opacity: 0, x: -40 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
             >
-              {FEATURES.map((feature, idx) => {
-                const colorMap: Record<string, string> = {
-                  red: 'bg-red-50 text-red-600 border-red-100 group-hover:bg-red-600 group-hover:text-white',
-                };
-                const bgGradientMap: Record<string, string> = {
-                  red: 'hover:bg-gradient-to-br hover:from-red-50/50 hover:to-white',
-                };
-                return (
-                  <motion.div key={feature.title} variants={itemVariants}>
-                    <Card
-                      className={`h-full p-8 border border-slate-200 bg-white transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group ${bgGradientMap[feature.color]}`}
-                    >
-                      <div
-                        className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-8 border transition-colors duration-300 ${colorMap[feature.color]}`}
-                      >
-                        {cloneIcon(feature.icon, 'w-7 h-7')}
-                      </div>
-                      <h3 className="text-xl font-bold text-slate-900 mb-4 font-heading">
-                        {feature.title}
-                      </h3>
-                      <p className="text-slate-600 leading-relaxed font-medium mb-6 flex-1">
-                        {feature.description}
-                      </p>
-                      <div className="mt-auto flex items-center text-sm font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity -translate-x-2 group-hover:translate-x-0 duration-300">
-                        Learn more <ArrowRightIcon className="w-4 h-4 ml-1" aria-hidden="true" />
-                      </div>
-                    </Card>
-                  </motion.div>
-                );
-              })}
+              <SectionHeading
+                badge="Proprietary Algorithm"
+                title="Know Your Vehicle's True Health"
+                description="Our Health Score analyzes maintenance history, mileage, and vehicle age to give you a clear, honest picture of reliability."
+                light
+                className="mb-10"
+              />
+              <ul className="space-y-5 mb-10">
+                {[
+                  'Predicts component failures before they happen',
+                  'Increases resale value with verified health data',
+                  'Instantly surfaces neglected maintenance areas',
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start gap-4 text-slate-300 text-base">
+                    <div className="mt-0.5 w-5 h-5 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 border border-red-500/40">
+                      <CheckCircle2Icon className="w-3 h-3 text-red-400" />
+                    </div>
+                    <span className="leading-relaxed">{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                variant="primary"
+                size="lg"
+                icon={<ArrowRightIcon className="w-4 h-4" />}
+                className="bg-red-600 hover:bg-red-500 text-white border-none shadow-[0_0_30px_rgba(220,38,38,0.3)] hover:shadow-[0_0_50px_rgba(220,38,38,0.4)] transition-all duration-300"
+              >
+                See How It Works
+              </Button>
             </motion.div>
-          </div>
-        </section>
 
-        {/* HEALTH SCORE SECTION (DARK) */}
-        <section className="py-32 bg-dark relative overflow-hidden">
-          <div className="absolute inset-0 bg-dot-pattern-dark opacity-30" aria-hidden="true" />
-          <div
-            className="absolute top-1/2 right-0 w-[800px] h-[800px] bg-red-900/30 blur-[120px] rounded-full transform -translate-y-1/2 pointer-events-none"
-            aria-hidden="true"
-          />
-          <div
-            className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-red-900/20 blur-[100px] rounded-full pointer-events-none"
-            aria-hidden="true"
-          />
-
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-              <motion.div
-                initial={{ opacity: 0, x: -50 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8 }}
-              >
-                <SectionHeading
-                  badge="Proprietary Algorithm"
-                  title="Know Your Vehicle's True Health"
-                  description="Our intelligent Health Score analyzes your maintenance history, mileage, and vehicle age to give you a clear picture of reliability."
-                  light
-                  className="mb-10"
-                />
-                <ul className="space-y-6 mb-10">
-                  {[
-                    'Predicts component failures before they happen',
-                    'Increases resale value with verified health data',
-                    'Identifies neglected maintenance areas instantly',
-                  ].map((item, i) => (
-                    <li key={i} className="flex items-start gap-4 text-slate-300 font-medium text-lg">
-                      <span className="mt-1 w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 border border-red-500/50">
-                        <CheckCircle2Icon className="w-4 h-4 text-red-400" aria-hidden="true" />
-                      </span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  variant="primary"
-                  size="lg"
-                  icon={<ArrowRightIcon className="w-5 h-5" aria-hidden="true" />}
-                  className="bg-red-600 hover:bg-red-700 shadow-[0_0_20px_rgba(220,38,38,0.3)]"
-                >
-                  See How It Works
-                </Button>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: 0.2 }}
-                className="relative"
-              >
-                <div className="aspect-square max-w-lg mx-auto relative flex items-center justify-center">
-                  {/* Animated SVG Ring – unique ID for gradient */}
-                  <svg
-                    className="absolute inset-0 w-full h-full transform -rotate-90 drop-shadow-[0_0_30px_rgba(220,38,38,0.3)]"
-                    viewBox="0 0 100 100"
-                    aria-labelledby={`health-score-title-${gradientId}`}
-                  >
-                    <title id={`health-score-title-${gradientId}`}>Vehicle Health Score: 94% Excellent</title>
-                    <circle cx="50" cy="50" r="42" fill="none" stroke="#1E293B" strokeWidth="8" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.9, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+              className="relative flex justify-center"
+            >
+              <div className="relative w-full max-w-sm">
+                {/* Score ring */}
+                <div className="aspect-square flex items-center justify-center">
+                  <svg className="absolute inset-0 w-full h-full -rotate-90 drop-shadow-[0_0_40px_rgba(220,38,38,0.25)]" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="#1E293B" strokeWidth="6" />
                     <motion.circle
-                      cx="50"
-                      cy="50"
-                      r="42"
-                      fill="none"
-                      stroke="#DC2626"
-                      strokeWidth="8"
+                      cx="50" cy="50" r="42"
+                      fill="none" stroke="#DC2626" strokeWidth="6"
                       strokeLinecap="round"
                       strokeDasharray="264"
                       initial={{ strokeDashoffset: 264 }}
-                      whileInView={{ strokeDashoffset: 15.84 }} // 94% of 264
+                      whileInView={{ strokeDashoffset: 15.84 }}
                       viewport={{ once: true }}
-                      transition={{ duration: 2, ease: 'easeOut', delay: 0.5 }}
+                      transition={{ duration: 2, ease: 'easeOut', delay: 0.4 }}
                     />
                   </svg>
-
-                  <div className="absolute inset-4 rounded-full bg-slate-900/80 backdrop-blur-sm shadow-inner flex flex-col items-center justify-center text-center p-8 border border-white/5">
-                    <span className="text-red-400 font-bold text-xl mb-2 tracking-widest uppercase">
-                      Excellent
+                  <div className="relative z-10 flex flex-col items-center justify-center text-center px-8">
+                    <span className="text-red-400 font-bold text-sm mb-1 tracking-[0.2em] uppercase">Excellent</span>
+                    <span className="text-8xl font-extrabold text-white font-heading leading-none tracking-tighter">
+                      94<span className="text-3xl text-slate-500 font-normal align-top mt-3 ml-0.5">%</span>
                     </span>
-                    <span className="text-8xl font-extrabold text-white font-heading mb-2 tracking-tighter">
-                      94
-                      <span className="text-4xl text-slate-500 font-normal">%</span>
-                    </span>
-                    <span className="text-slate-400 text-sm font-medium">Based on 12 service records</span>
+                    <span className="text-slate-500 text-xs mt-2">Based on 12 service records</span>
                   </div>
-
-                  {/* Floating Badges – decorative, hidden from screen readers */}
-                  <motion.div
-                    animate={{ y: [-10, 10, -10] }}
-                    transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                    className="absolute -right-8 top-1/4"
-                    aria-hidden="true"
-                  >
-                    <Card dark className="p-4 shadow-2xl border-slate-700 bg-slate-800/90 backdrop-blur-md ring-1 ring-white/10">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 border border-green-500/30">
-                          <ShieldCheckIcon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-white text-sm font-bold">Engine Health</p>
-                          <p className="text-green-400 text-xs font-medium">98% Optimal</p>
-                        </div>
-                      </div>
-                    </Card>
-                  </motion.div>
-
-                  <motion.div
-                    animate={{ y: [10, -10, 10] }}
-                    transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-                    className="absolute -left-8 bottom-1/4"
-                    aria-hidden="true"
-                  >
-                    <Card dark className="p-4 shadow-2xl border-slate-700 bg-slate-800/90 backdrop-blur-md ring-1 ring-white/10">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 border border-amber-500/30">
-                          <WrenchIcon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-white text-sm font-bold">Brakes & Tires</p>
-                          <p className="text-amber-400 text-xs font-medium">85% Good</p>
-                        </div>
-                      </div>
-                    </Card>
-                  </motion.div>
                 </div>
-              </motion.div>
-            </div>
-          </div>
-        </section>
 
-        {/* TESTIMONIALS */}
-        <section className="py-32 bg-slate-50 border-y border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <SectionHeading
-              title="Loved by Car Enthusiasts and Daily Drivers"
-              centered
-              className="mb-20"
-            />
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {TESTIMONIALS.map((testimonial) => (
-                <Card key={testimonial.id} hover className="p-8 flex flex-col h-full bg-white relative">
-                  <div className="absolute top-8 right-8 text-slate-200 opacity-50" aria-hidden="true">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
-                    </svg>
-                  </div>
-                  <div className="flex gap-1 mb-6">
-                    {[...Array(5)].map((_, i) => (
-                      <StarIcon
-                        key={i}
-                        className="w-5 h-5 text-amber-400 fill-amber-400"
-                        aria-hidden="true"
-                      />
-                    ))}
-                  </div>
-                  <blockquote className="flex-grow mb-8 relative z-10">
-                    <p className="text-lg text-slate-700 leading-relaxed font-medium">
-                      {testimonial.quote}
-                    </p>
-                  </blockquote>
-                  <div className="flex items-center gap-4 mt-auto pt-6 border-t border-slate-100">
-                    <img
-                      src={testimonial.avatar}
-                      alt={`${testimonial.author}'s avatar`}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
-                      loading="lazy"
-                      width={48}
-                      height={48}
-                    />
-                    <div>
-                      <div className="font-bold text-slate-900">{testimonial.author}</div>
-                      <div className="text-sm text-slate-500 font-medium">{testimonial.role}</div>
+                {/* Floating cards */}
+                <motion.div
+                  animate={{ y: [-8, 8, -8] }}
+                  transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+                  className="absolute -right-4 top-1/4"
+                >
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-white/10 shadow-2xl backdrop-blur-md">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-green-500/15 flex items-center justify-center text-green-400 border border-green-500/25">
+                        <ShieldCheckIcon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-white text-xs font-bold">Engine Health</p>
+                        <p className="text-green-400 text-[10px] font-medium">98% Optimal</p>
+                      </div>
                     </div>
                   </div>
-                </Card>
-              ))}
-            </div>
+                </motion.div>
+
+                <motion.div
+                  animate={{ y: [8, -8, 8] }}
+                  transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut' }}
+                  className="absolute -left-4 bottom-1/4"
+                >
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-white/10 shadow-2xl backdrop-blur-md">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-amber-500/15 flex items-center justify-center text-amber-400 border border-amber-500/25">
+                        <WrenchIcon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-white text-xs font-bold">Brakes & Tires</p>
+                        <p className="text-amber-400 text-[10px] font-medium">85% Good</p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* PRICING PREVIEW */}
-        <section className="py-32 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <SectionHeading
-              title="Simple, Transparent Pricing"
-              description="Start for free, upgrade when you need more power."
-              centered
-              className="mb-20"
-            />
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-              {PRICING_PLANS.map((plan) => (
-                <PricingCard
-                  key={plan.name}
-                  name={plan.name}
-                  price={plan.price}
-                  period={plan.period}
-                  description={plan.description}
-                  features={plan.features}
-                  ctaText={plan.ctaText}
-                  popular={plan.popular}
-                  accentColor="red"
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* FAQ */}
-        <section className="py-32 bg-slate-50 border-t border-slate-200">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-            <SectionHeading title="Frequently Asked Questions" centered className="mb-16" />
-            <Accordion items={FAQ_ITEMS} />
-          </div>
-        </section>
-
-        {/* FINAL CTA */}
-        <section className="py-32 bg-red-600 relative overflow-hidden text-white">
-          <div
-            className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"
-            aria-hidden="true"
+      {/* ─── TESTIMONIALS ──────────────────────────────────────────────── */}
+      <section className="py-28 bg-white">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <SectionHeading
+            title="Loved by car owners everywhere"
+            description="From daily commuters to fleet managers, AutoVital keeps every vehicle in check."
+            centered
+            className="mb-16"
           />
 
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-            <Badge variant="dark" className="mb-8 bg-white/10 border-white/20 backdrop-blur-md text-white px-4 py-1.5 shadow-xl">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                body: "AutoVital completely changed how I manage my cars. The smart reminders saved me from a blown timing belt I'd completely forgotten about.",
+                name: 'Michael T.',
+                role: 'Car Enthusiast',
+                img: 11,
+              },
+              {
+                body: "The expense tracking is eye-opening. I finally know exactly how much my commute costs me. The interface is gorgeous and so easy to use.",
+                name: 'Sarah J.',
+                role: 'Daily Commuter',
+                img: 5,
+                featured: true,
+              },
+              {
+                body: "As a business owner with 5 delivery vans, this platform is a lifesaver. All maintenance in one dashboard instead of messy spreadsheets.",
+                name: 'David R.',
+                role: 'Fleet Manager',
+                img: 33,
+              },
+            ].map((t, i) => (
+              <div
+                key={i}
+                className={`relative rounded-2xl p-7 flex flex-col ${
+                  t.featured
+                    ? 'bg-red-600 text-white ring-2 ring-red-500 shadow-[0_20px_60px_rgba(220,38,38,0.25)]'
+                    : 'bg-slate-50 border border-slate-200 text-slate-900'
+                }`}
+              >
+                <div className={`flex gap-1 mb-5 ${t.featured ? 'text-red-200' : 'text-amber-400'}`}>
+                  {[...Array(5)].map((_, j) => (
+                    <StarIcon key={j} className="w-4 h-4 fill-current" />
+                  ))}
+                </div>
+                <p className={`text-base leading-relaxed flex-1 mb-7 ${t.featured ? 'text-red-50' : 'text-slate-600'}`}>
+                  "{t.body}"
+                </p>
+                <div className={`flex items-center gap-3 pt-5 border-t ${t.featured ? 'border-red-500/40' : 'border-slate-200'}`}>
+                  <img
+                    src={`https://i.pravatar.cc/80?img=${t.img}`}
+                    alt={t.name}
+                    className={`w-10 h-10 rounded-full object-cover border-2 ${t.featured ? 'border-red-400' : 'border-white shadow-sm'}`}
+                  />
+                  <div>
+                    <p className={`font-bold text-sm ${t.featured ? 'text-white' : 'text-slate-900'}`}>{t.name}</p>
+                    <p className={`text-xs ${t.featured ? 'text-red-200' : 'text-slate-500'}`}>{t.role}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── PRICING ───────────────────────────────────────────────────── */}
+      <section className="py-28 bg-[#F8F9FC]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <SectionHeading
+            title="Simple, transparent pricing"
+            description="Start for free. Upgrade only when you need more power."
+            centered
+            className="mb-16"
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            <PricingCard
+              name="Starter"
+              price="$0"
+              period="mo"
+              description="Perfect for individuals with a single vehicle."
+              features={['1 Vehicle Profile', 'Basic Maintenance Log', 'Standard Reminders', 'Email Support']}
+              ctaText="Get Started Free"
+              accentColor="red"
+            />
+            <PricingCard
+              name="Pro"
+              price="$9"
+              period="mo"
+              description="For enthusiasts and multi-car households."
+              popular
+              features={[
+                'Up to 5 Vehicles',
+                'Advanced Health Score',
+                'Expense & Fuel Tracking',
+                'Document Storage (10GB)',
+                'Priority Support',
+              ]}
+              ctaText="Start 14-Day Trial"
+              accentColor="red"
+            />
+            <PricingCard
+              name="Fleet"
+              price="$39"
+              period="mo"
+              description="For small businesses managing multiple vehicles."
+              features={[
+                'Unlimited Vehicles',
+                'Fleet Dashboard',
+                'Custom Maintenance Schedules',
+                'Data Export & Reporting',
+                '24/7 Phone Support',
+              ]}
+              ctaText="Contact Sales"
+              accentColor="red"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ─── FAQ ───────────────────────────────────────────────────────── */}
+      <section className="py-28 bg-white border-t border-slate-100">
+        <div className="max-w-2xl mx-auto px-6">
+          <SectionHeading title="Frequently asked questions" centered className="mb-14" />
+          <Accordion
+            items={[
+              {
+                question: 'How does the Health Score work?',
+                answer:
+                  'Our proprietary algorithm analyzes your logged maintenance records, current mileage, and vehicle age against manufacturer recommended service intervals. It identifies missed services and calculates an overall reliability percentage.',
+              },
+              {
+                question: 'Can I import data from other apps or spreadsheets?',
+                answer:
+                  'Yes! Pro and Fleet users can upload CSV files of their maintenance history, and our system will automatically parse and organize the records into your vehicle profiles.',
+              },
+              {
+                question: 'Is my data secure?',
+                answer:
+                  'Absolutely. We use bank-level 256-bit encryption for all data transmission and storage. Your uploaded documents are stored securely in AWS with strict access controls.',
+              },
+              {
+                question: 'Do I need an OBD2 scanner to use AutoVital?',
+                answer:
+                  "No — AutoVital works perfectly with manual entry. We're also building integrations with popular OBD2 scanners to automatically pull mileage and diagnostic codes in a future update.",
+              },
+            ]}
+          />
+        </div>
+      </section>
+
+      {/* ─── FINAL CTA ─────────────────────────────────────────────────── */}
+      <section className="py-28 bg-[#0C0C0F] relative overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)`,
+            backgroundSize: '48px 48px',
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-red-950/20 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-red-600/10 blur-[100px] rounded-full pointer-events-none" />
+
+        <div className="max-w-3xl mx-auto px-6 relative z-10 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+          >
+            <Badge variant="dark" className="mb-8 bg-white/[0.06] border-white/[0.1] text-slate-300 px-4 py-1.5 inline-flex items-center gap-2">
+              <SparklesIcon className="w-3.5 h-3.5 text-red-400" />
               Join 10,432 vehicle owners today
             </Badge>
-            <h2 className="text-5xl md:text-6xl font-extrabold mb-8 font-heading tracking-tight leading-tight">
-              Ready to Take Control of Your Vehicle's Health?
+            <h2 className="text-5xl md:text-6xl font-extrabold text-white mb-6 font-heading tracking-tight leading-[1.08]">
+              Take control of your vehicle's health.
             </h2>
-            <p className="text-xl text-red-100 mb-12 max-w-2xl mx-auto font-medium leading-relaxed">
+            <p className="text-lg text-slate-400 mb-10 max-w-xl mx-auto leading-relaxed">
               Stop guessing about maintenance. Start saving money and preventing breakdowns with AutoVital's intelligent tracking.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link to="/signup">
                 <Button
                   size="lg"
-                  className="w-full sm:w-auto text-lg px-10 py-4 bg-white text-red-600 hover:bg-slate-50 border-none shadow-[0_0_40px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_rgba(255,255,255,0.5)] transition-all duration-300"
+                  className="w-full sm:w-auto px-10 bg-red-600 text-white hover:bg-red-500 border-none shadow-[0_0_50px_rgba(220,38,38,0.35)] hover:shadow-[0_0_70px_rgba(220,38,38,0.5)] transition-all duration-300 font-semibold text-base"
                 >
                   Start Your Free Trial
                 </Button>
               </Link>
-              <p className="text-red-200 text-sm font-medium">No credit card required</p>
+              <p className="text-slate-500 text-sm">No credit card required</p>
             </div>
-          </div>
-        </section>
-      </div>
-    </>
+          </motion.div>
+        </div>
+      </section>
+
+    </div>
   );
 }
