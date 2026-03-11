@@ -86,6 +86,7 @@ export interface Vehicle {
   fuelType: FuelType | null;
   currentMileage: number | null;
   healthScore: number | null;
+  heroImageUrl: string | null;
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
@@ -186,6 +187,18 @@ export interface VehicleHealthSnapshot {
   accountId: UUID;
   score: number;
   snapshotDate: string;
+  createdAt: string;
+}
+
+export interface VehicleImage {
+  id: UUID;
+  vehicleId: UUID;
+  accountId: UUID;
+  url: string;
+  storageBucket: string | null;
+  storageKey: string | null;
+  provider: string | null;
+  isPrimary: boolean;
   createdAt: string;
 }
 

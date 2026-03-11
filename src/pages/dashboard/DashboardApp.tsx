@@ -4,6 +4,7 @@ import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { DashboardHome } from './DashboardHome';
 import { MyVehicles } from './MyVehicles';
 import { VehicleDetails } from './VehicleDetails';
+import { VehicleForm } from './VehicleForm';
 import { MaintenanceLog } from './MaintenanceLog';
 import { FuelTracker } from './FuelTracker';
 import { AlertsReminders } from './AlertsReminders';
@@ -17,7 +18,9 @@ export function DashboardApp() {
       <Routes>
         <Route path="/" element={<DashboardHome />} />
         <Route path="/vehicles" element={<MyVehicles />} />
+        <Route path="/vehicles/new" element={<VehicleForm mode="create" />} />
         <Route path="/vehicles/:id" element={<VehicleDetails />} />
+        <Route path="/vehicles/:id/edit" element={<VehicleForm mode="edit" />} />
         <Route path="/maintenance" element={<MaintenanceLog />} />
         <Route path="/fuel" element={<FuelTracker />} />
         <Route path="/alerts" element={<AlertsReminders />} />

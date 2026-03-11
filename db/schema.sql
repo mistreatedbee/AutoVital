@@ -92,9 +92,22 @@ CREATE TABLE IF NOT EXISTS vehicles (
   fuel_type fuel_type,
   current_mileage NUMERIC,
   health_score NUMERIC,
+  hero_image_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   archived_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS vehicle_images (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vehicle_id UUID NOT NULL REFERENCES vehicles (id) ON DELETE CASCADE,
+  account_id UUID NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+  url TEXT NOT NULL,
+  storage_bucket TEXT,
+  storage_key TEXT,
+  provider TEXT,
+  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TYPE maintenance_type AS ENUM (

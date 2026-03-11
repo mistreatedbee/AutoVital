@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PlusIcon, SearchIcon, FilterIcon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -11,6 +11,7 @@ import { LoadingState } from '../../components/states/LoadingState';
 
 export function MyVehicles() {
   const { accountId, loading: accountLoading } = useAccount();
+  const navigate = useNavigate();
   const [vehicles, setVehicles] = useState<VehicleSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -59,7 +60,10 @@ export function MyVehicles() {
             Manage your garage and view vehicle details.
           </p>
         </div>
-        <Button variant="primary" icon={<PlusIcon className="w-4 h-4" />}>
+        <Button
+          variant="primary"
+          icon={<PlusIcon className="w-4 h-4" />}
+          onClick={() => navigate('/dashboard/vehicles/new')}>
           Add Vehicle
         </Button>
       </div>

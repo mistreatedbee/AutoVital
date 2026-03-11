@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeftIcon,
   DollarSignIcon,
@@ -12,51 +12,109 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { DataTable } from '../../components/ui/DataTable';
+import { useAccount } from '../../account/AccountProvider';
+import { LoadingState } from '../../components/states/LoadingState';
+import { fetchVehicleDetails } from '../../services/vehicles';
+import { fetchAccountMaintenanceLogs } from '../../services/maintenance';
+
 export function VehicleDetails() {
-  const serviceHistory = [
-  {
-    date: '2023-10-12',
-    service: 'Tire Rotation',
-    mileage: '24,000',
-    cost: '$60.00',
-    shop: 'Tesla Service Center'
-  },
-  {
-    date: '2023-04-05',
-    service: 'Cabin Air Filter',
-    mileage: '18,500',
-    cost: '$45.00',
-    shop: 'DIY'
-  },
-  {
-    date: '2022-11-20',
-    service: 'Annual Inspection',
-    mileage: '12,000',
-    cost: '$120.00',
-    shop: 'Tesla Service Center'
-  }];
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const { accountId } = useAccount();
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [vehicleDetails, setVehicleDetails] = useState<any | null>(null);
+  const [serviceHistory, setServiceHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!accountId || !id) return;
+    let isMounted = true;
+
+    async function load() {
+      try {
+        const [details, maintenance] = await Promise.all([
+          fetchVehicleDetails(accountId, id),
+          fetchAccountMaintenanceLogs(accountId),
+        ]);
+        if (!isMounted) return;
+        if (!details) {
+          setError('Vehicle not found.');
+          return;
+        }
+        setVehicleDetails(details);
+
+        const filteredMaintenance = (maintenance ?? []).filter(
+          (entry) => entry.vehicle && details.vehicle && entry.vehicle.includes(details.vehicle.make),
+        );
+        setServiceHistory(filteredMaintenance);
+      } catch (err: any) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load vehicle details view', err);
+        if (isMounted) {
+          setError('Unable to load vehicle details.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accountId, id]);
 
   const columns = [
-  {
-    key: 'date',
-    header: 'Date'
-  },
-  {
-    key: 'service',
-    header: 'Service Type'
-  },
-  {
-    key: 'mileage',
-    header: 'Mileage'
-  },
-  {
-    key: 'cost',
-    header: 'Cost'
-  },
-  {
-    key: 'shop',
-    header: 'Workshop'
-  }];
+    {
+      key: 'date',
+      header: 'Date',
+    },
+    {
+      key: 'service',
+      header: 'Service Type',
+    },
+    {
+      key: 'mileage',
+      header: 'Mileage',
+    },
+    {
+      key: 'cost',
+      header: 'Cost',
+    },
+    {
+      key: 'shop',
+      header: 'Workshop',
+    },
+  ];
+
+  if (!accountId) {
+    return <LoadingState label="Loading account..." />;
+  }
+
+  if (loading) {
+    return <LoadingState label="Loading vehicle details..." />;
+  }
+
+  if (error || !vehicleDetails) {
+    return (
+      <div className="space-y-4">
+        <p className="text-red-600 text-sm">{error ?? 'Vehicle not found.'}</p>
+        <Button variant="secondary" onClick={() => navigate('/dashboard/vehicles')}>
+          Back to My Vehicles
+        </Button>
+      </div>
+    );
+  }
+
+  const { vehicle, images, health } = vehicleDetails;
+  const heroImage =
+    vehicle.heroImageUrl ||
+    (images.find((img: any) => img.isPrimary) ?? images[0])?.url ||
+    null;
 
   return (
     <div className="space-y-8">
@@ -66,22 +124,25 @@ export function VehicleDetails() {
           <Link
             to="/dashboard/vehicles"
             className="p-2 rounded-full hover:bg-slate-200 text-slate-500 transition-colors">
-
             <ArrowLeftIcon className="w-5 h-5" />
           </Link>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold text-slate-900 font-heading tracking-tight">
-                Tesla Model 3
+                {vehicle.nickname || `${vehicle.year ?? ''} ${vehicle.make} ${vehicle.model}`.trim()}
               </h1>
-              <Badge variant="neutral">2022</Badge>
+              {vehicle.year && <Badge variant="neutral">{vehicle.year}</Badge>}
             </div>
             <p className="text-slate-500 mt-1">
-              VIN: 5YJ3E1EA4NFXXXXXX • License: ABC-1234
+              {vehicle.vin && <>VIN: {vehicle.vin} • </>}
+              {vehicle.licensePlate && <>License: {vehicle.licensePlate}</>}
             </p>
           </div>
         </div>
-        <Button variant="secondary" icon={<EditIcon className="w-4 h-4" />}>
+        <Button
+          variant="secondary"
+          icon={<EditIcon className="w-4 h-4" />}
+          onClick={() => navigate(`/dashboard/vehicles/${vehicle.id}/edit`)}>
           Edit Vehicle
         </Button>
       </div>
@@ -90,25 +151,30 @@ export function VehicleDetails() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 overflow-hidden">
           <div className="h-64 relative">
-            <img
-              src="https://images.unsplash.com/photo-1561580125-028ee3bd62eb?q=80&w=1200&auto=format&fit=crop"
-              alt="Tesla Model 3"
-              className="w-full h-full object-cover" />
+            {heroImage ? (
+              <img src={heroImage} alt={vehicle.nickname ?? vehicle.model} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-500 text-sm">
+                No photo
+              </div>
+            )}
 
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end">
               <div className="flex gap-6 text-white">
                 <div>
                   <p className="text-slate-300 text-sm mb-1">Current Mileage</p>
-                  <p className="text-2xl font-bold font-heading">24,500 mi</p>
+                  <p className="text-2xl font-bold font-heading">
+                    {vehicle.currentMileage != null
+                      ? `${vehicle.currentMileage.toLocaleString()} mi`
+                      : '—'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-slate-300 text-sm mb-1">Engine Type</p>
-                  <p className="text-2xl font-bold font-heading">Electric</p>
-                </div>
-                <div>
-                  <p className="text-slate-300 text-sm mb-1">Transmission</p>
-                  <p className="text-2xl font-bold font-heading">Automatic</p>
+                  <p className="text-2xl font-bold font-heading">
+                    {vehicle.fuelType ? vehicle.fuelType.toString() : '—'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -146,15 +212,29 @@ export function VehicleDetails() {
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-5xl font-bold font-heading">
-                98<span className="text-2xl text-sidebar-foreground/80">%</span>
+                {health.score != null ? (
+                  <>
+                    {health.score}
+                    <span className="text-2xl text-sidebar-foreground/80">%</span>
+                  </>
+                ) : (
+                  '—'
+                )}
               </span>
             </div>
           </div>
           <Badge
             variant="accent"
             className="bg-accentToken/20 text-accentToken border-accentToken/30">
-
-            System Optimal
+            {health.status === 'excellent'
+              ? 'System Optimal'
+              : health.status === 'good'
+                ? 'Good Condition'
+                : health.status === 'fair'
+                  ? 'Needs Attention'
+                  : health.status === 'poor'
+                    ? 'Service Recommended'
+                    : 'Health Unknown'}
           </Badge>
         </Card>
       </div>
@@ -165,15 +245,6 @@ export function VehicleDetails() {
           <button className="px-4 py-3 text-sm font-medium text-primary-600 border-b-2 border-primary-600">
             Overview
           </button>
-          <button className="px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-700">
-            Service History
-          </button>
-          <button className="px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-700">
-            Expenses
-          </button>
-          <button className="px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-700">
-            Documents
-          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -183,9 +254,6 @@ export function VehicleDetails() {
                 <h3 className="text-lg font-bold text-slate-900 font-heading">
                   Recent Service History
                 </h3>
-                <Button variant="ghost" size="sm">
-                  View All
-                </Button>
               </div>
               <DataTable columns={columns} data={serviceHistory} />
             </Card>
@@ -203,13 +271,10 @@ export function VehicleDetails() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-slate-900">
-                      Brake Fluid Flush
+                      Based on age, mileage, and service history
                     </h4>
                     <p className="text-sm text-slate-500 mt-1">
-                      Recommended at 25,000 mi
-                    </p>
-                    <p className="text-xs font-medium text-primary-600 mt-2">
-                      In ~500 miles
+                      Use this section to identify when to schedule your next service.
                     </p>
                   </div>
                 </div>
@@ -228,21 +293,21 @@ export function VehicleDetails() {
                   <span className="text-slate-500 flex items-center gap-2">
                     <DollarSignIcon className="w-4 h-4" /> Total Spent
                   </span>
-                  <span className="font-semibold text-slate-900">$225.00</span>
+                  <span className="font-semibold text-slate-900">—</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-slate-100">
                   <span className="text-slate-500 flex items-center gap-2">
                     <WrenchIcon className="w-4 h-4" /> Services Logged
                   </span>
-                  <span className="font-semibold text-slate-900">3</span>
+                  <span className="font-semibold text-slate-900">
+                    {serviceHistory.length}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-2">
                   <span className="text-slate-500 flex items-center gap-2">
                     <FuelIcon className="w-4 h-4" /> Avg Efficiency
                   </span>
-                  <span className="font-semibold text-slate-900">
-                    240 Wh/mi
-                  </span>
+                  <span className="font-semibold text-slate-900">—</span>
                 </div>
               </div>
             </Card>
