@@ -7,6 +7,7 @@ export interface DocumentCard {
   vehicle: string;
   url: string | null;
   mimeType: string | null;
+  expiresAt: string | null;
 }
 
 export interface DocumentCardDbRow {
@@ -17,6 +18,7 @@ export interface DocumentCardDbRow {
   created_at: string;
   public_url?: string | null;
   mime_type?: string | null;
+  expires_at?: string | null;
   vehicles?: { make?: string; model?: string } | null;
 }
 
@@ -46,5 +48,6 @@ export function rowToDocumentCard(
     vehicle: vehicleName,
     url: row.public_url ?? null,
     mimeType: row.mime_type ?? null,
+    expiresAt: row.expires_at ?? null,
   };
 }

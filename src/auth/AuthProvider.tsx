@@ -165,6 +165,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (signOutError) {
         throw signOutError;
       }
+      try {
+        const { clearAdminMfaVerified } = await import('../services/adminMfa');
+        clearAdminMfaVerified();
+      } catch {
+        // ignore
+      }
       setUser(null);
     } catch (err: any) {
       const message: string = err?.message ?? 'Failed to sign out.';

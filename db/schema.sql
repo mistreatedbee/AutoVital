@@ -32,9 +32,13 @@ CREATE TABLE IF NOT EXISTS profiles (
   timezone TEXT DEFAULT 'Africa/Johannesburg',
   locale TEXT DEFAULT 'en',
   avatar_url TEXT,
+  welcome_email_sent_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Phase F: Welcome email tracking
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS welcome_email_sent_at TIMESTAMPTZ;
 
 CREATE TYPE account_role AS ENUM ('owner', 'admin', 'member', 'viewer');
 
@@ -205,10 +209,14 @@ CREATE TABLE IF NOT EXISTS documents (
   mime_type TEXT,
   tags TEXT[],
   metadata JSONB,
+  expires_at TIMESTAMPTZ,
   deleted_at TIMESTAMPTZ,
   deleted_by_user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Phase F: Document expiry (migration for existing schemas)
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
 
 -- =========================
 --  Alerts & Health
@@ -350,8 +358,12 @@ CREATE TABLE IF NOT EXISTS onboarding_progress (
   vehicle_added BOOLEAN DEFAULT FALSE,
   service_baseline_completed BOOLEAN DEFAULT FALSE,
   reminders_completed BOOLEAN DEFAULT FALSE,
+  step_data JSONB,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Phase F: Progress saving (migration for existing schemas)
+ALTER TABLE onboarding_progress ADD COLUMN IF NOT EXISTS step_data JSONB;
 
 -- service_preferences RLS
 ALTER TABLE service_preferences ENABLE ROW LEVEL SECURITY;
@@ -387,6 +399,39 @@ CREATE POLICY "users_delete_own_service_preferences" ON service_preferences FOR 
         AND (owner_user_id = auth.uid() OR EXISTS (SELECT 1 FROM account_members WHERE account_id = service_preferences.account_id AND user_id = auth.uid()))
     )
   );
+
+-- Phase F: Onboarding analytics
+CREATE TABLE IF NOT EXISTS onboarding_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users (id) ON DELETE CASCADE,
+  event TEXT NOT NULL,
+  step INTEGER,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_onboarding_events_created_at ON onboarding_events (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_onboarding_events_event ON onboarding_events (event);
+
+-- RLS: users can insert their own events; admin/service reads for analytics
+ALTER TABLE onboarding_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users_insert_own_onboarding_events" ON onboarding_events FOR INSERT
+  TO authenticated WITH CHECK (user_id = auth.uid());
+-- Users can read only their own events (for personal progress)
+CREATE POLICY "users_select_own_onboarding_events" ON onboarding_events FOR SELECT
+  TO authenticated USING (user_id = auth.uid());
+
+-- RPC for admin funnel (aggregate counts only, no PII)
+CREATE OR REPLACE FUNCTION get_onboarding_funnel(p_start TIMESTAMPTZ DEFAULT now() - interval '30 days', p_end TIMESTAMPTZ DEFAULT now())
+RETURNS TABLE (event TEXT, step INTEGER, count BIGINT) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT oe.event::TEXT, oe.step, COUNT(*)::BIGINT
+  FROM onboarding_events oe
+  WHERE oe.created_at >= p_start AND oe.created_at <= p_end
+  GROUP BY oe.event, oe.step
+  ORDER BY oe.step NULLS FIRST, oe.event;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- onboarding_progress RLS
 ALTER TABLE onboarding_progress ENABLE ROW LEVEL SECURITY;

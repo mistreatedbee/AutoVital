@@ -9,6 +9,7 @@ import {
   WrenchIcon,
   FuelIcon,
   PlusIcon,
+  UploadCloudIcon,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -27,6 +28,14 @@ import {
 import { uploadVehicleImageFile } from '../../services/vehicleImageUpload';
 import { setPrimaryVehicleImage } from '../../services/vehicleImages';
 import { useAuth } from '../../auth/AuthProvider';
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalFooter,
+  ModalTrigger,
+} from '../../components/ui/Modal';
 
 export function VehicleDetails() {
   const navigate = useNavigate();
@@ -47,6 +56,10 @@ export function VehicleDetails() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
   const [documentUploadError, setDocumentUploadError] = useState<string | null>(null);
+  const [documentUploadOpen, setDocumentUploadOpen] = useState(false);
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docType, setDocType] = useState<string>('other');
+  const [docExpiresAt, setDocExpiresAt] = useState<string>('');
 
   const columns = [
     {
@@ -382,49 +395,130 @@ export function VehicleDetails() {
                           <span className="font-medium">{doc.name}</span>
                           <span className="ml-2 text-xs text-slate-500">{doc.type}</span>
                         </button>
-                        <span className="text-xs text-slate-400">{doc.date}</span>
+                        <div className="flex items-center gap-2">
+                          {doc.expiresAt && (
+                            <span className="text-xs text-amber-600">
+                              Expires {new Date(doc.expiresAt).toLocaleDateString()}
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-400">{doc.date}</span>
+                        </div>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
               <div className="mt-4">
-                <label className="inline-flex items-center text-xs text-slate-600 cursor-pointer">
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                    className="hidden"
-                    onChange={async (e) => {
-                      if (!accountId || !user || !vehicleDetails) return;
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      setDocumentUploadError(null);
-                      try {
-                        await uploadDocMutation.mutateAsync({
-                          accountId,
-                          vehicleId: vehicleDetails.vehicle.id,
-                          userId: user.id,
-                          type: 'other',
-                          file,
-                        });
-                        e.target.value = '';
-                      } catch (err: unknown) {
-                        // eslint-disable-next-line no-console
-                        console.error('Vehicle document upload failed', err);
-                        setDocumentUploadError(
-                          err instanceof Error
-                            ? err.message
-                            : 'Unable to upload document. Please try again.',
-                        );
-                        e.target.value = '';
-                      }
-                    }}
-                  />
-                  <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50">
-                    <PlusIcon className="w-3 h-3" />
-                    {uploadDocMutation.isPending ? 'Uploading…' : 'Add Document'}
-                  </span>
-                </label>
+                <Modal open={documentUploadOpen} onOpenChange={setDocumentUploadOpen}>
+                  <ModalTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<UploadCloudIcon className="w-4 h-4" />}
+                    >
+                      Add Document
+                    </Button>
+                  </ModalTrigger>
+                  <ModalContent>
+                    <ModalHeader>
+                      <ModalTitle>Upload Document</ModalTitle>
+                    </ModalHeader>
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!accountId || !user || !vehicleDetails || !docFile) return;
+                        setDocumentUploadError(null);
+                        try {
+                          await uploadDocMutation.mutateAsync({
+                            accountId,
+                            vehicleId: vehicleDetails.vehicle.id,
+                            userId: user.id,
+                            type: docType as
+                              | 'insurance'
+                              | 'registration'
+                              | 'inspection'
+                              | 'receipt'
+                              | 'warranty'
+                              | 'other',
+                            file: docFile,
+                            expiresAt: docExpiresAt || undefined,
+                          });
+                          setDocFile(null);
+                          setDocExpiresAt('');
+                          setDocumentUploadOpen(false);
+                        } catch (err: unknown) {
+                          // eslint-disable-next-line no-console
+                          console.error('Vehicle document upload failed', err);
+                          setDocumentUploadError(
+                            err instanceof Error
+                              ? err.message
+                              : 'Unable to upload document. Please try again.',
+                          );
+                        }
+                      }}
+                      className="space-y-4"
+                    >
+                      {documentUploadError && (
+                        <p className="text-sm text-red-600">{documentUploadError}</p>
+                      )}
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium text-slate-700">File</label>
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                          required
+                          onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+                          className="block w-full text-sm text-slate-700 file:mr-4 file:rounded-md file:border-0 file:bg-primary-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-700"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium text-slate-700">Type</label>
+                        <select
+                          value={docType}
+                          onChange={(e) => setDocType(e.target.value)}
+                          className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                        >
+                          <option value="insurance">Insurance</option>
+                          <option value="registration">Registration</option>
+                          <option value="inspection">Inspection</option>
+                          <option value="receipt">Receipt</option>
+                          <option value="warranty">Warranty</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      {(docType === 'insurance' || docType === 'registration' || docType === 'inspection') && (
+                        <div className="space-y-1">
+                          <label className="text-sm font-medium text-slate-700">
+                            Expiry date
+                            <span className="text-slate-400 font-normal ml-1">(optional)</span>
+                          </label>
+                          <input
+                            type="date"
+                            value={docExpiresAt}
+                            onChange={(e) => setDocExpiresAt(e.target.value)}
+                            className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                          />
+                        </div>
+                      )}
+                      <ModalFooter>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => setDocumentUploadOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          variant="primary"
+                          disabled={!docFile || uploadDocMutation.isPending}
+                        >
+                          {uploadDocMutation.isPending ? 'Uploading…' : 'Upload'}
+                        </Button>
+                      </ModalFooter>
+                    </form>
+                  </ModalContent>
+                </Modal>
               </div>
             </Card>
             <Card className="p-6">

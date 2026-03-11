@@ -24,6 +24,31 @@ import {
   ModalTrigger,
 } from '../../components/ui/Modal';
 
+function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
+  const expiry = new Date(expiresAt);
+  const now = new Date();
+  const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysLeft < 0) {
+    return (
+      <Badge variant="warning" className="text-[10px] px-2 py-0.5">
+        Expired
+      </Badge>
+    );
+  }
+  if (daysLeft <= 14) {
+    return (
+      <Badge variant="warning" className="text-[10px] px-2 py-0.5">
+        Expires in {daysLeft} day{daysLeft !== 1 ? 's' : ''}
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="neutral" className="text-[10px] px-2 py-0.5">
+      Expires {expiry.toLocaleDateString()}
+    </Badge>
+  );
+}
+
 export function Documents() {
   const { accountId, loading: accountLoading } = useAccount();
   const { user } = useAuth();
@@ -35,6 +60,7 @@ export function Documents() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedType, setSelectedType] = useState<string>('insurance');
+  const [expiresAt, setExpiresAt] = useState<string>('');
 
   const filtered = documents.filter((doc) => {
     const term = search.toLowerCase();
@@ -65,9 +91,11 @@ export function Documents() {
           | 'warranty'
           | 'other',
         file: selectedFile,
+        expiresAt: expiresAt || undefined,
       });
 
       setSelectedFile(null);
+      setExpiresAt('');
       setUploadOpen(false);
     } catch (err: unknown) {
       // eslint-disable-next-line no-console
@@ -138,6 +166,20 @@ export function Documents() {
                   <option value="other">Other</option>
                 </select>
               </div>
+              {(selectedType === 'insurance' || selectedType === 'registration' || selectedType === 'inspection') && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-slate-700">
+                    Expiry date
+                    <span className="text-slate-400 font-normal ml-1">(optional)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={expiresAt}
+                    onChange={(e) => setExpiresAt(e.target.value)}
+                    className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+              )}
               <ModalFooter>
                 <Button
                   type="button"
@@ -283,11 +325,14 @@ export function Documents() {
               >
                 {doc.name}
               </h4>
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
                 <Badge variant="neutral" className="text-[10px] px-2 py-0.5">
                   {doc.type}
                 </Badge>
                 <span className="text-xs text-slate-400">{doc.size}</span>
+                {doc.expiresAt && (
+                  <ExpiryBadge expiresAt={doc.expiresAt} />
+                )}
               </div>
               <div className="mt-auto pt-4 border-t border-slate-100 text-xs text-slate-500 flex justify-between">
                 <span>{doc.vehicle}</span>

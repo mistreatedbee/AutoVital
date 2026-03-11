@@ -72,6 +72,8 @@ export function AlertsReminders() {
     preferences?.find((p) => p.channel === 'email')?.enabled ?? true;
   const inAppPrefEnabled =
     preferences?.find((p) => p.channel === 'in_app')?.enabled ?? true;
+  const documentExpiryLeadDays =
+    preferences?.find((p) => p.channel === 'email')?.documentExpiryLeadDays ?? 30;
 
   const handleToggleChannel = async (
     channel: 'email' | 'in_app',
@@ -85,6 +87,35 @@ export function AlertsReminders() {
         accountId,
         channel,
         enabled: value === 'On',
+      });
+      const updated = await fetchAlertPreferences(user.id, accountId);
+      setPreferences(updated);
+    } finally {
+      setSavingPrefs(false);
+    }
+  };
+
+  const handleDocumentExpiryLeadDays = async (days: number) => {
+    if (!accountId || !user || !preferences) return;
+    setSavingPrefs(true);
+    try {
+      const emailPref = preferences.find((p) => p.channel === 'email');
+      const inAppPref = preferences.find((p) => p.channel === 'in_app');
+      await upsertAlertPreference({
+        userId: user.id,
+        accountId,
+        channel: 'email',
+        enabled: emailPrefEnabled,
+        maintenanceLeadDaysArray: emailPref?.maintenanceLeadDaysArray,
+        documentExpiryLeadDays: days,
+      });
+      await upsertAlertPreference({
+        userId: user.id,
+        accountId,
+        channel: 'in_app',
+        enabled: inAppPrefEnabled,
+        maintenanceLeadDaysArray: inAppPref?.maintenanceLeadDaysArray,
+        documentExpiryLeadDays: days,
       });
       const updated = await fetchAlertPreferences(user.id, accountId);
       setPreferences(updated);
@@ -262,13 +293,34 @@ export function AlertsReminders() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-900 mb-2">
-                  Advance Notice
+                  Maintenance Advance Notice
                 </label>
                 <select className="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5">
                   <option>14 days / 500 miles before</option>
                   <option>30 days / 1,000 miles before</option>
                   <option>7 days / 250 miles before</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-900 mb-2">
+                  Document Expiry Notice
+                </label>
+                <select
+                  value={documentExpiryLeadDays}
+                  onChange={(e) =>
+                    handleDocumentExpiryLeadDays(Number(e.target.value))}
+                  disabled={savingPrefs}
+                  className="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
+                >
+                  <option value={7}>7 days before</option>
+                  <option value={14}>14 days before</option>
+                  <option value={30}>30 days before</option>
+                  <option value={60}>60 days before</option>
+                </select>
+                <p className="text-sm text-slate-500 mt-1">
+                  Get notified when insurance, registration, or inspection documents are expiring.
+                </p>
               </div>
             </div>
           </Card>

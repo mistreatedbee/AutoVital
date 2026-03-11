@@ -16,7 +16,7 @@ export async function fetchAccountDocuments(
     const client = getInsforgeClient();
     const { data, error } = await client.database
       .from('documents')
-      .select('id, name, type, size_bytes, created_at, public_url, mime_type, vehicles(make, model)')
+      .select('id, name, type, size_bytes, created_at, public_url, mime_type, expires_at, vehicles(make, model)')
       .eq('account_id', accountId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
@@ -44,6 +44,7 @@ interface UploadDocumentParams {
   userId: string | null;
   type: 'insurance' | 'registration' | 'inspection' | 'receipt' | 'warranty' | 'other';
   file: File;
+  expiresAt?: string | null;
 }
 
 export async function uploadDocumentFile(params: UploadDocumentParams) {
@@ -59,22 +60,25 @@ export async function uploadDocumentFile(params: UploadDocumentParams) {
 
   const { url, key, size, mimeType, name } = data as any;
 
+  const insertPayload: Record<string, unknown> = {
+    account_id: params.accountId,
+    vehicle_id: params.vehicleId,
+    user_id: params.userId,
+    type: params.type,
+    name: name ?? params.file.name,
+    storage_bucket: DOCUMENTS_BUCKET,
+    storage_key: key,
+    public_url: url,
+    size_bytes: size ?? params.file.size,
+    mime_type: mimeType ?? params.file.type,
+  };
+  if (params.expiresAt != null && params.expiresAt !== '') {
+    insertPayload.expires_at = params.expiresAt;
+  }
+
   const { data: rows, error: insertError } = await client.database
     .from('documents')
-    .insert([
-      {
-        account_id: params.accountId,
-        vehicle_id: params.vehicleId,
-        user_id: params.userId,
-        type: params.type,
-        name: name ?? params.file.name,
-        storage_bucket: DOCUMENTS_BUCKET,
-        storage_key: key,
-        public_url: url,
-        size_bytes: size ?? params.file.size,
-        mime_type: mimeType ?? params.file.type,
-      },
-    ])
+    .insert([insertPayload])
     .select('*')
     .limit(1);
 
@@ -104,7 +108,7 @@ export async function fetchVehicleDocuments(
     const client = getInsforgeClient();
     const { data, error } = await client.database
       .from('documents')
-      .select('id, name, type, size_bytes, created_at, public_url, mime_type')
+      .select('id, name, type, size_bytes, created_at, public_url, mime_type, expires_at')
       .eq('account_id', accountId)
       .eq('vehicle_id', vehicleId)
       .is('deleted_at', null)
@@ -123,6 +127,30 @@ export async function fetchVehicleDocuments(
     // eslint-disable-next-line no-console
     console.warn('Vehicle documents service unavailable.', err);
     return [];
+  }
+}
+
+export async function updateDocumentExpiry(
+  documentId: string | number,
+  expiresAt: string | null,
+): Promise<boolean> {
+  try {
+    const client = getInsforgeClient();
+    const { error } = await client.database
+      .from('documents')
+      .update({ expires_at: expiresAt || null })
+      .eq('id', documentId);
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to update document expiry.', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Document expiry update failed.', err);
+    return false;
   }
 }
 

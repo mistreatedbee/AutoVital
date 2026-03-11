@@ -1,6 +1,8 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/AdminLayout';
+import { AdminMfaSetup } from './AdminMfaSetup';
+import { AdminMfaVerify } from './AdminMfaVerify';
 import { AdminDashboard } from './AdminDashboard';
 import { UserManagement } from './UserManagement';
 import { VehicleManagement } from './VehicleManagement';
@@ -18,9 +20,13 @@ import { SupportTickets } from './SupportTickets';
 import { AdminSettings } from './AdminSettings';
 export function AdminApp() {
   return (
-    <AdminLayout>
-      <Routes>
-        <Route path="/" element={<AdminDashboard />} />
+    <Routes>
+      <Route path="mfa-setup" element={<AdminMfaSetup />} />
+      <Route path="mfa-verify" element={<AdminMfaVerify />} />
+      <Route path="*" element={
+        <AdminLayout>
+          <Routes>
+            <Route path="/" element={<AdminDashboard />} />
         <Route path="/users" element={<UserManagement />} />
         <Route path="/vehicles" element={<VehicleManagement />} />
         <Route path="/maintenance" element={<MaintenanceManagement />} />
@@ -34,9 +40,11 @@ export function AdminApp() {
         <Route path="/audit-logs" element={<AuditLogsPage />} />
         <Route path="/analytics" element={<AdminAnalytics />} />
         <Route path="/support" element={<SupportTickets />} />
-        <Route path="/settings" element={<AdminSettings />} />
-        <Route path="*" element={<Navigate to="/admin" replace />} />
-      </Routes>
-    </AdminLayout>);
+            <Route path="/settings" element={<AdminSettings />} />
+            <Route path="*" element={<Navigate to="/admin" replace />} />
+          </Routes>
+        </AdminLayout>
+      } />
+    </Routes>);
 
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,7 +30,10 @@ import {
   fetchOnboardingProgress,
   upsertOnboardingProgress,
   completeOnboarding,
+  resetOnboardingProgress,
+  type OnboardingStepData,
 } from '../../services/onboarding';
+import { recordOnboardingEvent } from '../../services/onboardingAnalytics';
 
 const COMMON_MAKES = [
   'Toyota', 'Ford', 'BMW', 'Mercedes-Benz', 'Volkswagen', 'Honda', 'Nissan',
@@ -132,6 +135,8 @@ export function OnboardingFlow() {
   const [weeklySummary, setWeeklySummary] = useState(false);
 
   const [vehicleId, setVehicleId] = useState<string | null>(null);
+  const stepDataRef = useRef<OnboardingStepData>({});
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadInitialData = useCallback(async () => {
     if (!user?.id) return;
@@ -141,8 +146,8 @@ export function OnboardingFlow() {
         fetchOnboardingProgress(user.id),
         fetchCurrentProfile(user.id),
       ]);
-      if (progress) {
-        setStep(Math.min(progress.currentStep, 5));
+      if (!progress && user?.id) {
+        recordOnboardingEvent(user.id, 'started', 1);
       }
       if (profile) {
         setDisplayName(profile.displayName ?? '');
@@ -153,6 +158,61 @@ export function OnboardingFlow() {
         setFuelUnit(profile.fuelUnit ?? 'litres');
         setTimezone(profile.timezone ?? 'Africa/Johannesburg');
         setLocale(profile.locale ?? 'en');
+      }
+      if (progress) {
+        setStep(Math.min(progress.currentStep, 5));
+        setVehicleSkipped(progress.currentStep > 2 && !progress.vehicleAdded);
+        const stepData = progress.stepData;
+        if (stepData && profile) {
+          const sd1 = stepData[1 as keyof OnboardingStepData];
+          const sd2 = stepData[2 as keyof OnboardingStepData];
+          const sd3 = stepData[3 as keyof OnboardingStepData];
+          const sd4 = stepData[4 as keyof OnboardingStepData];
+          if (sd1 && typeof sd1 === 'object') {
+            if (sd1.displayName != null) setDisplayName(String(sd1.displayName));
+            if (sd1.country != null) setCountry(String(sd1.country));
+            if (sd1.city != null) setCity(String(sd1.city));
+            if (sd1.currency != null) setCurrency(String(sd1.currency));
+            if (sd1.mileageUnit != null) setMileageUnit(String(sd1.mileageUnit));
+            if (sd1.fuelUnit != null) setFuelUnit(String(sd1.fuelUnit));
+            if (sd1.timezone != null) setTimezone(String(sd1.timezone));
+            if (sd1.locale != null) setLocale(String(sd1.locale));
+          }
+          if (sd2 && typeof sd2 === 'object') {
+            if (sd2.nickname != null) setNickname(String(sd2.nickname));
+            if (sd2.make != null) setMake(String(sd2.make));
+            if (sd2.model != null) setModel(String(sd2.model));
+            if (sd2.year != null) setYear(String(sd2.year));
+            if (sd2.registration != null) setRegistration(String(sd2.registration));
+            if (sd2.vin != null) setVin(String(sd2.vin));
+            if (sd2.currentMileage != null) setCurrentMileage(String(sd2.currentMileage));
+            if (sd2.fuelType != null) setFuelType(String(sd2.fuelType));
+            if (sd2.transmission != null) setTransmission(String(sd2.transmission));
+            if (sd2.engineType != null) setEngineType(String(sd2.engineType));
+            if (sd2.color != null) setColor(String(sd2.color));
+          }
+          if (sd3 && typeof sd3 === 'object') {
+            if (sd3.lastServiceDate != null) setLastServiceDate(String(sd3.lastServiceDate));
+            if (sd3.lastServiceMileage != null) setLastServiceMileage(String(sd3.lastServiceMileage));
+            if (sd3.serviceIntervalMonths != null) setServiceIntervalMonths(String(sd3.serviceIntervalMonths));
+            if (sd3.serviceIntervalMileage != null) setServiceIntervalMileage(String(sd3.serviceIntervalMileage));
+            if (sd3.lastOilChangeDate != null) setLastOilChangeDate(String(sd3.lastOilChangeDate));
+            if (sd3.lastOilChangeMileage != null) setLastOilChangeMileage(String(sd3.lastOilChangeMileage));
+            if (sd3.lastBrakeServiceDate != null) setLastBrakeServiceDate(String(sd3.lastBrakeServiceDate));
+            if (sd3.lastBatteryDate != null) setLastBatteryDate(String(sd3.lastBatteryDate));
+            if (sd3.lastTireRotationDate != null) setLastTireRotationDate(String(sd3.lastTireRotationDate));
+            if (sd3.knownIssues != null) setKnownIssues(String(sd3.knownIssues));
+            if (sd3.workshopName != null) setWorkshopName(String(sd3.workshopName));
+          }
+          if (sd4 && typeof sd4 === 'object') {
+            if (sd4.emailReminders != null) setEmailReminders(Boolean(sd4.emailReminders));
+            if (sd4.inAppReminders != null) setInAppReminders(Boolean(sd4.inAppReminders));
+            if (Array.isArray(sd4.leadDays)) setLeadDays(sd4.leadDays.map(Number));
+            if (sd4.reminderBasis != null) setReminderBasis(String(sd4.reminderBasis) as 'time' | 'mileage' | 'both');
+            if (sd4.weeklySummary != null) setWeeklySummary(Boolean(sd4.weeklySummary));
+          }
+        }
+        stepDataRef.current = progress?.stepData ?? {};
       }
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -165,6 +225,84 @@ export function OnboardingFlow() {
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
+
+  const persistStepData = useCallback(async () => {
+    if (!user?.id || step >= 5) return;
+    const next: OnboardingStepData = { ...stepDataRef.current };
+    if (step === 1) {
+      next[1] = { displayName, country, city, currency, mileageUnit, fuelUnit, timezone, locale };
+    } else if (step === 2) {
+      next[2] = { nickname, make, model, year, registration, vin, currentMileage, fuelType, transmission, engineType, color };
+    } else if (step === 3) {
+      next[3] = { lastServiceDate, lastServiceMileage, serviceIntervalMonths, serviceIntervalMileage, lastOilChangeDate, lastOilChangeMileage, lastBrakeServiceDate, lastBatteryDate, lastTireRotationDate, knownIssues, workshopName };
+    } else if (step === 4) {
+      next[4] = { emailReminders, inAppReminders, leadDays, reminderBasis, weeklySummary };
+    }
+    stepDataRef.current = next;
+    await upsertOnboardingProgress(user.id, { stepData: next });
+  }, [user?.id, step, displayName, country, city, currency, mileageUnit, fuelUnit, timezone, locale, nickname, make, model, year, registration, vin, currentMileage, fuelType, transmission, engineType, color, lastServiceDate, lastServiceMileage, serviceIntervalMonths, serviceIntervalMileage, lastOilChangeDate, lastOilChangeMileage, lastBrakeServiceDate, lastBatteryDate, lastTireRotationDate, knownIssues, workshopName, emailReminders, inAppReminders, leadDays, reminderBasis, weeklySummary]);
+
+  useEffect(() => {
+    if (!user?.id || step >= 5 || initializing) return;
+    autoSaveTimerRef.current = setTimeout(persistStepData, 500);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [user?.id, step, initializing, persistStepData, displayName, country, city, currency, mileageUnit, fuelUnit, timezone, locale, nickname, make, model, year, registration, vin, currentMileage, fuelType, transmission, engineType, color, lastServiceDate, lastServiceMileage, serviceIntervalMonths, serviceIntervalMileage, lastOilChangeDate, lastOilChangeMileage, lastBrakeServiceDate, lastBatteryDate, lastTireRotationDate, knownIssues, workshopName, emailReminders, inAppReminders, leadDays, reminderBasis, weeklySummary]);
+
+  const handleStartOver = useCallback(async () => {
+    if (!user?.id) return;
+    if (!window.confirm('Start over? Your progress will be reset.')) return;
+    setLoading(true);
+    try {
+      const ok = await resetOnboardingProgress(user.id);
+      if (ok) {
+        await queryClient.invalidateQueries({ queryKey: ['onboarding', user.id] });
+        stepDataRef.current = {};
+        setStep(1);
+        setVehicleSkipped(false);
+        setDisplayName('');
+        setCountry('ZA');
+        setCity('');
+        setCurrency('ZAR');
+        setMileageUnit('km');
+        setFuelUnit('litres');
+        setTimezone('Africa/Johannesburg');
+        setLocale('en');
+        setNickname('');
+        setMake('');
+        setModel('');
+        setYear('');
+        setRegistration('');
+        setVin('');
+        setCurrentMileage('');
+        setFuelType('');
+        setTransmission('');
+        setEngineType('');
+        setColor('');
+        setVehicleImageFile(null);
+        setVehicleId(null);
+        setLastServiceDate('');
+        setLastServiceMileage('');
+        setServiceIntervalMonths('');
+        setServiceIntervalMileage('');
+        setLastOilChangeDate('');
+        setLastOilChangeMileage('');
+        setLastBrakeServiceDate('');
+        setLastBatteryDate('');
+        setLastTireRotationDate('');
+        setKnownIssues('');
+        setWorkshopName('');
+        setEmailReminders(true);
+        setInAppReminders(true);
+        setLeadDays([14, 7, 0]);
+        setReminderBasis('both');
+        setWeeklySummary(false);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, queryClient]);
 
   const saveProfileStep = useCallback(async () => {
     if (!user?.id) return false;
@@ -299,6 +437,7 @@ export function OnboardingFlow() {
           currentStep: 2,
           profileCompleted: true,
         });
+        recordOnboardingEvent(user!.id, 'step_1_done', 1);
       } else if (step === 2) {
         if (!vehicleSkipped) {
           const ok = await saveVehicleStep();
@@ -312,18 +451,21 @@ export function OnboardingFlow() {
           currentStep: 3,
           vehicleAdded: !vehicleSkipped,
         });
+        recordOnboardingEvent(user!.id, 'step_2_done', 2);
       } else if (step === 3) {
         await saveServiceStep();
         await upsertOnboardingProgress(user!.id, {
           currentStep: 4,
           serviceBaselineCompleted: true,
         });
+        recordOnboardingEvent(user!.id, 'step_3_done', 3);
       } else if (step === 4) {
         await saveRemindersStep();
         await upsertOnboardingProgress(user!.id, {
           currentStep: 5,
           remindersCompleted: true,
         });
+        recordOnboardingEvent(user!.id, 'step_4_done', 4);
       }
       if (step < 5) setStep(step + 1);
     } catch (err) {
@@ -360,6 +502,7 @@ export function OnboardingFlow() {
     try {
       const ok = await completeOnboarding(user!.id);
       if (ok) {
+        recordOnboardingEvent(user!.id, 'completed', 5);
         await queryClient.invalidateQueries({ queryKey: ['onboarding', user!.id] });
         navigate('/dashboard', { replace: true });
       } else {
@@ -391,8 +534,18 @@ export function OnboardingFlow() {
             </div>
             AutoVital
           </div>
-          <div className="text-sm font-medium text-slate-500">
-            Step {step} of 5
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-slate-500">
+              Step {step} of 5
+            </span>
+            <button
+              type="button"
+              onClick={handleStartOver}
+              disabled={loading}
+              className="text-xs text-slate-400 hover:text-slate-600 hover:underline"
+            >
+              Start over
+            </button>
           </div>
         </div>
       </header>

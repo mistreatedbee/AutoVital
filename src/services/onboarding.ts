@@ -1,5 +1,12 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
 
+export interface OnboardingStepData {
+  1?: Record<string, unknown>;
+  2?: Record<string, unknown>;
+  3?: Record<string, unknown>;
+  4?: Record<string, unknown>;
+}
+
 export interface OnboardingProgress {
   userId: string;
   currentStep: number;
@@ -8,6 +15,7 @@ export interface OnboardingProgress {
   vehicleAdded: boolean;
   serviceBaselineCompleted: boolean;
   remindersCompleted: boolean;
+  stepData: OnboardingStepData | null;
   updatedAt: string;
 }
 
@@ -17,6 +25,7 @@ export interface OnboardingProgressUpdatePayload {
   vehicleAdded?: boolean;
   serviceBaselineCompleted?: boolean;
   remindersCompleted?: boolean;
+  stepData?: OnboardingStepData | null;
 }
 
 export async function fetchOnboardingProgress(
@@ -42,6 +51,7 @@ export async function fetchOnboardingProgress(
       vehicleAdded: Boolean(data.vehicle_added),
       serviceBaselineCompleted: Boolean(data.service_baseline_completed),
       remindersCompleted: Boolean(data.reminders_completed),
+      stepData: (data.step_data as OnboardingStepData) ?? null,
       updatedAt: data.updated_at ?? data.created_at ?? new Date().toISOString(),
     };
   } catch (err) {
@@ -70,6 +80,8 @@ export async function upsertOnboardingProgress(
       dbPayload.service_baseline_completed = payload.serviceBaselineCompleted;
     if (payload.remindersCompleted != null)
       dbPayload.reminders_completed = payload.remindersCompleted;
+    if (payload.stepData !== undefined)
+      dbPayload.step_data = payload.stepData;
 
     const { error } = await client.database
       .from('onboarding_progress')
@@ -90,6 +102,35 @@ export async function upsertOnboardingProgress(
   }
 }
 
+export async function resetOnboardingProgress(userId: string): Promise<boolean> {
+  try {
+    const client = getInsforgeClient();
+    const now = new Date().toISOString();
+    const { error } = await client.database
+      .from('onboarding_progress')
+      .upsert(
+        {
+          user_id: userId,
+          current_step: 1,
+          completed_at: null,
+          profile_completed: false,
+          vehicle_added: false,
+          service_baseline_completed: false,
+          reminders_completed: false,
+          step_data: null,
+          updated_at: now,
+        },
+        { onConflict: 'user_id' },
+      );
+
+    return !error;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Failed to reset onboarding progress.', err);
+    return false;
+  }
+}
+
 export async function completeOnboarding(userId: string): Promise<boolean> {
   try {
     const client = getInsforgeClient();
@@ -105,6 +146,7 @@ export async function completeOnboarding(userId: string): Promise<boolean> {
           vehicle_added: true,
           service_baseline_completed: true,
           reminders_completed: true,
+          step_data: null,
           updated_at: now,
         },
         { onConflict: 'user_id' },
