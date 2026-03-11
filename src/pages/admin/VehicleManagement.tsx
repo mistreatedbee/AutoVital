@@ -1,105 +1,169 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SearchIcon, FilterIcon, MoreVerticalIcon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
-const vehicles = [
-{
-  id: 1,
-  owner: 'Alex Thompson',
-  make: 'Tesla',
-  model: 'Model 3',
-  year: 2022,
-  vin: '5YJ3E1EA0NFXXXXXX',
-  mileage: '24,500',
-  health: 98
-},
-{
-  id: 2,
-  owner: 'Sarah Jenkins',
-  make: 'Honda',
-  model: 'Civic',
-  year: 2018,
-  vin: '2HGFC2F89JHXXXXXX',
-  mileage: '68,200',
-  health: 82
-},
-{
-  id: 3,
-  owner: 'Michael Chen',
-  make: 'Ford',
-  model: 'F-150',
-  year: 2020,
-  vin: '1FTEW1EP4LFDXXXXX',
-  mileage: '45,100',
-  health: 95
-},
-{
-  id: 4,
-  owner: 'Jessica Davis',
-  make: 'Toyota',
-  model: 'Camry',
-  year: 2015,
-  vin: '4T1BF1FK3FUXXXXXX',
-  mileage: '112,000',
-  health: 75
-},
-{
-  id: 5,
-  owner: 'David Wilson',
-  make: 'BMW',
-  model: '3 Series',
-  year: 2021,
-  vin: 'WBA5R1C52MCXXXXXX',
-  mileage: '32,400',
-  health: 91
-}];
+import {
+  fetchAdminVehicles,
+  type AdminVehicleRow,
+} from '../../services/adminOperations';
 
 export function VehicleManagement() {
-  const columns = [
-  {
-    key: 'vehicle',
-    header: 'Vehicle',
-    render: (_: any, row: any) =>
-    <div>
-          <div className="font-medium text-slate-900">
-            {row.year} {row.make} {row.model}
+  const [vehicles, setVehicles] = useState<AdminVehicleRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [accountFilter, setAccountFilter] = useState<string>('all');
+  const [healthFilter, setHealthFilter] = useState<string>('all');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      try {
+        const data = await fetchAdminVehicles();
+        if (!cancelled) {
+          setVehicles(data);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const accounts = useMemo(
+    () => Array.from(new Set(vehicles.map((v) => v.accountName))).sort(),
+    [vehicles],
+  );
+
+  const filteredVehicles = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return vehicles.filter((v) => {
+      if (
+        accountFilter !== 'all' &&
+        v.accountName.toLowerCase() !== accountFilter.toLowerCase()
+      ) {
+        return false;
+      }
+
+      if (healthFilter === 'healthy' && (v.healthScore ?? 0) < 90) {
+        return false;
+      }
+      if (
+        healthFilter === 'warning' &&
+        ((v.healthScore ?? 100) < 80 || (v.healthScore ?? 100) >= 90)
+      ) {
+        return false;
+      }
+      if (healthFilter === 'at-risk' && (v.healthScore ?? 100) >= 80) {
+        return false;
+      }
+
+      if (!term) return true;
+
+      const haystack = `${v.accountName} ${v.make} ${v.model} ${v.year ?? ''} ${
+        v.vin ?? ''
+      }`.toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [vehicles, search, accountFilter, healthFilter]);
+
+  const avgMileage = useMemo(() => {
+    const numeric = filteredVehicles
+      .map((v) => (v.mileage ? Number(v.mileage.replace(/,/g, '')) : null))
+      .filter((v): v is number => v != null);
+    if (!numeric.length) return '—';
+    const avg = numeric.reduce((sum, n) => sum + n, 0) / numeric.length;
+    return avg.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }, [filteredVehicles]);
+
+  const avgHealth = useMemo(() => {
+    const numeric = filteredVehicles
+      .map((v) => (v.healthScore != null ? v.healthScore : null))
+      .filter((v): v is number => v != null);
+    if (!numeric.length) return '—';
+    const avg = numeric.reduce((sum, n) => sum + n, 0) / numeric.length;
+    return `${avg.toFixed(0)}%`;
+  }, [filteredVehicles]);
+
+  const totalCount = filteredVehicles.length;
+
+  const columns = useMemo(
+    () => [
+      {
+        key: 'vehicle',
+        header: 'Vehicle',
+        render: (_: unknown, row: AdminVehicleRow) => (
+          <div>
+            <div className="font-medium text-slate-900">
+              {row.year ?? '—'} {row.make} {row.model}
+            </div>
+            {row.vin && (
+              <div className="text-xs text-slate-500 font-mono">{row.vin}</div>
+            )}
           </div>
-          <div className="text-xs text-slate-500 font-mono">{row.vin}</div>
-        </div>
-
-  },
-  {
-    key: 'owner',
-    header: 'Owner'
-  },
-  {
-    key: 'mileage',
-    header: 'Mileage',
-    render: (val: string) => `${val} mi`
-  },
-  {
-    key: 'health',
-    header: 'Health Score',
-    render: (value: number) =>
-    <Badge
-      variant={value >= 90 ? 'accent' : value >= 80 ? 'primary' : 'warning'}>
-
-          {value}%
-        </Badge>
-
-  },
-  {
-    key: 'actions',
-    header: '',
-    render: () =>
-    <button className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
-          <MoreVerticalIcon className="w-5 h-5" />
-        </button>
-
-  }];
+        ),
+      },
+      {
+        key: 'accountName',
+        header: 'Account',
+        render: (value: string) => (
+          <span className="text-sm text-slate-700">{value}</span>
+        ),
+      },
+      {
+        key: 'mileage',
+        header: 'Mileage',
+        render: (value: string | null) =>
+          value ? `${value} mi` : <span className="text-xs text-slate-400">—</span>,
+      },
+      {
+        key: 'healthScore',
+        header: 'Health',
+        render: (value: number | null) => {
+          if (value == null) {
+            return <span className="text-xs text-slate-400">N/A</span>;
+          }
+          const variant =
+            value >= 90 ? 'accent' : value >= 80 ? 'primary' : 'warning';
+          return <Badge variant={variant}>{value}%</Badge>;
+        },
+      },
+      {
+        key: 'createdAt',
+        header: 'Added',
+        render: (value: string) => {
+          const date = value ? new Date(value) : null;
+          return (
+            <span className="text-sm text-slate-600">
+              {date ? date.toLocaleDateString() : '—'}
+            </span>
+          );
+        },
+      },
+      {
+        key: 'actions',
+        header: '',
+        render: () => (
+          <button className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+            <MoreVerticalIcon className="w-5 h-5" />
+          </button>
+        ),
+      },
+    ],
+    [],
+  );
 
   return (
     <div className="space-y-8">
@@ -109,7 +173,7 @@ export function VehicleManagement() {
             Platform Vehicles
           </h1>
           <p className="text-slate-500 mt-1">
-            Global view of all tracked vehicles across the platform.
+            Global view of all tracked vehicles across all customer accounts.
           </p>
         </div>
       </div>
@@ -117,17 +181,17 @@ export function VehicleManagement() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 bg-slate-900 text-white border-slate-800">
           <h3 className="text-slate-400 text-sm font-medium mb-1">
-            Most Popular Make
+            Total Vehicles (filtered)
           </h3>
-          <div className="text-3xl font-bold font-heading">Toyota</div>
-          <p className="text-sm text-slate-500 mt-2">15% of all vehicles</p>
+          <div className="text-3xl font-bold font-heading">{totalCount}</div>
+          <p className="text-sm text-slate-500 mt-2">Across matching accounts</p>
         </Card>
         <Card className="p-6">
           <h3 className="text-slate-500 text-sm font-medium mb-1">
             Average Mileage
           </h3>
           <div className="text-3xl font-bold text-slate-900 font-heading">
-            64,200
+            {avgMileage}
           </div>
           <p className="text-sm text-emerald-600 mt-2 font-medium">
             Across all vehicles
@@ -138,7 +202,7 @@ export function VehicleManagement() {
             Avg Health Score
           </h3>
           <div className="text-3xl font-bold text-slate-900 font-heading">
-            88%
+            {avgHealth}
           </div>
           <p className="text-sm text-emerald-600 mt-2 font-medium">
             Platform average
@@ -149,16 +213,55 @@ export function VehicleManagement() {
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
           <Input
-            placeholder="Search by VIN, Make, Model, or Owner..."
-            icon={<SearchIcon className="w-4 h-4" />} />
-
+            placeholder="Search by VIN, Account, Make, or Model..."
+            icon={<SearchIcon className="w-4 h-4" />}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-        <Button variant="secondary" icon={<FilterIcon className="w-4 h-4" />}>
-          Filters
-        </Button>
+        <div className="flex gap-2">
+          <select
+            className="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-rose-500 focus:border-rose-500 block p-3 shadow-sm"
+            value={accountFilter}
+            onChange={(e) => setAccountFilter(e.target.value)}
+          >
+            <option value="all">All accounts</option>
+            {accounts.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-rose-500 focus:border-rose-500 block p-3 shadow-sm"
+            value={healthFilter}
+            onChange={(e) => setHealthFilter(e.target.value)}
+          >
+            <option value="all">All health</option>
+            <option value="healthy">90% and above</option>
+            <option value="warning">80–89%</option>
+            <option value="at-risk">Below 80%</option>
+          </select>
+          <Button variant="secondary" icon={<FilterIcon className="w-4 h-4" />}>
+            Filters
+          </Button>
+        </div>
       </div>
 
-      <DataTable columns={columns} data={vehicles} />
-    </div>);
-
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
+        {loading ? (
+          <div className="p-8 text-center text-slate-400 text-sm">
+            Loading vehicles...
+          </div>
+        ) : filteredVehicles.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 text-sm">
+            No vehicles match the current filters.
+          </div>
+        ) : (
+          <DataTable columns={columns} data={filteredVehicles} />
+        )}
+      </div>
+    </div>
+  );
 }
+

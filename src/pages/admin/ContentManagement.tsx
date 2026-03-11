@@ -197,6 +197,14 @@ export function ContentManagement() {
             <FileTextIcon className="w-4 h-4" /> Blog Posts
           </div>
         </button>
+        <button
+          onClick={() => setActiveTab('testimonials')}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'testimonials' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+
+          <div className="flex items-center gap-2">
+            <MessageSquareIcon className="w-4 h-4" /> Testimonials
+          </div>
+        </button>
       </div>
 
       {/* Content */}
@@ -438,6 +446,23 @@ export function ContentManagement() {
                 </div>
               </div>
             }
+          </Card>
+        }
+
+        {activeTab === 'testimonials' &&
+        <Card className="p-6 text-center py-12">
+            <MessageSquareIcon className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-slate-900">
+              Manage Testimonials
+            </h3>
+            <p className="text-slate-500 mt-1 mb-6">
+              Add or edit customer testimonials displayed on marketing pages.
+            </p>
+            <Button
+              variant="primary"
+              className="bg-rose-600 hover:bg-rose-700 border-none">
+              Add Testimonial
+            </Button>
           </Card>
         }
       </div>

@@ -16,8 +16,12 @@ import {
   LogOutIcon,
   MenuIcon,
   SearchIcon,
-  ShieldAlertIcon } from
-'lucide-react';
+  ShieldAlertIcon,
+  DropletIcon,
+  FolderIcon,
+  ScrollTextIcon,
+  UserCogIcon,
+} from 'lucide-react';
 import { Input } from '../ui/Input';
 import { Badge } from '../ui/Badge';
 interface AdminLayoutProps {
@@ -53,6 +57,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     icon: <WrenchIcon className="w-5 h-5" />
   },
   {
+    name: 'Fuel & Usage',
+    path: '/admin/fuel',
+    icon: <DropletIcon className="w-5 h-5" />
+  },
+  {
+    name: 'Documents',
+    path: '/admin/documents',
+    icon: <FolderIcon className="w-5 h-5" />
+  },
+  {
     name: 'Alerts & Comms',
     path: '/admin/alerts',
     icon: <BellIcon className="w-5 h-5" />
@@ -63,9 +77,24 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     icon: <CreditCardIcon className="w-5 h-5" />
   },
   {
+    name: 'Subscriptions',
+    path: '/admin/subscriptions',
+    icon: <CreditCardIcon className="w-5 h-5" />
+  },
+  {
     name: 'Content',
     path: '/admin/content',
     icon: <FileTextIcon className="w-5 h-5" />
+  },
+  {
+    name: 'Roles',
+    path: '/admin/roles',
+    icon: <UserCogIcon className="w-5 h-5" />
+  },
+  {
+    name: 'Audit Logs',
+    path: '/admin/audit-logs',
+    icon: <ScrollTextIcon className="w-5 h-5" />
   },
   {
     name: 'Analytics',

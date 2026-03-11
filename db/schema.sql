@@ -264,3 +264,22 @@ SELECT DISTINCT ON (vhs.vehicle_id)
 FROM vehicle_health_snapshots vhs
 ORDER BY vhs.vehicle_id, vhs.snapshot_date DESC, vhs.created_at DESC;
 
+-- =========================
+--  Audit Logs (Admin Actions)
+-- =========================
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actor_user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
+  actor_email TEXT,
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT,
+  metadata JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs (actor_user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs (entity_type, entity_id);
+

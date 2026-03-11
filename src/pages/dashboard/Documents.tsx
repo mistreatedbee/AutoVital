@@ -279,9 +279,10 @@ export function Documents() {
                 <span>{doc.date}</span>
               </div>
             </Card>
-          )}
+          ))}
         </div>
       )}
-    </div>);
+    </div>
+  );
 
 }
