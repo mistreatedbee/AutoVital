@@ -14,15 +14,56 @@ interface AuthUser {
   name?: string | null;
 }
 
+export interface SignUpParams {
+  email: string;
+  password: string;
+  name: string;
+  phone?: string;
+  marketingConsent?: boolean;
+}
+
+export interface SignUpResult {
+  requireEmailVerification?: boolean;
+  user?: AuthUser;
+}
+
+export interface VerifyEmailParams {
+  email?: string;
+  otp: string;
+}
+
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   error: string | null;
   signInWithPassword: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  signUp: (params: SignUpParams) => Promise<SignUpResult>;
+  verifyEmail: (params: VerifyEmailParams) => Promise<AuthUser>;
+  resendVerificationEmail: (params: { email: string }) => Promise<void>;
+  sendResetPasswordEmail: (params: { email: string }) => Promise<void>;
+  resetPassword: (params: { newPassword: string; otp: string }) => Promise<void>;
+  exchangeResetPasswordToken: (params: {
+    email: string;
+    code: string;
+  }) => Promise<{ token: string }>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+function mapUserFromApi(user: {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+  profile?: { name?: string | null };
+}): AuthUser {
+  const name = user.profile?.name ?? user.name ?? null;
+  return {
+    id: user.id,
+    email: user.email ?? '',
+    name: name ?? null,
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -44,11 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('Failed to get current session', sessionError);
           setUser(null);
         } else if (data?.session?.user) {
-          setUser({
-            id: data.session.user.id,
-            email: data.session.user.email,
-            name: data.session.user.name ?? null,
-          });
+          setUser(mapUserFromApi(data.session.user as any));
         } else {
           setUser(null);
         }
@@ -85,11 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw signInError ?? new Error('Unable to sign in.');
       }
 
-      setUser({
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.name ?? null,
-      });
+      setUser(mapUserFromApi(data.user as any));
     } catch (err: any) {
       const message: string = err?.message ?? 'Failed to sign in. Please try again.';
       setError(message);
@@ -119,12 +152,169 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const signUp = useCallback(async (params: SignUpParams): Promise<SignUpResult> => {
+    setError(null);
+    try {
+      const client = getInsforgeClient();
+      const { data, error: signUpError } = await client.auth.signUp({
+        email: params.email,
+        password: params.password,
+        name: params.name,
+      });
+
+      if (signUpError) {
+        throw signUpError;
+      }
+
+      if (data?.requireEmailVerification) {
+        return { requireEmailVerification: true };
+      }
+
+      if (data?.user && data?.accessToken) {
+        setUser(mapUserFromApi(data.user as any));
+        return { user: mapUserFromApi(data.user as any) };
+      }
+
+      return {};
+    } catch (err: any) {
+      const message: string = err?.message ?? 'Failed to sign up. Please try again.';
+      setError(message);
+      // eslint-disable-next-line no-console
+      console.error('Sign-up failed', err);
+      throw err;
+    }
+  }, []);
+
+  const verifyEmail = useCallback(async (params: VerifyEmailParams): Promise<AuthUser> => {
+    setError(null);
+    setLoading(true);
+    try {
+      const client = getInsforgeClient();
+      const verifyParams: { email?: string; otp: string } = { otp: params.otp };
+      if (params.email) verifyParams.email = params.email;
+
+      const { data, error: verifyError } = await client.auth.verifyEmail(verifyParams);
+
+      if (verifyError || !data?.user) {
+        throw verifyError ?? new Error('Unable to verify email.');
+      }
+
+      const mappedUser = mapUserFromApi(data.user as any);
+      setUser(mappedUser);
+      return mappedUser;
+    } catch (err: any) {
+      const message: string = err?.message ?? 'Failed to verify email. Please try again.';
+      setError(message);
+      // eslint-disable-next-line no-console
+      console.error('Verify email failed', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const resendVerificationEmail = useCallback(async (params: { email: string }): Promise<void> => {
+    setError(null);
+    try {
+      const client = getInsforgeClient();
+      const { error: resendError } = await client.auth.resendVerificationEmail({
+        email: params.email,
+      });
+
+      if (resendError) {
+        throw resendError;
+      }
+    } catch (err: any) {
+      const message: string = err?.message ?? 'Failed to resend verification email.';
+      setError(message);
+      // eslint-disable-next-line no-console
+      console.error('Resend verification failed', err);
+      throw err;
+    }
+  }, []);
+
+  const sendResetPasswordEmail = useCallback(async (params: { email: string }): Promise<void> => {
+    setError(null);
+    try {
+      const client = getInsforgeClient();
+      const { error: sendError } = await client.auth.sendResetPasswordEmail({
+        email: params.email,
+      });
+
+      if (sendError) {
+        throw sendError;
+      }
+    } catch (err: any) {
+      const message: string = err?.message ?? 'Failed to send reset email.';
+      setError(message);
+      // eslint-disable-next-line no-console
+      console.error('Send reset password email failed', err);
+      throw err;
+    }
+  }, []);
+
+  const exchangeResetPasswordToken = useCallback(
+    async (params: { email: string; code: string }): Promise<{ token: string }> => {
+      setError(null);
+      try {
+        const client = getInsforgeClient();
+        const { data, error: exchangeError } = await client.auth.exchangeResetPasswordToken({
+          email: params.email,
+          code: params.code,
+        });
+
+        if (exchangeError || !data?.token) {
+          throw exchangeError ?? new Error('Invalid or expired code.');
+        }
+
+        return { token: data.token };
+      } catch (err: any) {
+        const message: string = err?.message ?? 'Invalid or expired code.';
+        setError(message);
+        // eslint-disable-next-line no-console
+        console.error('Exchange reset token failed', err);
+        throw err;
+      }
+    },
+    []
+  );
+
+  const resetPassword = useCallback(
+    async (params: { newPassword: string; otp: string }): Promise<void> => {
+      setError(null);
+      try {
+        const client = getInsforgeClient();
+        const { error: resetError } = await client.auth.resetPassword({
+          newPassword: params.newPassword,
+          otp: params.otp,
+        });
+
+        if (resetError) {
+          throw resetError;
+        }
+      } catch (err: any) {
+        const message: string = err?.message ?? 'Failed to reset password.';
+        setError(message);
+        // eslint-disable-next-line no-console
+        console.error('Reset password failed', err);
+        throw err;
+      }
+    },
+    []
+  );
+
   const value: AuthContextValue = {
     user,
     loading,
     error,
     signInWithPassword,
     signOut,
+    signUp,
+    verifyEmail,
+    resendVerificationEmail,
+    sendResetPasswordEmail,
+    resetPassword,
+    exchangeResetPasswordToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -283,3 +283,61 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at D
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs (actor_user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs (entity_type, entity_id);
 
+-- =========================
+--  RLS Policies (Phase A: Bootstrap)
+-- =========================
+
+ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE account_members ENABLE ROW LEVEL SECURITY;
+
+-- Allow authenticated users to insert their own account
+CREATE POLICY "users_insert_own_account" ON accounts FOR INSERT
+  TO authenticated WITH CHECK (owner_user_id = auth.uid());
+
+-- Allow users to read their own accounts (owner or member)
+CREATE POLICY "users_select_own_accounts" ON accounts FOR SELECT
+  TO authenticated USING (
+    owner_user_id = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM account_members
+      WHERE account_id = accounts.id AND user_id = auth.uid()
+    )
+  );
+
+-- Allow owner to update their account
+CREATE POLICY "owner_update_account" ON accounts FOR UPDATE
+  TO authenticated USING (owner_user_id = auth.uid());
+
+-- Allow authenticated users to insert their own profile
+CREATE POLICY "users_insert_own_profile" ON profiles FOR INSERT
+  TO authenticated WITH CHECK (user_id = auth.uid());
+
+-- Allow users to read their own profile
+CREATE POLICY "users_select_own_profile" ON profiles FOR SELECT
+  TO authenticated USING (user_id = auth.uid());
+
+-- Allow users to update their own profile
+CREATE POLICY "users_update_own_profile" ON profiles FOR UPDATE
+  TO authenticated USING (user_id = auth.uid());
+
+-- Allow account owners to add themselves as members
+CREATE POLICY "owners_add_self_to_account" ON account_members FOR INSERT
+  TO authenticated WITH CHECK (
+    user_id = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM accounts
+      WHERE id = account_id AND owner_user_id = auth.uid()
+    )
+  );
+
+-- Allow users to read memberships for accounts they belong to
+CREATE POLICY "users_select_own_memberships" ON account_members FOR SELECT
+  TO authenticated USING (
+    user_id = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM accounts
+      WHERE id = account_id AND owner_user_id = auth.uid()
+    )
+  );
+
