@@ -9,6 +9,7 @@ export interface OverviewStats {
   openAlertCount: number;
   upcomingMaintenanceCount: number;
   monthlyCostTotal: number;
+  avgHealthScore: number | null;
 }
 
 export type OverviewActivityKind =
@@ -30,13 +31,23 @@ export interface ExpensePoint {
   amount: number;
 }
 
+export interface OverviewVehicle {
+  id: string;
+  name: string;
+  healthScore: number | null;
+  currentMileage: number | null;
+  heroImageUrl: string | null;
+  nextServiceDue: string | null;
+}
+
 export interface DashboardOverviewData {
   stats: OverviewStats;
-  vehicles: { id: string; name: string }[];
+  vehicles: OverviewVehicle[];
   alerts: UserAlert[];
   activity: OverviewActivityItem[];
   expenseSeries: ExpensePoint[];
   invoices: BillingInvoice[];
+  documentProfileComplete: boolean;
 }
 
 const MONTH_FORMAT = new Intl.DateTimeFormat('en-US', {
@@ -70,16 +81,19 @@ export async function fetchDashboardOverview(
     fuelResult,
     invoicesResult,
     documentsResult,
+    documentsForProfileResult,
   ] = await Promise.allSettled([
     client.database
       .from('vehicles')
-      .select('id, make, model, year')
+      .select('id, make, model, year, health_score, current_mileage, hero_image_url')
       .eq('account_id', accountId)
+      .is('archived_at', null)
       .order('created_at', { ascending: false }),
     client.database
       .from('alerts')
-      .select('id, kind, status, title, message, vehicles(make, model)')
+      .select('id, kind, status, title, message, vehicle_id, vehicles(make, model)')
       .eq('account_id', accountId)
+      .in('status', ['pending', 'sent'])
       .order('created_at', { ascending: false }),
     client.database
       .from('maintenance_logs')
@@ -107,6 +121,11 @@ export async function fetchDashboardOverview(
       .eq('account_id', accountId)
       .gte('created_at', thirtyDaysAgo.toISOString())
       .order('created_at', { ascending: false }),
+    client.database
+      .from('documents')
+      .select('id, type, vehicle_id')
+      .eq('account_id', accountId)
+      .is('deleted_at', null),
   ]);
 
   const vehiclesData =
@@ -139,10 +158,38 @@ export async function fetchDashboardOverview(
       ? (documentsResult.value.data as any[])
       : [];
 
-  const vehicles = vehiclesData.map((v) => ({
-    id: v.id as string,
-    name: `${v.year ?? ''} ${v.make} ${v.model}`.trim(),
-  }));
+  const documentsForProfile =
+    documentsForProfileResult.status === 'fulfilled' &&
+    !documentsForProfileResult.value.error
+      ? (documentsForProfileResult.value.data as any[])
+      : [];
+
+  const suggestedTypes = new Set(['insurance', 'registration', 'receipt', 'warranty']);
+  const documentTypesPresent = new Set(
+    documentsForProfile.map((d: any) => d.type).filter(Boolean),
+  );
+  const documentProfileComplete = suggestedTypes.size === 0 || [...suggestedTypes].every((t) => documentTypesPresent.has(t));
+
+  const openAlertsByVehicle = new Map<string, { title: string }>();
+  for (const row of alertsRows as any[]) {
+    if (row.status === 'resolved' || row.status === 'dismissed') continue;
+    const vid = row.vehicle_id ?? '__account__';
+    if (!openAlertsByVehicle.has(vid)) {
+      openAlertsByVehicle.set(vid, { title: row.title });
+    }
+  }
+
+  const vehicles: OverviewVehicle[] = vehiclesData.map((v) => {
+    const nextAlert = openAlertsByVehicle.get(v.id) ?? openAlertsByVehicle.get('__account__');
+    return {
+      id: v.id as string,
+      name: `${v.year ?? ''} ${v.make} ${v.model}`.trim(),
+      healthScore: v.health_score != null ? Number(v.health_score) : null,
+      currentMileage: v.current_mileage != null ? Number(v.current_mileage) : null,
+      heroImageUrl: (v.hero_image_url as string) ?? null,
+      nextServiceDue: nextAlert?.title ?? null,
+    };
+  });
 
   const alerts: UserAlert[] = alertsRows.map((row) => {
     const vehicleName =
@@ -195,11 +242,20 @@ export async function fetchDashboardOverview(
 
   const monthlyCostTotal = maintenanceCostTotal + fuelCostTotal + invoiceCostTotal;
 
+  const scoresWithValues = vehicles
+    .map((v) => v.healthScore)
+    .filter((s): s is number => s != null);
+  const avgHealthScore =
+    scoresWithValues.length > 0
+      ? scoresWithValues.reduce((sum, s) => sum + s, 0) / scoresWithValues.length
+      : null;
+
   const stats: OverviewStats = {
     vehicleCount: vehicles.length,
     openAlertCount: openAlerts.length,
     upcomingMaintenanceCount: upcomingMaintenance.length,
     monthlyCostTotal: monthlyCostTotal / 100,
+    avgHealthScore,
   };
 
   const activity: OverviewActivityItem[] = [];
@@ -306,6 +362,7 @@ export async function fetchDashboardOverview(
     activity: limitedActivity,
     expenseSeries,
     invoices,
+    documentProfileComplete,
   };
 }
 

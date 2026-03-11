@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CarIcon,
@@ -10,8 +10,7 @@ import {
   AlertTriangleIcon,
   FileTextIcon,
   UploadCloudIcon,
-  BarChart3Icon,
-  CheckCircle2Icon,
+  XIcon,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -56,6 +55,11 @@ export function DashboardHome() {
 
   const hasVehicles = (overview?.vehicles?.length ?? 0) > 0;
   const hasActivity = (overview?.activity?.length ?? 0) > 0;
+  const [docPromptDismissed, setDocPromptDismissed] = useState(false);
+  const showDocPrompt =
+    hasVehicles &&
+    !(overview?.documentProfileComplete ?? true) &&
+    !docPromptDismissed;
 
   if (loadingState) {
     return <DashboardHomeSkeleton />;
@@ -89,6 +93,33 @@ export function DashboardHome() {
         </div>
       </div>
 
+      {/* Complete Vehicle Profile Prompt */}
+      {showDocPrompt && (
+        <Card className="p-5 border-l-4 border-l-primary-500 bg-primary-50/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex-1">
+            <h3 className="font-bold text-slate-900 font-heading">Complete your vehicle profile</h3>
+            <p className="text-sm text-slate-600 mt-1">
+              Add insurance, registration, service invoices, and warranty docs to keep everything in one place.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link to="/dashboard/documents">
+              <Button variant="primary" size="sm">
+                Upload documents
+              </Button>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setDocPromptDismissed(true)}
+              className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+              aria-label="Dismiss"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </Card>
+      )}
+
       {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Link
@@ -100,6 +131,17 @@ export function DashboardHome() {
           </div>
           <span className="font-medium text-slate-700 group-hover:text-slate-900">
             Log Service
+          </span>
+        </Link>
+        <Link
+          to="/dashboard/mileage"
+          className="flex items-center gap-3 p-4 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 hover:shadow-md transition-all group">
+
+          <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+            <ActivityIcon className="w-5 h-5" />
+          </div>
+          <span className="font-medium text-slate-700 group-hover:text-slate-900">
+            Update Mileage
           </span>
         </Link>
         <Link
@@ -122,17 +164,6 @@ export function DashboardHome() {
           </div>
           <span className="font-medium text-slate-700 group-hover:text-slate-900">
             Upload Doc
-          </span>
-        </Link>
-        <Link
-          to="/dashboard/reports"
-          className="flex items-center gap-3 p-4 rounded-2xl bg-white border border-slate-200 hover:border-amber-300 hover:shadow-md transition-all group">
-
-          <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
-            <BarChart3Icon className="w-5 h-5" />
-          </div>
-          <span className="font-medium text-slate-700 group-hover:text-slate-900">
-            View Reports
           </span>
         </Link>
       </div>
@@ -171,12 +202,12 @@ export function DashboardHome() {
 
           <StatCard
             title="Avg Health Score"
-            value="92%"
-            change="Optimal"
+            value={overview?.stats.avgHealthScore != null ? `${Math.round(overview.stats.avgHealthScore)}%` : '—'}
+            change={overview?.stats.avgHealthScore != null ? (overview.stats.avgHealthScore >= 80 ? 'Optimal' : 'Needs attention') : 'Add vehicles'}
             trend="up"
             accentColor="accent"
             icon={<ActivityIcon className="w-6 h-6" />}
-            sparklineData={[85, 88, 87, 90, 91, 92]} />
+            sparklineData={overview?.stats.avgHealthScore != null ? [85, 88, 87, 90, 91, Math.round(overview.stats.avgHealthScore)] : []} />
 
         </div>
       </div>
@@ -439,7 +470,13 @@ export function DashboardHome() {
                     key={vehicle.id}
                     hover
                     className="overflow-hidden border border-slate-200 group">
-                    <div className="h-40 bg-slate-200 relative overflow-hidden">
+                    <div
+                      className="h-40 bg-slate-200 relative overflow-hidden"
+                      style={
+                        vehicle.heroImageUrl
+                          ? { backgroundImage: `url(${vehicle.heroImageUrl})`, backgroundSize: 'cover' }
+                          : undefined
+                      }>
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
                       <div className="absolute bottom-3 left-4 right-4">
                         <h3 className="text-xl font-bold text-white font-heading tracking-tight">
@@ -453,9 +490,15 @@ export function DashboardHome() {
                     <div className="p-5 bg-white">
                       <div className="space-y-3 mb-5">
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-slate-500">Status</span>
+                          <span className="text-slate-500">Health Score</span>
                           <span className="font-medium text-slate-900">
-                            Tracked
+                            {vehicle.healthScore != null ? `${Math.round(vehicle.healthScore)}%` : '—'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-500">Next Service</span>
+                          <span className="font-medium text-slate-900">
+                            {vehicle.nextServiceDue || 'All clear'}
                           </span>
                         </div>
                       </div>
