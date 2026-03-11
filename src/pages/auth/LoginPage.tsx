@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { MailIcon, LockIcon, ArrowRightIcon } from 'lucide-react';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../auth/AuthProvider';
+import { fetchCurrentUserPlatformAdminStatus } from '../../services/platformAdmins';
+
+function parseAdminAllowlist(raw: string | undefined): Set<string> {
+  if (!raw) return new Set();
+  return new Set(
+    raw.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean),
+  );
+}
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -12,6 +20,11 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const { signInWithPassword } = useAuth();
+
+  const allowlist = useMemo(
+    () => parseAdminAllowlist(import.meta.env.VITE_ADMIN_EMAILS as string | undefined),
+    [],
+  );
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,9 +43,18 @@ export function LoginPage() {
     setLoading(true);
 
     signInWithPassword(trimmedEmail, trimmedPassword)
-      .then(() => {
+      .then(async (user) => {
         const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
-        navigate(from && from !== '/login' ? from : '/dashboard', { replace: true });
+        const isSystemAdminFromEnv = allowlist.has(trimmedEmail.toLowerCase());
+        let isAdmin = isSystemAdminFromEnv;
+        if (!isAdmin && user.id) {
+          const status = await fetchCurrentUserPlatformAdminStatus(user.id);
+          isAdmin = status.isSystemAdmin || status.isCompanyAdmin;
+        }
+        const target = isAdmin
+          ? '/admin'
+          : (from && from !== '/login' ? from : '/dashboard');
+        navigate(target, { replace: true });
       })
       .catch((err: any) => {
         const message: string = err?.message ?? 'Unable to sign in. Please try again.';

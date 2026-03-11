@@ -38,7 +38,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   error: string | null;
-  signInWithPassword: (email: string, password: string) => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<AuthUser>;
   /** Verify current password for reauth before high-risk changes. Throws on failure. */
   reauthWithPassword: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -135,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signInWithPassword = useCallback(async (email: string, password: string) => {
+  const signInWithPassword = useCallback(async (email: string, password: string): Promise<AuthUser> => {
     setError(null);
     setLoading(true);
     try {
@@ -149,7 +149,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw signInError ?? new Error('Unable to sign in.');
       }
 
-      setUser(mapUserFromApi(data.user as any));
+      const mapped = mapUserFromApi(data.user as any);
+      setUser(mapped);
+      return mapped;
     } catch (err: any) {
       const message: string = err?.message ?? 'Failed to sign in. Please try again.';
       setError(message);
