@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
+import { AuthRouteLoading } from '../components/states/LoadingState';
 
 function parseAdminAllowlist(raw: string | undefined): Set<string> {
   if (!raw) return new Set();
@@ -20,11 +21,7 @@ export function AdminRoute() {
   );
 
   if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center text-slate-600">
-        Loading…
-      </div>
-    );
+    return <AuthRouteLoading />;
   }
 
   const email = user?.email?.toLowerCase() ?? '';

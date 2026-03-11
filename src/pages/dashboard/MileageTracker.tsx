@@ -17,6 +17,7 @@ import { Input } from '../../components/ui/Input';
 import { useAccount } from '../../account/AccountProvider';
 import { useAuth } from '../../auth/AuthProvider';
 import { LoadingState } from '../../components/states/LoadingState';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { fetchAccountVehicles, type VehicleSummary } from '../../services/vehicles';
 import {
   fetchVehicleMileageHistory,
@@ -266,8 +267,12 @@ export function MileageTracker() {
         </div>
         <div className="h-72 w-full">
           {history.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-slate-400 text-sm">
-              No mileage logs yet. Add your first reading below.
+            <div className="h-full flex items-center justify-center p-8">
+              <EmptyState
+                icon={<ActivityIcon className="w-16 h-16" />}
+                title="No mileage history yet"
+                description="Add your first odometer reading below to start tracking."
+              />
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">

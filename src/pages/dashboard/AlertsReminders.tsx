@@ -18,6 +18,7 @@ import {
 } from '../../services/alerts';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { useAuth } from '../../auth/AuthProvider';
 
 export function AlertsReminders() {
@@ -119,9 +120,18 @@ export function AlertsReminders() {
               </Badge>
             </div>
             <div className="divide-y divide-slate-100">
-              {accountLoading || loading && (
+              {(accountLoading || loading) && (
                 <div className="p-6">
                   <LoadingState label="Loading alerts..." />
+                </div>
+              )}
+              {!accountLoading && !loading && openAlerts.length === 0 && (
+                <div className="p-12">
+                  <EmptyState
+                    icon={<CheckCircle2Icon className="w-16 h-16" />}
+                    title="All clear!"
+                    description="No action required. Your vehicles are up to date."
+                  />
                 </div>
               )}
               {!accountLoading && !loading &&

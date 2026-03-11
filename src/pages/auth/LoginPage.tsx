@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { MailIcon, LockIcon, ArrowRightIcon } from 'lucide-react';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthProvider';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const { signInWithPassword } = useAuth();
@@ -18,11 +19,20 @@ export function LoginPage() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    if (!trimmedEmail || !trimmedPassword) {
+      setFormError('Please enter both email and password.');
+      return;
+    }
+
     setLoading(true);
 
-    signInWithPassword(email, password)
+    signInWithPassword(trimmedEmail, trimmedPassword)
       .then(() => {
-        navigate('/dashboard');
+        const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
+        navigate(from && from !== '/login' ? from : '/dashboard', { replace: true });
       })
       .catch((err: any) => {
         const message: string = err?.message ?? 'Unable to sign in. Please try again.';
@@ -50,7 +60,7 @@ export function LoginPage() {
 
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-slate-700">
+            <label htmlFor="login-password" className="text-sm font-medium text-slate-700">
               Password
             </label>
             <Link
@@ -61,6 +71,7 @@ export function LoginPage() {
             </Link>
           </div>
           <Input
+            id="login-password"
             type="password"
             placeholder="••••••••"
             value={password}

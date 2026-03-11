@@ -11,7 +11,9 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { useDocuments, useUploadDocument } from '../../hooks/queries';
 import { useAccount } from '../../account/AccountProvider';
-import { LoadingState } from '../../components/states/LoadingState';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/states/ErrorState';
+import { DocumentsSkeleton } from '../../components/states/pageSkeletons';
 import { useAuth } from '../../auth/AuthProvider';
 import {
   Modal,
@@ -25,7 +27,7 @@ import {
 export function Documents() {
   const { accountId, loading: accountLoading } = useAccount();
   const { user } = useAuth();
-  const { data: documents = [], isLoading } = useDocuments(accountId);
+  const { data: documents = [], isLoading, isError, error, refetch } = useDocuments(accountId);
   const uploadMutation = useUploadDocument(accountId);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('All');
@@ -212,14 +214,46 @@ export function Documents() {
       </div>
 
       {accountLoading || isLoading ? (
-        <LoadingState label="Loading documents..." />
+        <DocumentsSkeleton />
+      ) : isError ? (
+        <div className="rounded-2xl border border-border bg-cardToken p-6">
+          <ErrorState
+            title="Failed to load documents"
+            description={error instanceof Error ? error.message : 'Unable to load documents.'}
+            onRetry={() => refetch()}
+          />
+        </div>
+      ) : documents.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-cardToken p-12">
+          <EmptyState
+            icon={<FileTextIcon className="w-16 h-16" />}
+            title="No documents yet"
+            description="Upload service receipts, insurance cards, and registrations to keep everything in one place."
+            action={
+              <Button
+                variant="primary"
+                icon={<UploadCloudIcon className="w-4 h-4" />}
+                onClick={() => setUploadOpen(true)}>
+                Upload your first document
+              </Button>
+            }
+          />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-cardToken p-12">
+          <EmptyState
+            icon={<SearchIcon className="w-16 h-16" />}
+            title="No matching documents"
+            description="Try adjusting your search or filter."
+          />
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {filtered.map((doc) => (
             <Card
               key={doc.id}
               hover
-              className="p-5 flex flex-col cursor-pointer"
+              className="p-6 flex flex-col cursor-pointer"
               onClick={() => {
                 if (doc.url) {
                   window.open(doc.url, '_blank', 'noopener,noreferrer');

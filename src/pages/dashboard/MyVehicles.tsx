@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { PlusIcon, SearchIcon, FilterIcon } from 'lucide-react';
+import { PlusIcon, SearchIcon, FilterIcon, CarIcon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
 import { useVehicles, useArchiveVehicle } from '../../hooks/queries';
 import { useAccount } from '../../account/AccountProvider';
-import { LoadingState } from '../../components/states/LoadingState';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/states/ErrorState';
+import { MyVehiclesSkeleton } from '../../components/states/pageSkeletons';
 
 export function MyVehicles() {
   const { accountId, loading: accountLoading } = useAccount();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
 
-  const { data: vehicles = [], isLoading } = useVehicles(accountId);
+  const { data: vehicles = [], isLoading, isError, error, refetch } = useVehicles(accountId);
   const archiveMutation = useArchiveVehicle(accountId);
 
   const handleArchive = async (vehicleId: string) => {
@@ -69,7 +71,44 @@ export function MyVehicles() {
       </div>
 
       {accountLoading || isLoading ? (
-        <LoadingState label="Loading vehicles..." />
+        <MyVehiclesSkeleton />
+      ) : isError ? (
+        <div className="rounded-2xl border border-border bg-cardToken p-6">
+          <ErrorState
+            title="Failed to load vehicles"
+            description={error instanceof Error ? error.message : 'Unable to load your vehicles.'}
+            onRetry={() => refetch()}
+          />
+        </div>
+      ) : vehicles.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-cardToken p-12">
+          <EmptyState
+            icon={<CarIcon className="w-16 h-16" />}
+            title="No vehicles yet"
+            description="Add your first vehicle to start tracking maintenance, fuel, and documents."
+            action={
+              <Button
+                variant="primary"
+                icon={<PlusIcon className="w-4 h-4" />}
+                onClick={() => navigate('/dashboard/vehicles/new')}>
+                Add Vehicle
+              </Button>
+            }
+          />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-cardToken p-12">
+          <EmptyState
+            icon={<SearchIcon className="w-16 h-16" />}
+            title="No matching vehicles"
+            description="Try adjusting your search to find what you're looking for."
+            action={
+              <Button variant="secondary" onClick={() => setSearch('')}>
+                Clear search
+              </Button>
+            }
+          />
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filtered.map((vehicle) =>

@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { PlusIcon, FilterIcon, DownloadIcon, ExternalLinkIcon } from 'lucide-react';
+import { PlusIcon, FilterIcon, DownloadIcon, ExternalLinkIcon, WrenchIcon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
 import { useAccount } from '../../account/AccountProvider';
-import { LoadingState } from '../../components/states/LoadingState';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/states/ErrorState';
+import { MaintenanceLogSkeleton } from '../../components/states/pageSkeletons';
 import {
   useMaintenanceLogs,
   useCreateMaintenanceLog,
@@ -48,7 +50,7 @@ const EMPTY_FORM: MaintenanceFormState = {
 export function MaintenanceLog() {
   const { accountId, loading: accountLoading } = useAccount();
   const { user } = useAuth();
-  const { data: logs = [], isLoading } = useMaintenanceLogs(accountId);
+  const { data: logs = [], isLoading, isError, error: queryError, refetch } = useMaintenanceLogs(accountId);
   const { data: vehicles = [] } = useVehicles(accountId);
   const createMutation = useCreateMaintenanceLog(accountId);
   const updateMutation = useUpdateMaintenanceLog(accountId);
@@ -415,7 +417,35 @@ export function MaintenanceLog() {
           </Button>
         </div>
         {accountLoading || isLoading ? (
-          <LoadingState label="Loading maintenance history..." className="py-10" />
+          <MaintenanceLogSkeleton />
+        ) : isError ? (
+          <div className="p-6">
+            <ErrorState
+              title="Failed to load maintenance history"
+              description={queryError instanceof Error ? queryError.message : 'Unable to load maintenance logs.'}
+              onRetry={() => refetch()}
+            />
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="p-12">
+            <EmptyState
+              icon={<WrenchIcon className="w-16 h-16" />}
+              title="No maintenance logged yet"
+              description="Log your first service to start tracking your vehicle's health and history."
+              action={
+                <Button
+                  variant="primary"
+                  icon={<PlusIcon className="w-4 h-4" />}
+                  onClick={() => {
+                    setFormState(EMPTY_FORM);
+                    setFormMode('create');
+                    setFormOpen(true);
+                  }}>
+                  Log first service
+                </Button>
+              }
+            />
+          </div>
         ) : (
           <DataTable
             columns={columns}

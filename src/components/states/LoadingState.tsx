@@ -16,8 +16,16 @@ export function LoadingState({
         className
       )}
     >
-      <Loader2Icon className="h-5 w-5 animate-spin" />
+      <Loader2Icon className="h-5 w-5 animate-spin" aria-hidden />
       <span className="text-sm font-medium">{label}</span>
+    </div>
+  );
+}
+
+export function AuthRouteLoading({ label = 'Loading…' }: { label?: string }) {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <LoadingState label={label} />
     </div>
   );
 }

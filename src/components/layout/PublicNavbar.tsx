@@ -99,8 +99,11 @@ export function PublicNavbar() {
 
           {/* Mobile Menu Toggle */}
           <button
+            type="button"
             className="md:hidden p-2 -mr-2 text-slate-400 hover:text-slate-600"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileMenuOpen}>
 
             {mobileMenuOpen ?
             <XIcon className="w-6 h-6" /> :

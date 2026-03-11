@@ -28,7 +28,9 @@ import {
 } from '../../services/fuel';
 import { fetchCurrentProfile } from '../../services/profile';
 import { useAccount } from '../../account/AccountProvider';
-import { LoadingState } from '../../components/states/LoadingState';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/states/ErrorState';
+import { FuelTrackerSkeleton } from '../../components/states/pageSkeletons';
 import { useAuth } from '../../auth/AuthProvider';
 import { Input } from '../../components/ui/Input';
 
@@ -37,7 +39,7 @@ export function FuelTracker() {
   const { user } = useAuth();
   const { data: efficiencyData = [], isLoading: efficiencyLoading } =
     useFuelEfficiency(accountId);
-  const { data: fuelLogs = [], isLoading: fuelLogsLoading } =
+  const { data: fuelLogs = [], isLoading: fuelLogsLoading, isError: fuelLogsError, error: fuelLogsErr, refetch: refetchFuelLogs } =
     useFuelLogs(accountId);
   const { data: vehicles = [], isLoading: vehiclesLoading } =
     useVehicles(accountId);
@@ -213,6 +215,31 @@ export function FuelTracker() {
     }
   };
 
+  const isLoading =
+    accountLoading || efficiencyLoading || fuelLogsLoading || vehiclesLoading;
+
+  if (isLoading) {
+    return <FuelTrackerSkeleton />;
+  }
+
+  if (fuelLogsError) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 font-heading tracking-tight">
+            Fuel Tracker
+          </h1>
+          <p className="text-slate-500 mt-1">Monitor fuel efficiency and spending.</p>
+        </div>
+        <ErrorState
+          title="Failed to load fuel data"
+          description={fuelLogsErr instanceof Error ? fuelLogsErr.message : 'Unable to load fuel logs.'}
+          onRetry={() => refetchFuelLogs()}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -360,10 +387,7 @@ export function FuelTracker() {
           </select>
         </div>
         <div className="h-72 w-full">
-          {accountLoading || efficiencyLoading || fuelLogsLoading || vehiclesLoading ? (
-            <LoadingState label="Loading fuel data..." className="h-full" />
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={efficiencyWithUnits}
                 margin={{
@@ -436,7 +460,6 @@ export function FuelTracker() {
 
               </LineChart>
             </ResponsiveContainer>
-          )}
         </div>
       </Card>
 
@@ -446,9 +469,21 @@ export function FuelTracker() {
             Recent Fill-ups
           </h2>
         </div>
-        {accountLoading || efficiencyLoading || fuelLogsLoading || vehiclesLoading ? (
-          <div className="p-6">
-            <LoadingState label="Loading fuel history..." />
+        {fuelLogs.length === 0 ? (
+          <div className="p-12">
+            <EmptyState
+              icon={<DropletIcon className="w-16 h-16" />}
+              title="No fuel logs yet"
+              description="Track your first fill-up to see efficiency trends and costs over time."
+              action={
+                <Button
+                  variant="primary"
+                  icon={<PlusIcon className="w-4 h-4" />}
+                  onClick={() => setFormOpen(true)}>
+                  Add first fill-up
+                </Button>
+              }
+            />
           </div>
         ) : (
           <DataTable

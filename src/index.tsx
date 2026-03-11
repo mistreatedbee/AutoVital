@@ -2,6 +2,7 @@ import './index.css';
 import React from 'react';
 import { render } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { App } from './App';
 import { AuthProvider } from './auth/AuthProvider';
 import { AccountProvider } from './account/AccountProvider';
@@ -17,14 +18,16 @@ const queryClient = new QueryClient({
 });
 
 render(
-  <QueryClientProvider client={queryClient}>
-    <ToastProvider>
-      <AuthProvider>
-        <AccountProvider>
-          <App />
-        </AccountProvider>
-      </AuthProvider>
-    </ToastProvider>
-  </QueryClientProvider>,
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <AuthProvider>
+          <AccountProvider>
+            <App />
+          </AccountProvider>
+        </AuthProvider>
+      </ToastProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>,
   document.getElementById('root'),
 );

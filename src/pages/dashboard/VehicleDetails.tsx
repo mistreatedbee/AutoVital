@@ -16,6 +16,7 @@ import { Badge } from '../../components/ui/Badge';
 import { DataTable } from '../../components/ui/DataTable';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
+import { ErrorState } from '../../components/states/ErrorState';
 import {
   useVehicleDetails,
   useArchiveVehicle,
@@ -33,7 +34,7 @@ export function VehicleDetails() {
   const { accountId } = useAccount();
   const { user } = useAuth();
 
-  const { data: vehicleDetails, isLoading, error } = useVehicleDetails(accountId, id);
+  const { data: vehicleDetails, isLoading, error, refetch } = useVehicleDetails(accountId, id);
   const { data: serviceHistory = [] } = useVehicleMaintenanceLogs(accountId, id);
   const { data: documents = [], isLoading: documentsLoading } = useVehicleDocuments(
     accountId,
@@ -81,9 +82,11 @@ export function VehicleDetails() {
   if (error || !vehicleDetails) {
     return (
       <div className="space-y-4">
-        <p className="text-red-600 text-sm">
-          {error instanceof Error ? error.message : 'Vehicle not found.'}
-        </p>
+        <ErrorState
+          title="Vehicle not found"
+          description={error instanceof Error ? error.message : 'This vehicle may have been removed or you may not have access to it.'}
+          onRetry={() => refetch()}
+        />
         <Button variant="secondary" onClick={() => navigate('/dashboard/vehicles')}>
           Back to My Vehicles
         </Button>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../auth/AuthProvider';
+import { useAccount } from '../../account/AccountProvider';
 import {
   HomeIcon,
   CarIcon,
@@ -25,7 +26,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const { accountId } = useAccount();
   // Close sidebar on route change (mobile)
   useEffect(() => {
     setSidebarOpen(false);
@@ -138,21 +140,25 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex items-center gap-3 px-4 py-3 mb-2">
           <img
           src="https://i.pravatar.cc/150?img=11"
-          alt="User"
+          alt={user?.name ?? user?.email ?? 'User'}
           className="w-10 h-10 rounded-full border-2 border-sidebar-border" />
 
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">
-              Alex Thompson
+              {user?.name ?? user?.email ?? 'Account'}
             </p>
-            <p className="text-xs text-sidebar-muted truncate">Pro Plan</p>
+            <p className="text-xs text-sidebar-muted truncate">
+              {accountId ? 'AutoVital' : 'Loading…'}
+            </p>
           </div>
         </div>
         <button
+        type="button"
         onClick={handleLogout}
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-muted hover:bg-white/5 hover:text-primaryToken transition-colors">
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-muted hover:bg-white/5 hover:text-primaryToken transition-colors"
+        aria-label="Log out">
 
-          <LogOutIcon className="w-5 h-5" />
+          <LogOutIcon className="w-5 h-5" aria-hidden />
           Log Out
         </button>
       </div>
@@ -160,6 +166,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen flex bg-surfaceToken font-body text-foreground">
+      <a
+        href="#main-content"
+        className="fixed -top-12 left-4 z-[60] px-4 py-2 bg-primary-500 text-white rounded-lg font-medium transition-all duration-150 focus:top-4 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2"
+      >
+        Skip to main content
+      </a>
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-72 fixed inset-y-0 z-20">
         <SidebarContent />
@@ -211,10 +223,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <header className="h-20 bg-cardToken border-b border-border flex items-center justify-between px-4 sm:px-8 sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-4 flex-1">
             <button
+              type="button"
               onClick={() => setSidebarOpen(true)}
-              className="p-2 -ml-2 text-muted-foreground hover:text-foreground lg:hidden rounded-lg hover:bg-muted">
+              className="p-2 -ml-2 text-muted-foreground hover:text-foreground lg:hidden rounded-lg hover:bg-muted"
+              aria-label="Open navigation menu">
 
-              <MenuIcon className="w-6 h-6" />
+              <MenuIcon className="w-6 h-6" aria-hidden />
             </button>
             <div className="hidden md:block w-full max-w-md">
               <Input
@@ -225,14 +239,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="relative p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors">
-              <BellIcon className="w-6 h-6" />
+            <button
+              type="button"
+              className="relative p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors"
+              aria-label="View notifications">
+              <BellIcon className="w-6 h-6" aria-hidden />
               <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
             </button>
             <Link to="/dashboard/settings" className="hidden sm:block">
               <img
                 src="https://i.pravatar.cc/150?img=11"
-                alt="User"
+                alt={user?.name ?? user?.email ?? 'Profile'}
                 className="w-9 h-9 rounded-full border border-border" />
 
             </Link>
@@ -240,7 +257,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 sm:p-8 overflow-x-hidden">
+        <main id="main-content" className="flex-1 p-4 sm:p-8 overflow-x-hidden" tabIndex={-1}>
           <motion.div
             initial={{
               opacity: 0,

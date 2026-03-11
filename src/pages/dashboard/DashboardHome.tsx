@@ -28,14 +28,14 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { useAuth } from '../../auth/AuthProvider';
 import { useAccount } from '../../account/AccountProvider';
-import { LoadingState } from '../../components/states/LoadingState';
 import { ErrorState } from '../../components/states/ErrorState';
+import { DashboardHomeSkeleton } from '../../components/states/pageSkeletons';
 import { useDashboardOverview } from '../../hooks/queries';
 
 export function DashboardHome() {
   const { user } = useAuth();
-  const { accountId, loading: accountLoading, error: accountError } = useAccount();
-  const { data: overview, isLoading, error } = useDashboardOverview(accountId);
+  const { accountId, loading: accountLoading, error: accountError, refresh } = useAccount();
+  const { data: overview, isLoading, error, refetch } = useDashboardOverview(accountId);
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -56,6 +56,10 @@ export function DashboardHome() {
 
   const hasVehicles = (overview?.vehicles?.length ?? 0) > 0;
   const hasActivity = (overview?.activity?.length ?? 0) > 0;
+
+  if (loadingState) {
+    return <DashboardHomeSkeleton />;
+  }
 
   return (
     <div className="space-y-10">
@@ -141,7 +145,7 @@ export function DashboardHome() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
             title="Active Vehicles"
-            value={loadingState ? '—' : String(activeVehicles)}
+            value={String(activeVehicles)}
             accentColor="primary"
             icon={<CarIcon className="w-6 h-6" />}
             sparklineData={[1, 1, 2, 2, 3, 3]}
@@ -158,7 +162,7 @@ export function DashboardHome() {
 
           <StatCard
             title="Monthly Spend"
-            value={loadingState ? '—' : `$${monthlySpend.toFixed(0)}`}
+            value={`$${monthlySpend.toFixed(0)}`}
             change="Last 30 days • fuel, maintenance, billing"
             trend="up"
             accentColor="rose"
@@ -211,18 +215,13 @@ export function DashboardHome() {
             </div>
 
             <div className="space-y-4">
-              {loadingState && (
-                <LoadingState label="Loading alerts..." className="py-6" />
-              )}
-
-              {!loadingState && overview?.alerts.length === 0 && (
+              {overview?.alerts.length === 0 && (
                 <p className="text-sm text-slate-500">
                   No urgent alerts. You’re all caught up.
                 </p>
               )}
 
-              {!loadingState &&
-                overview?.alerts.slice(0, 3).map((alert) => (
+              {overview?.alerts.slice(0, 3).map((alert) => (
                   <div
                     key={alert.id}
                     className="p-4 rounded-xl bg-amber-50/50 border border-amber-200 flex gap-4 hover:shadow-md transition-shadow">
@@ -263,18 +262,13 @@ export function DashboardHome() {
               </Link>
             </div>
             <div className="space-y-4">
-              {loadingState && (
-                <LoadingState label="Loading recent activity..." className="py-6" />
-              )}
-
-              {!loadingState && !hasActivity && (
+              {!hasActivity && (
                 <p className="text-sm text-slate-500">
                   No recent activity yet. Start by logging a service or fuel fill-up.
                 </p>
               )}
 
-              {!loadingState &&
-                overview?.activity.map((item) => {
+              {overview?.activity.map((item) => {
                   const icon =
                     item.kind === 'fuel'
                       ? <FuelIcon className="w-4 h-4" />
@@ -331,7 +325,7 @@ export function DashboardHome() {
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-2xl font-bold text-slate-900">
-                    {loadingState ? '—' : `$${monthlySpend.toFixed(0)}`}
+                    {`$${monthlySpend.toFixed(0)}`}
                   </span>
                   <Badge variant="success" className="text-[10px] px-2 py-0.5">
                     Last 6 months
@@ -344,10 +338,7 @@ export function DashboardHome() {
               </select>
             </div>
             <div className="h-72 w-full">
-              {loadingState ? (
-                <LoadingState label="Loading expense trend..." className="h-full" />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={expenseData}
                   margin={{
@@ -421,7 +412,6 @@ export function DashboardHome() {
 
                   </AreaChart>
                 </ResponsiveContainer>
-              )}
             </div>
           </Card>
 
@@ -437,15 +427,12 @@ export function DashboardHome() {
                 Manage Vehicles
               </Link>
             </div>
-            {loadingState && (
-              <LoadingState label="Loading vehicles..." />
-            )}
-            {!loadingState && !hasVehicles && (
+            {!hasVehicles && (
               <p className="text-sm text-slate-500">
                 No vehicles yet. Add your first vehicle to see it here.
               </p>
             )}
-            {!loadingState && hasVehicles && (
+            {hasVehicles && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {overview?.vehicles.slice(0, 2).map((vehicle) => (
                   <Card
@@ -487,17 +474,18 @@ export function DashboardHome() {
           </div>
         </div>
       </div>
-      {error && !loadingState && (
+      {error && (
         <div className="max-w-xl">
           <ErrorState
             title="Dashboard data failed to load"
             description={error instanceof Error ? error.message : 'Unknown error'}
+            onRetry={() => refetch()}
           />
         </div>
       )}
       {accountError && (
         <div className="max-w-xl">
-          <ErrorState title="Account not found" description={accountError} />
+          <ErrorState title="Account not found" description={accountError} onRetry={() => refresh()} />
         </div>
       )}
     </div>

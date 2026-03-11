@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useDocumentTitle } from './hooks/useDocumentTitle';
 // Layouts
 import { PublicLayout } from './components/layout/PublicLayout';
 // Public Pages
@@ -34,9 +35,9 @@ import { DashboardApp } from './pages/dashboard/DashboardApp';
 import { AdminApp } from './pages/admin/AdminApp';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { AdminRoute } from './routes/AdminRoute';
-export function App() {
+function AppRoutes() {
+  useDocumentTitle();
   return (
-    <BrowserRouter>
       <Routes>
         {/* PUBLIC ROUTES */}
         <Route
@@ -190,6 +191,13 @@ export function App() {
             </PublicLayout>
           } />
       </Routes>
-    </BrowserRouter>);
+  );
+}
 
+export function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
+  );
 }
