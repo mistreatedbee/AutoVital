@@ -92,3 +92,61 @@ export async function fetchAccountDocuments(
   }
 }
 
+const DOCUMENTS_BUCKET =
+  (import.meta.env.VITE_DOCUMENTS_BUCKET as string | undefined) ?? 'vehicle-documents';
+
+interface UploadDocumentParams {
+  accountId: string;
+  vehicleId: string | null;
+  userId: string | null;
+  type: 'insurance' | 'registration' | 'inspection' | 'receipt' | 'warranty' | 'other';
+  file: File;
+}
+
+export async function uploadDocumentFile(params: UploadDocumentParams) {
+  const client = getInsforgeClient();
+
+  const { data, error } = await client.storage.from(DOCUMENTS_BUCKET).uploadAuto(params.file);
+
+  if (error || !data) {
+    // eslint-disable-next-line no-console
+    console.warn('Failed to upload document file.', error);
+    return null;
+  }
+
+  const { url, key, size, mimeType, name } = data as any;
+
+  const { data: rows, error: insertError } = await client.database
+    .from('documents')
+    .insert([
+      {
+        account_id: params.accountId,
+        vehicle_id: params.vehicleId,
+        user_id: params.userId,
+        type: params.type,
+        name: name ?? params.file.name,
+        storage_bucket: DOCUMENTS_BUCKET,
+        storage_key: key,
+        public_url: url,
+        size_bytes: size ?? params.file.size,
+        mime_type: mimeType ?? params.file.type,
+      },
+    ])
+    .select('*')
+    .limit(1);
+
+  if (insertError || !rows || !rows[0]) {
+    // eslint-disable-next-line no-console
+    console.warn('Failed to create document record.', insertError);
+    return null;
+  }
+
+  const row = rows[0] as any;
+
+  return {
+    id: row.id as string,
+    url: row.public_url as string | null,
+  };
+}
+
+

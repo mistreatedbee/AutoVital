@@ -1,6 +1,7 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
 import type { Vehicle } from '../domain/models';
 import { recomputeAndPersistVehicleHealth } from './vehicleHealth';
+import { createMileageLog, updateVehicleCurrentMileageIfHigher } from './mileage';
 
 export interface MaintenanceEntry {
   id: string | number;
@@ -12,6 +13,7 @@ export interface MaintenanceEntry {
   cost: string | null;
   shop: string | null;
   status: string;
+  documentId?: string | null;
 }
 
 const FALLBACK_LOGS: MaintenanceEntry[] = [
@@ -79,7 +81,7 @@ export async function fetchAccountMaintenanceLogs(
     const { data, error } = await client.database
       .from('maintenance_logs')
       .select(
-        'id, vehicle_id, service_date, mileage, cost_cents, currency, vendor_name, type, vehicles(make, model)',
+        'id, vehicle_id, service_date, mileage, cost_cents, currency, vendor_name, type, document_id, vehicles(make, model)',
       )
       .eq('account_id', accountId)
       .order('service_date', { ascending: false });
@@ -115,6 +117,7 @@ export async function fetchAccountMaintenanceLogs(
         cost,
         shop: row.vendor_name ?? null,
         status: 'Completed',
+        documentId: row.document_id ?? null,
       } as MaintenanceEntry;
     });
   } catch (err) {
@@ -124,7 +127,7 @@ export async function fetchAccountMaintenanceLogs(
   }
 }
 
-interface CreateMaintenanceLogInput {
+export interface CreateMaintenanceLogInput {
   accountId: string;
   vehicleId: string;
   userId: string | null;
@@ -135,6 +138,7 @@ interface CreateMaintenanceLogInput {
   costCents?: number | null;
   currency?: string | null;
   vendorName?: string | null;
+  documentId?: string | null;
 }
 
 export async function createMaintenanceLogWithHealthUpdate(
@@ -153,6 +157,7 @@ export async function createMaintenanceLogWithHealthUpdate(
     cost_cents: input.costCents ?? null,
     currency: input.currency ?? 'USD',
     vendor_name: input.vendorName ?? null,
+    document_id: input.documentId ?? null,
   };
 
   const { error } = await client.database.from('maintenance_logs').insert([payload]);
@@ -197,5 +202,81 @@ export async function createMaintenanceLogWithHealthUpdate(
   };
 
   await recomputeAndPersistVehicleHealth(vehicle, input.serviceDate);
+
+  if (input.mileage != null && input.mileage >= 0) {
+    const today = new Date().toISOString().slice(0, 10);
+    const mileageLog = await createMileageLog({
+      accountId: input.accountId,
+      vehicleId: input.vehicleId,
+      userId: input.userId,
+      logDate: input.serviceDate || today,
+      odometer: input.mileage,
+      source: 'maintenance',
+      note: input.description ?? null,
+    });
+
+    if (mileageLog) {
+      await updateVehicleCurrentMileageIfHigher(
+        input.accountId,
+        input.vehicleId,
+        input.mileage,
+      );
+    }
+  }
+}
+
+export async function fetchVehicleMaintenanceLogs(
+  accountId: string,
+  vehicleId: string,
+): Promise<MaintenanceEntry[]> {
+  const all = await fetchAccountMaintenanceLogs(accountId);
+  return all.filter((entry) => entry.vehicleId === vehicleId);
+}
+
+export interface UpdateMaintenanceLogInput {
+  type?: string;
+  description?: string | null;
+  mileage?: number | null;
+  serviceDate?: string;
+  costCents?: number | null;
+  currency?: string | null;
+  vendorName?: string | null;
+  documentId?: string | null;
+}
+
+export async function updateMaintenanceLog(
+  accountId: string,
+  logId: string,
+  input: UpdateMaintenanceLogInput,
+): Promise<boolean> {
+  const client = getInsforgeClient();
+
+  const payload: Record<string, unknown> = {};
+  if (input.type !== undefined) payload.type = input.type;
+  if (input.description !== undefined) payload.description = input.description;
+  if (input.mileage !== undefined) payload.mileage = input.mileage;
+  if (input.serviceDate !== undefined) payload.service_date = input.serviceDate;
+  if (input.costCents !== undefined) payload.cost_cents = input.costCents;
+  if (input.currency !== undefined) payload.currency = input.currency;
+  if (input.vendorName !== undefined) payload.vendor_name = input.vendorName;
+  if (input.documentId !== undefined) payload.document_id = input.documentId;
+
+  if (Object.keys(payload).length === 0) {
+    return true;
+  }
+
+  const { error } = await client.database
+    .from('maintenance_logs')
+    .update(payload)
+    .eq('id', logId)
+    .eq('account_id', accountId);
+
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.warn('Failed to update maintenance log.', error);
+    return false;
+  }
+
+  return true;
 }
 

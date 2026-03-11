@@ -31,51 +31,57 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     setSidebarOpen(false);
   }, [location.pathname]);
   const navLinks = [
-  {
-    name: 'Dashboard',
-    path: '/dashboard',
-    icon: <HomeIcon className="w-5 h-5" />
-  },
-  {
-    name: 'My Vehicles',
-    path: '/dashboard/vehicles',
-    icon: <CarIcon className="w-5 h-5" />
-  },
-  {
-    name: 'Maintenance Log',
-    path: '/dashboard/maintenance',
-    icon: <WrenchIcon className="w-5 h-5" />
-  },
-  {
-    name: 'Fuel Tracker',
-    path: '/dashboard/fuel',
-    icon: <FuelIcon className="w-5 h-5" />
-  },
-  {
-    name: 'Alerts & Reminders',
-    path: '/dashboard/alerts',
-    icon: <BellIcon className="w-5 h-5" />
-  },
-  {
-    name: 'Documents',
-    path: '/dashboard/documents',
-    icon: <FileTextIcon className="w-5 h-5" />
-  },
-  {
-    name: 'Reports',
-    path: '/dashboard/reports',
-    icon: <BarChart3Icon className="w-5 h-5" />
-  },
-  {
-    name: 'Billing',
-    path: '/dashboard/billing',
-    icon: <CreditCardIcon className="w-5 h-5" />
-  },
-  {
-    name: 'Settings',
-    path: '/dashboard/settings',
-    icon: <SettingsIcon className="w-5 h-5" />
-  }];
+    {
+      name: 'Dashboard',
+      path: '/dashboard',
+      icon: <HomeIcon className="w-5 h-5" />,
+    },
+    {
+      name: 'My Vehicles',
+      path: '/dashboard/vehicles',
+      icon: <CarIcon className="w-5 h-5" />,
+    },
+    {
+      name: 'Maintenance Log',
+      path: '/dashboard/maintenance',
+      icon: <WrenchIcon className="w-5 h-5" />,
+    },
+    {
+      name: 'Fuel Tracker',
+      path: '/dashboard/fuel',
+      icon: <FuelIcon className="w-5 h-5" />,
+    },
+    {
+      name: 'Mileage',
+      path: '/dashboard/mileage',
+      icon: <ActivityIcon className="w-5 h-5" />,
+    },
+    {
+      name: 'Alerts & Reminders',
+      path: '/dashboard/alerts',
+      icon: <BellIcon className="w-5 h-5" />,
+    },
+    {
+      name: 'Documents',
+      path: '/dashboard/documents',
+      icon: <FileTextIcon className="w-5 h-5" />,
+    },
+    {
+      name: 'Reports',
+      path: '/dashboard/reports',
+      icon: <BarChart3Icon className="w-5 h-5" />,
+    },
+    {
+      name: 'Billing',
+      path: '/dashboard/billing',
+      icon: <CreditCardIcon className="w-5 h-5" />,
+    },
+    {
+      name: 'Settings',
+      path: '/dashboard/settings',
+      icon: <SettingsIcon className="w-5 h-5" />,
+    },
+  ];
 
   const handleLogout = async () => {
     try {

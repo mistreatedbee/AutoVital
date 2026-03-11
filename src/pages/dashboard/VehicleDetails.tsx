@@ -16,7 +16,7 @@ import { DataTable } from '../../components/ui/DataTable';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
 import { fetchVehicleDetails, type VehicleDetailsData, archiveVehicle } from '../../services/vehicles';
-import { fetchAccountMaintenanceLogs, type MaintenanceEntry } from '../../services/maintenance';
+import { fetchVehicleMaintenanceLogs, type MaintenanceEntry } from '../../services/maintenance';
 import { uploadVehicleImageFile } from '../../services/vehicleImageUpload';
 import { setPrimaryVehicleImage } from '../../services/vehicleImages';
 
@@ -39,9 +39,8 @@ export function VehicleDetails() {
 
     async function load() {
       try {
-        const [details, maintenance] = await Promise.all([
+        const [details] = await Promise.all([
           fetchVehicleDetails(accountId, id),
-          fetchAccountMaintenanceLogs(accountId),
         ]);
         if (!isMounted) return;
         if (!details) {
@@ -49,11 +48,9 @@ export function VehicleDetails() {
           return;
         }
         setVehicleDetails(details);
-
-        const filteredMaintenance = (maintenance ?? []).filter(
-          (entry) => entry.vehicleId != null && entry.vehicleId === details.vehicle.id,
-        );
-        setServiceHistory(filteredMaintenance);
+        const history = await fetchVehicleMaintenanceLogs(accountId, details.vehicle.id);
+        if (!isMounted) return;
+        setServiceHistory(history);
       } catch (err: any) {
         // eslint-disable-next-line no-console
         console.error('Failed to load vehicle details view', err);

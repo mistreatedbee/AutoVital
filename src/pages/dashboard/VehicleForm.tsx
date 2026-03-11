@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
 import { useAccount } from '../../account/AccountProvider';
 import { useAuth } from '../../auth/AuthProvider';
 import { LoadingState } from '../../components/states/LoadingState';
@@ -211,17 +210,22 @@ export function VehicleForm({ mode }: VehicleFormProps) {
                 value={licensePlate}
                 onChange={(e) => setLicensePlate(e.target.value)}
               />
-              <Select
-                label="Fuel Type"
-                value={fuelType}
-                onChange={(e) => setFuelType(e.target.value)}>
-                <option value="">Select fuel type</option>
-                <option value="gasoline">Gasoline</option>
-                <option value="diesel">Diesel</option>
-                <option value="electric">Electric</option>
-                <option value="hybrid">Hybrid</option>
-                <option value="other">Other</option>
-              </Select>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Fuel Type
+                </label>
+                <select
+                  className="mt-1 block w-full rounded-md border border-slate-300 bg-white py-2 px-3 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  value={fuelType}
+                  onChange={(e) => setFuelType(e.target.value)}>
+                  <option value="">Select fuel type</option>
+                  <option value="gasoline">Gasoline</option>
+                  <option value="diesel">Diesel</option>
+                  <option value="electric">Electric</option>
+                  <option value="hybrid">Hybrid</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
               <Input
                 label="Current Mileage"
                 type="number"

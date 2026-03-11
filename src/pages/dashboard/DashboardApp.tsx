@@ -7,6 +7,7 @@ import { VehicleDetails } from './VehicleDetails';
 import { VehicleForm } from './VehicleForm';
 import { MaintenanceLog } from './MaintenanceLog';
 import { FuelTracker } from './FuelTracker';
+import { MileageTracker } from './MileageTracker';
 import { AlertsReminders } from './AlertsReminders';
 import { Documents } from './Documents';
 import { ReportsAnalytics } from './ReportsAnalytics';
@@ -23,6 +24,7 @@ export function DashboardApp() {
         <Route path="/vehicles/:id/edit" element={<VehicleForm mode="edit" />} />
         <Route path="/maintenance" element={<MaintenanceLog />} />
         <Route path="/fuel" element={<FuelTracker />} />
+        <Route path="/mileage" element={<MileageTracker />} />
         <Route path="/alerts" element={<AlertsReminders />} />
         <Route path="/documents" element={<Documents />} />
         <Route path="/reports" element={<ReportsAnalytics />} />

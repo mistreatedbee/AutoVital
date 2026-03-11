@@ -132,6 +132,7 @@ CREATE TABLE IF NOT EXISTS maintenance_logs (
   cost_cents INTEGER,
   currency TEXT NOT NULL DEFAULT 'USD',
   vendor_name TEXT,
+  document_id UUID REFERENCES documents (id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -149,6 +150,21 @@ CREATE TABLE IF NOT EXISTS fuel_logs (
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS mileage_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+  vehicle_id UUID NOT NULL REFERENCES vehicles (id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
+  log_date DATE NOT NULL,
+  odometer NUMERIC NOT NULL,
+  source TEXT NOT NULL DEFAULT 'manual',
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mileage_logs_vehicle_date
+  ON mileage_logs (vehicle_id, log_date DESC);
 
 -- =========================
 --  Documents & Storage

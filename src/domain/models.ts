@@ -131,6 +131,18 @@ export interface FuelLog {
   createdAt: string;
 }
 
+export interface MileageLog {
+  id: UUID;
+  accountId: UUID;
+  vehicleId: UUID;
+  userId: UUID | null;
+  logDate: string;
+  odometer: number;
+  source: 'manual' | 'fuel_fill' | 'maintenance' | 'import' | string;
+  note: string | null;
+  createdAt: string;
+}
+
 export type DocumentType =
   | 'insurance'
   | 'registration'
