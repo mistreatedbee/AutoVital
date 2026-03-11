@@ -9,6 +9,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { LoadingState } from '../../components/states/LoadingState';
 import { fetchVehicleDetails, upsertVehicle } from '../../services/vehicles';
 import { uploadVehicleImageFile } from '../../services/vehicleImageUpload';
+import { recomputeAndPersistVehicleHealth } from '../../services/vehicleHealth';
 
 type VehicleFormMode = 'create' | 'edit';
 
@@ -80,6 +81,31 @@ export function VehicleForm({ mode }: VehicleFormProps) {
     setError(null);
 
     try {
+      if (!make.trim() || !model.trim()) {
+        setError('Make and model are required.');
+        setSaving(false);
+        return;
+      }
+
+      if (year) {
+        const yearNumber = Number(year);
+        const currentYear = new Date().getFullYear();
+        if (Number.isNaN(yearNumber) || yearNumber < 1900 || yearNumber > currentYear + 1) {
+          setError(`Year must be between 1900 and ${currentYear + 1}.`);
+          setSaving(false);
+          return;
+        }
+      }
+
+      if (currentMileage) {
+        const mileageNumber = Number(currentMileage.replace(/,/g, ''));
+        if (Number.isNaN(mileageNumber) || mileageNumber < 0) {
+          setError('Current mileage must be a non-negative number.');
+          setSaving(false);
+          return;
+        }
+      }
+
       const vehicle = await upsertVehicle({
         id: mode === 'edit' ? id : undefined,
         accountId,
@@ -100,15 +126,17 @@ export function VehicleForm({ mode }: VehicleFormProps) {
         return;
       }
 
+      const vehicleWithHealth = await recomputeAndPersistVehicleHealth(vehicle, null);
+
       if (imageFile) {
         await uploadVehicleImageFile({
           accountId,
-          vehicleId: vehicle.id,
+          vehicleId: vehicleWithHealth.id,
           file: imageFile,
         });
       }
 
-      navigate(`/dashboard/vehicles/${vehicle.id}`);
+      navigate(`/dashboard/vehicles/${vehicleWithHealth.id}`);
     } catch (err: any) {
       // eslint-disable-next-line no-console
       console.error('Vehicle save failed', err);

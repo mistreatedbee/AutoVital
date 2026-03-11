@@ -1,7 +1,10 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
+import type { Vehicle } from '../domain/models';
+import { recomputeAndPersistVehicleHealth } from './vehicleHealth';
 
 export interface MaintenanceEntry {
   id: string | number;
+  vehicleId: string | null;
   date: string;
   vehicle: string;
   service: string;
@@ -76,7 +79,7 @@ export async function fetchAccountMaintenanceLogs(
     const { data, error } = await client.database
       .from('maintenance_logs')
       .select(
-        'id, service_date, mileage, cost_cents, currency, vendor_name, type, vehicles(make, model)',
+        'id, vehicle_id, service_date, mileage, cost_cents, currency, vendor_name, type, vehicles(make, model)',
       )
       .eq('account_id', accountId)
       .order('service_date', { ascending: false });
@@ -104,6 +107,7 @@ export async function fetchAccountMaintenanceLogs(
 
       return {
         id: row.id,
+        vehicleId: row.vehicle_id ?? null,
         date: row.service_date,
         vehicle: vehicleName,
         service: row.type,
@@ -118,5 +122,80 @@ export async function fetchAccountMaintenanceLogs(
     console.warn('Maintenance service unavailable, using fallback data.', err);
     return FALLBACK_LOGS;
   }
+}
+
+interface CreateMaintenanceLogInput {
+  accountId: string;
+  vehicleId: string;
+  userId: string | null;
+  type: string;
+  description?: string | null;
+  mileage?: number | null;
+  serviceDate: string;
+  costCents?: number | null;
+  currency?: string | null;
+  vendorName?: string | null;
+}
+
+export async function createMaintenanceLogWithHealthUpdate(
+  input: CreateMaintenanceLogInput,
+): Promise<void> {
+  const client = getInsforgeClient();
+
+  const payload = {
+    account_id: input.accountId,
+    vehicle_id: input.vehicleId,
+    user_id: input.userId,
+    type: input.type,
+    description: input.description ?? null,
+    mileage: input.mileage ?? null,
+    service_date: input.serviceDate,
+    cost_cents: input.costCents ?? null,
+    currency: input.currency ?? 'USD',
+    vendor_name: input.vendorName ?? null,
+  };
+
+  const { error } = await client.database.from('maintenance_logs').insert([payload]);
+
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.warn('Failed to create maintenance log.', error);
+    return;
+  }
+
+  const { data: vehicleRows, error: vehicleError } = await client.database
+    .from('vehicles')
+    .select('*')
+    .eq('account_id', input.accountId)
+    .eq('id', input.vehicleId)
+    .limit(1);
+
+  if (vehicleError || !vehicleRows || !vehicleRows[0]) {
+    // eslint-disable-next-line no-console
+    console.warn('Failed to load vehicle for health recompute.', vehicleError);
+    return;
+  }
+
+  const row = vehicleRows[0] as any;
+  const vehicle: Vehicle = {
+    id: row.id,
+    accountId: row.account_id,
+    ownerUserId: row.owner_user_id,
+    nickname: row.nickname,
+    make: row.make,
+    model: row.model,
+    year: row.year,
+    vin: row.vin,
+    licensePlate: row.license_plate,
+    fuelType: row.fuel_type,
+    currentMileage: row.current_mileage != null ? Number(row.current_mileage) : null,
+    healthScore: row.health_score != null ? Number(row.health_score) : null,
+    heroImageUrl: row.hero_image_url ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    archivedAt: row.archived_at,
+  };
+
+  await recomputeAndPersistVehicleHealth(vehicle, input.serviceDate);
 }
 

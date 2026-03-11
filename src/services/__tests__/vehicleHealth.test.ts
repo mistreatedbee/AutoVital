@@ -55,5 +55,5 @@ describe('computeVehicleHealthScore', () => {
     });
     expect(score).toBeLessThan(100);
   });
-}
+});
 

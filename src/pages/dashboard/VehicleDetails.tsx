@@ -6,16 +6,19 @@ import {
   EditIcon,
   SettingsIcon,
   WrenchIcon,
-  FuelIcon } from
-'lucide-react';
+  FuelIcon,
+  PlusIcon,
+} from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { DataTable } from '../../components/ui/DataTable';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
-import { fetchVehicleDetails } from '../../services/vehicles';
-import { fetchAccountMaintenanceLogs } from '../../services/maintenance';
+import { fetchVehicleDetails, type VehicleDetailsData, archiveVehicle } from '../../services/vehicles';
+import { fetchAccountMaintenanceLogs, type MaintenanceEntry } from '../../services/maintenance';
+import { uploadVehicleImageFile } from '../../services/vehicleImageUpload';
+import { setPrimaryVehicleImage } from '../../services/vehicleImages';
 
 export function VehicleDetails() {
   const navigate = useNavigate();
@@ -24,8 +27,11 @@ export function VehicleDetails() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [vehicleDetails, setVehicleDetails] = useState<any | null>(null);
-  const [serviceHistory, setServiceHistory] = useState<any[]>([]);
+  const [vehicleDetails, setVehicleDetails] = useState<VehicleDetailsData | null>(null);
+  const [serviceHistory, setServiceHistory] = useState<MaintenanceEntry[]>([]);
+  const [archiving, setArchiving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!accountId || !id) return;
@@ -45,7 +51,7 @@ export function VehicleDetails() {
         setVehicleDetails(details);
 
         const filteredMaintenance = (maintenance ?? []).filter(
-          (entry) => entry.vehicle && details.vehicle && entry.vehicle.includes(details.vehicle.make),
+          (entry) => entry.vehicleId != null && entry.vehicleId === details.vehicle.id,
         );
         setServiceHistory(filteredMaintenance);
       } catch (err: any) {
@@ -139,12 +145,33 @@ export function VehicleDetails() {
             </p>
           </div>
         </div>
-        <Button
-          variant="secondary"
-          icon={<EditIcon className="w-4 h-4" />}
-          onClick={() => navigate(`/dashboard/vehicles/${vehicle.id}/edit`)}>
-          Edit Vehicle
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            variant="secondary"
+            icon={<EditIcon className="w-4 h-4" />}
+            onClick={() => navigate(`/dashboard/vehicles/${vehicle.id}/edit`)}>
+            Edit Vehicle
+          </Button>
+          <Button
+            variant="ghost"
+            className="text-red-600"
+            disabled={archiving}
+            onClick={async () => {
+              if (!accountId) return;
+              const confirmed = window.confirm(
+                'Archive this vehicle? It will be hidden from your garage but not permanently deleted.',
+              );
+              if (!confirmed) return;
+              setArchiving(true);
+              const success = await archiveVehicle(accountId, vehicle.id);
+              setArchiving(false);
+              if (success) {
+                navigate('/dashboard/vehicles');
+              }
+            }}>
+            {archiving ? 'Archiving…' : 'Archive'}
+          </Button>
+        </div>
       </div>
 
       {/* Top Overview */}
@@ -152,7 +179,11 @@ export function VehicleDetails() {
         <Card className="lg:col-span-2 overflow-hidden">
           <div className="h-64 relative">
             {heroImage ? (
-              <img src={heroImage} alt={vehicle.nickname ?? vehicle.model} className="w-full h-full object-cover" />
+              <img
+                src={heroImage}
+                alt={vehicle.nickname ?? vehicle.model}
+                className="w-full h-full object-cover"
+              />
             ) : (
               <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-500 text-sm">
                 No photo
@@ -178,6 +209,94 @@ export function VehicleDetails() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="border-t border-slate-100 bg-white px-6 py-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <h3 className="text-sm font-semibold text-slate-900">Photos</h3>
+                {uploadError && (
+                  <span className="text-xs text-red-600">{uploadError}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="inline-flex items-center text-xs text-slate-600 cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      if (!accountId || !id) return;
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setUploadError(null);
+                      setUploading(true);
+                      try {
+                        await uploadVehicleImageFile({
+                          accountId,
+                          vehicleId: vehicle.id,
+                          file,
+                        });
+                        const refreshed = await fetchVehicleDetails(accountId, id);
+                        if (refreshed) {
+                          setVehicleDetails(refreshed);
+                        }
+                      } catch (err: any) {
+                        // eslint-disable-next-line no-console
+                        console.error('Vehicle photo upload failed', err);
+                        setUploadError('Unable to upload photo. Please try again.');
+                      } finally {
+                        setUploading(false);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                  <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    <PlusIcon className="w-3 h-3" />
+                    {uploading ? 'Uploading…' : 'Add Photo'}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {images.length > 0 && (
+              <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
+                {images.map((img) => (
+                  <button
+                    key={img.id}
+                    type="button"
+                    className={`relative rounded-md overflow-hidden border ${
+                      img.isPrimary ? 'border-primary-500' : 'border-slate-200'
+                    }`}
+                    onClick={async () => {
+                      if (!accountId) return;
+                      if (img.isPrimary) return;
+                      try {
+                        await setPrimaryVehicleImage(accountId, vehicle.id, img.id);
+                        const refreshed = await fetchVehicleDetails(accountId, vehicle.id);
+                        if (refreshed) {
+                          setVehicleDetails(refreshed);
+                        }
+                      } catch (err: any) {
+                        // eslint-disable-next-line no-console
+                        console.error('Failed to set primary vehicle image', err);
+                      }
+                    }}
+                  >
+                    <img
+                      src={img.url}
+                      alt={vehicle.nickname ?? vehicle.model}
+                      className="h-16 w-24 object-cover"
+                    />
+                    {img.isPrimary && (
+                      <span className="absolute bottom-1 left-1 rounded-full bg-primary-600/90 text-[10px] font-semibold text-white px-2 py-0.5">
+                        Primary
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </Card>
 

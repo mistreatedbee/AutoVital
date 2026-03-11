@@ -5,7 +5,11 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
-import { fetchAccountVehicles, type VehicleSummary } from '../../services/vehicles';
+import {
+  fetchAccountVehicles,
+  type VehicleSummary,
+  archiveVehicle,
+} from '../../services/vehicles';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
 
@@ -15,6 +19,7 @@ export function MyVehicles() {
   const [vehicles, setVehicles] = useState<VehicleSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [archivingId, setArchivingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!accountId) {
@@ -23,22 +28,45 @@ export function MyVehicles() {
 
     let isMounted = true;
 
-    fetchAccountVehicles(accountId)
-      .then((data) => {
-        if (isMounted) {
-          setVehicles(data);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
+    const load = () => {
+      setLoading(true);
+      fetchAccountVehicles(accountId)
+        .then((data) => {
+          if (isMounted) {
+            setVehicles(data);
+          }
+        })
+        .finally(() => {
+          if (isMounted) {
+            setLoading(false);
+          }
+        });
+    };
+
+    load();
 
     return () => {
       isMounted = false;
     };
   }, [accountId]);
+
+  const handleArchive = async (vehicleId: string) => {
+    if (!accountId) return;
+    const confirmed = window.confirm(
+      'Archive this vehicle? It will be hidden from your garage but not permanently deleted.',
+    );
+    if (!confirmed) return;
+
+    setArchivingId(vehicleId);
+    try {
+      const success = await archiveVehicle(accountId, vehicleId);
+      if (success) {
+        setVehicles((current) => current.filter((v) => v.id !== vehicleId));
+      }
+    } finally {
+      setArchivingId(null);
+    }
+  };
 
   const filtered = vehicles.filter((vehicle) => {
     const term = search.toLowerCase();
@@ -165,8 +193,18 @@ export function MyVehicles() {
                     View Details
                   </Button>
                 </Link>
-                <Button variant="ghost" className="px-4">
+                <Button
+                  variant="ghost"
+                  className="px-4"
+                  onClick={() => navigate(`/dashboard/vehicles/${vehicle.id}/edit`)}>
                   Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="px-4 text-red-600"
+                  disabled={archivingId === vehicle.id}
+                  onClick={() => handleArchive(vehicle.id)}>
+                  {archivingId === vehicle.id ? 'Archiving…' : 'Archive'}
                 </Button>
               </div>
             </div>

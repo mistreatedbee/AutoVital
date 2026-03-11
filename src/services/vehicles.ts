@@ -106,8 +106,10 @@ export async function fetchAccountVehicles(accountId: string | null): Promise<Ve
     }
 
     return (data as any[]).map((v) => {
-      const mileageNumber = v.current_mileage ?? null;
+      const mileageNumber =
+        v.current_mileage != null ? Number(v.current_mileage) : null;
       const mileage = mileageNumber != null ? mileageNumber.toLocaleString() : null;
+      const health = v.health_score != null ? Number(v.health_score) : null;
 
       return {
         id: v.id,
@@ -115,10 +117,10 @@ export async function fetchAccountVehicles(accountId: string | null): Promise<Ve
         year: v.year ?? null,
         mileage,
         type: v.fuel_type ?? null,
-        health: v.health_score ?? null,
+        health,
         nextService: null,
         imageUrl: v.hero_image_url ?? null,
-        status: deriveHealthStatus(v.health_score ?? null),
+        status: deriveHealthStatus(health),
       };
     });
   } catch (err) {
@@ -179,7 +181,17 @@ export async function fetchVehicleDetails(
       console.warn('Failed to load vehicle health snapshot.', healthError);
     }
 
-    const healthSnapshot = (healthRows && healthRows[0]) as VehicleHealthSnapshot | undefined;
+    const healthSnapshot: VehicleHealthSnapshot | undefined =
+      healthRows && healthRows[0]
+        ? {
+            id: healthRows[0].id,
+            vehicleId: healthRows[0].vehicle_id,
+            accountId: healthRows[0].account_id,
+            score: Number(healthRows[0].score),
+            snapshotDate: healthRows[0].snapshot_date,
+            createdAt: healthRows[0].created_at,
+          }
+        : undefined;
     const score: number | null =
       vehicleRow.health_score != null
         ? Number(vehicleRow.health_score)
@@ -206,8 +218,12 @@ export async function fetchVehicleDetails(
       vin: vehicleRow.vin,
       licensePlate: vehicleRow.license_plate,
       fuelType: vehicleRow.fuel_type,
-      currentMileage: vehicleRow.current_mileage,
-      healthScore: vehicleRow.health_score,
+      currentMileage:
+        vehicleRow.current_mileage != null
+          ? Number(vehicleRow.current_mileage)
+          : null,
+      healthScore:
+        vehicleRow.health_score != null ? Number(vehicleRow.health_score) : null,
       heroImageUrl: vehicleRow.hero_image_url ?? null,
       createdAt: vehicleRow.created_at,
       updatedAt: vehicleRow.updated_at,
@@ -219,6 +235,8 @@ export async function fetchVehicleDetails(
       vehicleId: row.vehicle_id,
       accountId: row.account_id,
       url: row.url,
+      storageBucket: row.storage_bucket ?? null,
+      storageKey: row.storage_key ?? null,
       provider: row.provider ?? null,
       isPrimary: row.is_primary ?? false,
       createdAt: row.created_at,
@@ -291,8 +309,8 @@ export async function upsertVehicle(input: UpsertVehicleInput): Promise<Vehicle 
       vin: row.vin,
       licensePlate: row.license_plate,
       fuelType: row.fuel_type,
-      currentMileage: row.current_mileage,
-      healthScore: row.health_score,
+      currentMileage: row.current_mileage != null ? Number(row.current_mileage) : null,
+      healthScore: row.health_score != null ? Number(row.health_score) : null,
       heroImageUrl: row.hero_image_url ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

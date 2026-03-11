@@ -99,3 +99,40 @@ export async function recomputeAndPersistVehicleHealth(
   };
 }
 
+export async function createVehicleHealthSnapshot(
+  vehicle: Vehicle,
+  score: number,
+): Promise<VehicleHealthSnapshot | null> {
+  const client = getInsforgeClient();
+
+  const payload = {
+    vehicle_id: vehicle.id,
+    account_id: vehicle.accountId,
+    score,
+    snapshot_date: new Date().toISOString().slice(0, 10),
+  };
+
+  const { data, error } = await client.database
+    .from('vehicle_health_snapshots')
+    .insert([payload])
+    .select('*')
+    .limit(1);
+
+  if (error || !data || !data[0]) {
+    // eslint-disable-next-line no-console
+    console.warn('Failed to create vehicle health snapshot.', error);
+    return null;
+  }
+
+  const row = data[0] as any;
+
+  return {
+    id: row.id,
+    vehicleId: row.vehicle_id,
+    accountId: row.account_id,
+    score: Number(row.score),
+    snapshotDate: row.snapshot_date,
+    createdAt: row.created_at,
+  };
+}
+
