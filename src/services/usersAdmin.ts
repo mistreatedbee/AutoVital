@@ -7,6 +7,8 @@ export interface AdminUserAccountMembership {
   role: AccountRole;
 }
 
+export type AccountStatus = 'active' | 'suspended' | 'pending';
+
 export interface AdminUserListItem {
   id: UUID;
   email: string;
@@ -14,12 +16,25 @@ export interface AdminUserListItem {
   createdAt: string;
   defaultAccountName: string | null;
   memberships: AdminUserAccountMembership[];
+  emailVerified: boolean;
+  marketingConsent: boolean;
+  onboardingCompleted: boolean;
+  vehicleCount: number;
+  planCode: string | null;
+  accountStatus: AccountStatus;
+  flaggedAt: string | null;
+  flaggedReason: string | null;
 }
 
 export interface AdminUserListFilters {
   search?: string;
   role?: AccountRole | 'all';
   planCode?: string | 'all';
+  verified?: boolean;
+  onboardingComplete?: boolean;
+  accountStatus?: AccountStatus | 'all';
+  noVehicle?: boolean;
+  flagged?: boolean;
 }
 
 export interface AdminUserListResult {
@@ -34,10 +49,12 @@ export async function fetchAdminUsers(
   try {
     const search = (filters.search ?? '').trim();
 
-    // Load users + profiles
+    // Load users + profiles with Phase E columns
     const { data: usersData, error: usersError } = await client.database
       .from('auth_users_view')
-      .select('id, email, full_name, created_at, default_account_name');
+      .select(
+        'id, email, full_name, created_at, default_account_name, email_confirmed_at, marketing_consent, onboarding_completed, vehicle_count, plan_code, account_status, flagged_at, flagged_reason',
+      );
 
     if (usersError || !usersData) {
       // eslint-disable-next-line no-console
@@ -45,16 +62,41 @@ export async function fetchAdminUsers(
       return { users: [] };
     }
 
-    const rawUsers = usersData as any[];
+    let rawUsers = usersData as any[];
 
-    // Apply simple in-memory search filter for MVP
-    const filteredUsers =
-      search.length > 0
-        ? rawUsers.filter((u) => {
-            const haystack = `${u.email ?? ''} ${u.full_name ?? ''}`.toLowerCase();
-            return haystack.includes(search.toLowerCase());
-          })
-        : rawUsers;
+    // Apply search filter
+    if (search.length > 0) {
+      rawUsers = rawUsers.filter((u) => {
+        const haystack = `${u.email ?? ''} ${u.full_name ?? ''}`.toLowerCase();
+        return haystack.includes(search.toLowerCase());
+      });
+    }
+
+    // Apply Phase E filters
+    if (filters.verified === true) {
+      rawUsers = rawUsers.filter((u) => u.email_confirmed_at != null);
+    } else if (filters.verified === false) {
+      rawUsers = rawUsers.filter((u) => u.email_confirmed_at == null);
+    }
+    if (filters.onboardingComplete === true) {
+      rawUsers = rawUsers.filter((u) => u.onboarding_completed === true);
+    } else if (filters.onboardingComplete === false) {
+      rawUsers = rawUsers.filter((u) => u.onboarding_completed !== true);
+    }
+    if (filters.accountStatus && filters.accountStatus !== 'all') {
+      rawUsers = rawUsers.filter((u) => (u.account_status ?? 'active') === filters.accountStatus);
+    }
+    if (filters.noVehicle === true) {
+      rawUsers = rawUsers.filter((u) => (u.vehicle_count ?? 0) === 0);
+    }
+    if (filters.flagged === true) {
+      rawUsers = rawUsers.filter((u) => u.flagged_at != null);
+    }
+    if (filters.planCode && filters.planCode !== 'all') {
+      rawUsers = rawUsers.filter((u) => (u.plan_code ?? null) === filters.planCode);
+    }
+
+    const filteredUsers = rawUsers;
 
     // Load memberships joined with accounts for all users we have
     const userIds = filteredUsers.map((u) => u.id);
@@ -87,6 +129,7 @@ export async function fetchAdminUsers(
 
     const users: AdminUserListItem[] = filteredUsers.map((u) => {
       const memberships = membershipsByUserId.get(u.id) ?? [];
+      const accountStatus = (u.account_status ?? 'active') as AccountStatus;
 
       return {
         id: u.id,
@@ -95,6 +138,17 @@ export async function fetchAdminUsers(
         createdAt: u.created_at,
         defaultAccountName: u.default_account_name ?? null,
         memberships,
+        emailVerified: u.email_confirmed_at != null,
+        marketingConsent: Boolean(u.marketing_consent),
+        onboardingCompleted: Boolean(u.onboarding_completed),
+        vehicleCount: Number(u.vehicle_count ?? 0),
+        planCode: u.plan_code ?? null,
+        accountStatus:
+          accountStatus === 'active' || accountStatus === 'suspended' || accountStatus === 'pending'
+            ? accountStatus
+            : 'active',
+        flaggedAt: u.flagged_at ?? null,
+        flaggedReason: u.flagged_reason ?? null,
       };
     });
 
@@ -103,6 +157,53 @@ export async function fetchAdminUsers(
     // eslint-disable-next-line no-console
     console.warn('Admin users service failed.', err);
     return { users: [] };
+  }
+}
+
+/**
+ * Resend verification email for a user (admin workflow)
+ */
+export async function adminResendVerification(email: string): Promise<void> {
+  const client = getInsforgeClient();
+  const { error } = await client.auth.resendVerificationEmail({ email });
+  if (error) {
+    throw new Error(error.message ?? 'Failed to resend verification email');
+  }
+}
+
+/**
+ * Set account status for a user (admin workflow)
+ */
+export async function adminSetAccountStatus(
+  userId: string,
+  status: AccountStatus,
+): Promise<void> {
+  const client = getInsforgeClient();
+  const { error } = await client.database.rpc('admin_set_account_status', {
+    p_user_id: userId,
+    p_status: status,
+  });
+  if (error) {
+    throw new Error(error.message ?? 'Failed to set account status');
+  }
+}
+
+/**
+ * Flag or unflag a user (admin workflow)
+ */
+export async function adminSetFlagged(
+  userId: string,
+  flagged: boolean,
+  reason?: string | null,
+): Promise<void> {
+  const client = getInsforgeClient();
+  const { error } = await client.database.rpc('admin_set_flagged', {
+    p_user_id: userId,
+    p_flagged: flagged,
+    p_reason: reason ?? null,
+  });
+  if (error) {
+    throw new Error(error.message ?? 'Failed to update flag status');
   }
 }
 

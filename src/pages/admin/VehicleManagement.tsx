@@ -1,5 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { SearchIcon, FilterIcon, MoreVerticalIcon } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  SearchIcon,
+  FilterIcon,
+  MoreVerticalIcon,
+  XIcon,
+  CarIcon,
+  FileTextIcon,
+  BellIcon,
+} from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DataTable } from '../../components/ui/DataTable';
@@ -7,8 +15,11 @@ import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
 import {
   fetchAdminVehicles,
+  fetchAdminVehicleDetail,
   type AdminVehicleRow,
+  type AdminVehicleDetail,
 } from '../../services/adminOperations';
+import { Link } from 'react-router-dom';
 
 export function VehicleManagement() {
   const [vehicles, setVehicles] = useState<AdminVehicleRow[]>([]);
@@ -16,6 +27,8 @@ export function VehicleManagement() {
   const [search, setSearch] = useState('');
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const [healthFilter, setHealthFilter] = useState<string>('all');
+  const [detailVehicle, setDetailVehicle] = useState<AdminVehicleDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -50,7 +63,10 @@ export function VehicleManagement() {
   }, [page, accountFilter]);
 
   const accounts = useMemo(
-    () => Array.from(new Set(vehicles.map((v) => v.accountName))).sort(),
+    () =>
+      Array.from(
+        new Map(vehicles.map((v) => [v.accountId, { id: v.accountId, name: v.accountName }])).values(),
+      ).sort((a, b) => a.name.localeCompare(b.name)),
     [vehicles],
   );
 
@@ -60,7 +76,7 @@ export function VehicleManagement() {
     return vehicles.filter((v) => {
       if (
         accountFilter !== 'all' &&
-        v.accountName.toLowerCase() !== accountFilter.toLowerCase()
+        v.accountId !== accountFilter
       ) {
         return false;
       }
@@ -80,9 +96,7 @@ export function VehicleManagement() {
 
       if (!term) return true;
 
-      const haystack = `${v.accountName} ${v.make} ${v.model} ${v.year ?? ''} ${
-        v.vin ?? ''
-      }`.toLowerCase();
+      const haystack = `${v.accountName} ${v.make} ${v.model} ${v.year ?? ''} ${v.vin ?? ''} ${v.licensePlate ?? ''} ${v.ownerEmail ?? ''}`.toLowerCase();
       return haystack.includes(term);
     });
   }, [vehicles, search, accountFilter, healthFilter]);
@@ -109,20 +123,38 @@ export function VehicleManagement() {
 
   const showPagination = vehicles.length > 0 && (page > 1 || hasMore);
 
+  const openDetail = useCallback(async (row: AdminVehicleRow) => {
+    setDetailLoading(true);
+    setDetailVehicle(null);
+    try {
+      const detail = await fetchAdminVehicleDetail(row.id);
+      setDetailVehicle(detail ?? null);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
   const columns = useMemo(
     () => [
       {
         key: 'vehicle',
         header: 'Vehicle',
         render: (_: unknown, row: AdminVehicleRow) => (
-          <div>
+          <button
+            type="button"
+            className="text-left hover:underline focus:outline-none focus:underline"
+            onClick={(e) => {
+              e.stopPropagation();
+              openDetail(row);
+            }}
+          >
             <div className="font-medium text-slate-900">
               {row.year ?? '—'} {row.make} {row.model}
             </div>
             {row.vin && (
               <div className="text-xs text-slate-500 font-mono">{row.vin}</div>
             )}
-          </div>
+          </button>
         ),
       },
       {
@@ -133,10 +165,51 @@ export function VehicleManagement() {
         ),
       },
       {
+        key: 'ownerEmail',
+        header: 'Owner',
+        render: (value: string | null) => (
+          <span className="text-sm text-slate-600">{value ?? '—'}</span>
+        ),
+      },
+      {
+        key: 'licensePlate',
+        header: 'Registration',
+        render: (value: string | null) => (
+          <span className="text-sm text-slate-700 font-mono">{value ?? '—'}</span>
+        ),
+      },
+      {
         key: 'mileage',
         header: 'Mileage',
         render: (value: string | null) =>
-          value ? `${value} mi` : <span className="text-xs text-slate-400">—</span>,
+          value ? `${value}` : <span className="text-xs text-slate-400">—</span>,
+      },
+      {
+        key: 'lastServiceDate',
+        header: 'Last Service',
+        render: (value: string | null) => {
+          const date = value ? new Date(value) : null;
+          return (
+            <span className="text-sm text-slate-600">
+              {date ? date.toLocaleDateString() : '—'}
+            </span>
+          );
+        },
+      },
+      {
+        key: 'nextServiceDue',
+        header: 'Next Service',
+        render: (value: string | null) => {
+          const date = value ? new Date(value) : null;
+          const isOverdue = date && date < new Date();
+          return (
+            <span
+              className={`text-sm ${isOverdue ? 'text-rose-600 font-medium' : 'text-slate-600'}`}
+            >
+              {date ? date.toLocaleDateString() : '—'}
+            </span>
+          );
+        },
       },
       {
         key: 'healthScore',
@@ -149,6 +222,22 @@ export function VehicleManagement() {
             value >= 90 ? 'accent' : value >= 80 ? 'primary' : 'warning';
           return <Badge variant={variant}>{value}%</Badge>;
         },
+      },
+      {
+        key: 'documentCount',
+        header: 'Docs',
+        render: (value: number) => (
+          <span className="text-sm text-slate-600">{value}</span>
+        ),
+      },
+      {
+        key: 'pendingAlertCount',
+        header: 'Alerts',
+        render: (value: number) => (
+          <Badge variant={value > 0 ? 'warning' : 'neutral'} className="text-xs">
+            {value}
+          </Badge>
+        ),
       },
       {
         key: 'createdAt',
@@ -165,14 +254,22 @@ export function VehicleManagement() {
       {
         key: 'actions',
         header: '',
-        render: () => (
-          <button className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+        render: (_: unknown, row: AdminVehicleRow) => (
+          <button
+            type="button"
+            className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              openDetail(row);
+            }}
+            aria-label="View details"
+          >
             <MoreVerticalIcon className="w-5 h-5" />
           </button>
         ),
       },
     ],
-    [],
+    [openDetail],
   );
 
   return (
@@ -183,7 +280,7 @@ export function VehicleManagement() {
             Platform Vehicles
           </h1>
           <p className="text-slate-500 mt-1">
-            Global view of all tracked vehicles across all customer accounts.
+            Global view of all tracked vehicles with user linkage, service, and alerts.
           </p>
         </div>
       </div>
@@ -223,7 +320,7 @@ export function VehicleManagement() {
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
           <Input
-            placeholder="Search by VIN, Account, Make, or Model..."
+            placeholder="Search by VIN, Account, Make, Model, Registration, Owner..."
             icon={<SearchIcon className="w-4 h-4" />}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -239,9 +336,9 @@ export function VehicleManagement() {
             }}
           >
             <option value="all">All accounts</option>
-            {accounts.map((name) => (
-              <option key={name} value={name}>
-                {name}
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
               </option>
             ))}
           </select>
@@ -261,7 +358,7 @@ export function VehicleManagement() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
         {loading ? (
           <div className="p-8 text-center text-slate-400 text-sm">
             Loading vehicles...
@@ -299,7 +396,122 @@ export function VehicleManagement() {
           </>
         )}
       </div>
+
+      {/* Vehicle Detail Modal */}
+      {detailLoading && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-8 shadow-xl">Loading...</div>
+        </div>
+      )}
+      {detailVehicle && !detailLoading && (
+        <div
+          className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4"
+          onClick={() => setDetailVehicle(null)}
+          aria-hidden
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-labelledby="vehicle-detail-title"
+          >
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h2
+                id="vehicle-detail-title"
+                className="text-xl font-bold text-slate-900"
+              >
+                {detailVehicle.year} {detailVehicle.make} {detailVehicle.model}
+              </h2>
+              <button
+                type="button"
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-lg"
+                onClick={() => setDetailVehicle(null)}
+                aria-label="Close"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-slate-500 uppercase">VIN</p>
+                  <p className="font-mono text-sm">{detailVehicle.vin ?? '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase">Registration</p>
+                  <p className="font-mono text-sm">{detailVehicle.licensePlate ?? '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase">Mileage</p>
+                  <p className="text-sm">{detailVehicle.mileage ?? '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase">Health Score</p>
+                  <Badge
+                    variant={
+                      (detailVehicle.healthScore ?? 0) >= 90
+                        ? 'accent'
+                        : (detailVehicle.healthScore ?? 0) >= 80
+                          ? 'primary'
+                          : 'warning'
+                    }
+                  >
+                    {detailVehicle.healthScore ?? 'N/A'}%
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase">Last Service</p>
+                  <p className="text-sm">
+                    {detailVehicle.lastServiceDate
+                      ? new Date(detailVehicle.lastServiceDate).toLocaleDateString()
+                      : '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase">Next Service Due</p>
+                  <p className="text-sm">
+                    {detailVehicle.nextServiceDue
+                      ? new Date(detailVehicle.nextServiceDue).toLocaleDateString()
+                      : '—'}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase">Account & Owner</p>
+                <p className="text-sm">{detailVehicle.accountName}</p>
+                <p className="text-sm text-slate-600">{detailVehicle.ownerEmail ?? '—'}</p>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex items-center gap-2">
+                  <FileTextIcon className="w-4 h-4 text-slate-400" />
+                  <span className="text-sm">{detailVehicle.documentCount} documents</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <BellIcon className="w-4 h-4 text-slate-400" />
+                  <span className="text-sm">{detailVehicle.pendingAlertCount} pending alerts</span>
+                </div>
+              </div>
+              <div className="pt-4 border-t border-slate-100 flex gap-2">
+                <Link to={`/dashboard/vehicles/${detailVehicle.id}`}>
+                  <Button variant="primary" icon={<CarIcon className="w-4 h-4" />}>
+                    View in Dashboard
+                  </Button>
+                </Link>
+                <Link to={`/admin/maintenance?vehicleId=${detailVehicle.id}`}>
+                  <Button variant="secondary" icon={<FileTextIcon className="w-4 h-4" />}>
+                    Maintenance
+                  </Button>
+                </Link>
+                <Link to={`/admin/documents?vehicleId=${detailVehicle.id}`}>
+                  <Button variant="secondary" icon={<FileTextIcon className="w-4 h-4" />}>
+                    Documents
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

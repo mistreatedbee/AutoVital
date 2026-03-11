@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   UsersIcon,
   CreditCardIcon,
@@ -9,8 +9,11 @@ import {
   ServerIcon,
   DatabaseIcon,
   WifiIcon,
-  AlertCircleIcon } from
-'lucide-react';
+  AlertCircleIcon,
+  BellIcon,
+  MailCheckIcon,
+  ClipboardCheckIcon,
+} from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -28,6 +31,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { chartColors, cssVarHsl } from '../../lib/tokens';
+import { fetchAdminDashboardMetrics, type AdminDashboardMetrics } from '../../services/adminMetrics';
 const revenueData = [
 {
   month: 'Jan',
@@ -84,7 +88,37 @@ const signupData = [
   users: 220
 }];
 
+const emptyMetrics: AdminDashboardMetrics = {
+  newRegistrationsThisWeek: 0,
+  verifiedCount: 0,
+  unverifiedCount: 0,
+  totalUsers: 0,
+  onboardingCompletedCount: 0,
+  onboardingCompletionRate: 0,
+  vehiclesPerUser: 0,
+  upcomingReminderCount: 0,
+  overdueReminderCount: 0,
+  totalVehicles: 0,
+};
+
 export function AdminDashboard() {
+  const [metrics, setMetrics] = useState<AdminDashboardMetrics>(emptyMetrics);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAdminDashboardMetrics()
+      .then((m) => {
+        if (!cancelled) setMetrics(m);
+      })
+      .finally(() => {
+        if (!cancelled) setMetricsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="space-y-10">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -100,56 +134,91 @@ export function AdminDashboard() {
           <Button
             variant="secondary"
             icon={<ActivityIcon className="w-4 h-4" />}>
-
             System Logs
           </Button>
           <Button
             variant="primary"
             className="bg-rose-600 hover:bg-rose-700 hover:from-rose-600 hover:to-rose-700 shadow-rose-500/30 border-none">
-
             Generate Report
           </Button>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Users"
-          value="10,432"
-          change="+12% this month"
-          trend="up"
-          accentColor="primary"
-          icon={<UsersIcon className="w-6 h-6" />}
-          sparklineData={[8000, 8500, 9200, 9800, 10100, 10432]} />
+      {/* Phase E: Admin Dashboard Metrics */}
+      <div>
+        <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
+          Platform Metrics
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+          <StatCard
+            title="New Registrations"
+            value={metricsLoading ? '...' : metrics.newRegistrationsThisWeek.toLocaleString()}
+            change="This week"
+            trend="neutral"
+            accentColor="primary"
+            icon={<UsersIcon className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Verified"
+            value={metricsLoading ? '...' : metrics.verifiedCount.toLocaleString()}
+            change={`/ ${metrics.totalUsers}`}
+            trend="neutral"
+            accentColor="accent"
+            icon={<MailCheckIcon className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Unverified"
+            value={metricsLoading ? '...' : metrics.unverifiedCount.toLocaleString()}
+            trend="neutral"
+            accentColor="warning"
+            icon={<UsersIcon className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Onboarding Rate"
+            value={metricsLoading ? '...' : `${metrics.onboardingCompletionRate}%`}
+            change="Complete"
+            trend="neutral"
+            accentColor="purple"
+            icon={<ClipboardCheckIcon className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Vehicles per User"
+            value={metricsLoading ? '...' : metrics.vehiclesPerUser.toFixed(1)}
+            trend="neutral"
+            accentColor="primary"
+            icon={<CarIcon className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Total Vehicles"
+            value={metricsLoading ? '...' : metrics.totalVehicles.toLocaleString()}
+            trend="neutral"
+            accentColor="accent"
+            icon={<CarIcon className="w-6 h-6" />}
+          />
+        </div>
+      </div>
 
-        <StatCard
-          title="Active Subscriptions"
-          value="8,102"
-          change="+5% this month"
-          trend="up"
-          accentColor="purple"
-          icon={<CreditCardIcon className="w-6 h-6" />}
-          sparklineData={[7500, 7600, 7800, 7900, 8000, 8102]} />
-
-        <StatCard
-          title="Monthly Revenue"
-          value="$142.5k"
-          change="+18% this month"
-          trend="up"
-          accentColor="rose"
-          icon={<TrendingUpIcon className="w-6 h-6" />}
-          sparklineData={[85, 92, 105, 112, 125, 142.5]} />
-
-        <StatCard
-          title="Vehicles Tracked"
-          value="24,847"
-          change="+8% this month"
-          trend="up"
-          accentColor="warning"
-          icon={<CarIcon className="w-6 h-6" />}
-          sparklineData={[20000, 21500, 22800, 23500, 24100, 24847]} />
-
+      {/* Upcoming / Overdue Reminders */}
+      <div>
+        <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
+          Reminders & Alerts
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <StatCard
+            title="Upcoming Reminders"
+            value={metricsLoading ? '...' : metrics.upcomingReminderCount.toLocaleString()}
+            trend="neutral"
+            accentColor="primary"
+            icon={<BellIcon className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Overdue Reminders"
+            value={metricsLoading ? '...' : metrics.overdueReminderCount.toLocaleString()}
+            trend={metrics.overdueReminderCount > 0 ? 'down' : 'neutral'}
+            accentColor="warning"
+            icon={<AlertCircleIcon className="w-6 h-6" />}
+          />
+        </div>
       </div>
 
       {/* Platform Health */}

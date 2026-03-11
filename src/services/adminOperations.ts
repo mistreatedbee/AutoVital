@@ -8,14 +8,25 @@ import {
 
 export interface AdminVehicleRow {
   id: string;
+  accountId: string;
   accountName: string;
   make: string;
   model: string;
   year: number | null;
   vin: string | null;
+  licensePlate: string | null;
   mileage: string | null;
   healthScore: number | null;
   createdAt: string;
+  ownerEmail: string | null;
+  lastServiceDate: string | null;
+  nextServiceDue: string | null;
+  documentCount: number;
+  pendingAlertCount: number;
+}
+
+export interface AdminVehicleDetail extends AdminVehicleRow {
+  accountId: string;
 }
 
 export interface AdminMaintenanceRow {
@@ -56,6 +67,34 @@ export interface AdminVehicleFilters extends PaginatedParams {
   includeArchived?: boolean;
 }
 
+function mapAdminVehicleRow(row: Record<string, unknown>): AdminVehicleRow {
+  const mileage =
+    row.current_mileage != null ? Number(row.current_mileage).toLocaleString() : null;
+  const health = row.health_score != null ? Number(row.health_score) : null;
+  const lastService =
+    row.last_service_date != null ? String(row.last_service_date).slice(0, 10) : null;
+  const nextService =
+    row.next_service_due != null ? String(row.next_service_due).slice(0, 10) : null;
+  return {
+    id: row.id as string,
+    accountId: (row.account_id as string) ?? '',
+    accountName: (row.account_name as string) ?? 'Account',
+    make: row.make as string,
+    model: row.model as string,
+    year: (row.year as number) ?? null,
+    vin: (row.vin as string) ?? null,
+    licensePlate: (row.license_plate as string) ?? null,
+    mileage,
+    healthScore: health,
+    createdAt: row.created_at as string,
+    ownerEmail: (row.owner_email as string) ?? null,
+    lastServiceDate: lastService,
+    nextServiceDue: nextService,
+    documentCount: Number(row.document_count ?? 0),
+    pendingAlertCount: Number(row.pending_alert_count ?? 0),
+  };
+}
+
 export async function fetchAdminVehicles(
   params: AdminVehicleFilters = {},
 ): Promise<PaginatedResult<AdminVehicleRow>> {
@@ -63,9 +102,9 @@ export async function fetchAdminVehicles(
   try {
     const client = getInsforgeClient();
     let query = client.database
-      .from('vehicles')
+      .from('admin_vehicles_view')
       .select(
-        'id, make, model, year, vin, current_mileage, health_score, created_at, accounts(name)',
+        'id, account_id, account_name, make, model, year, vin, license_plate, current_mileage, health_score, created_at, owner_email, last_service_date, next_service_due, document_count, pending_alert_count',
       )
       .order('created_at', { ascending: false });
 
@@ -81,34 +120,48 @@ export async function fetchAdminVehicles(
 
     if (error || !data) {
       // eslint-disable-next-line no-console
-      console.warn('Failed to load admin vehicles.', error);
+      console.warn('Failed to load admin vehicles (admin_vehicles_view).', error);
       return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
     }
 
-    const items = (data as any[]).map((row) => {
-      const mileage =
-        row.current_mileage != null ? Number(row.current_mileage).toLocaleString() : null;
-      const health = row.health_score != null ? Number(row.health_score) : null;
-
-      return {
-        id: row.id,
-        accountName: row.accounts?.name ?? 'Account',
-        make: row.make,
-        model: row.model,
-        year: row.year ?? null,
-        vin: row.vin ?? null,
-        mileage,
-        healthScore: health,
-        createdAt: row.created_at,
-      } as AdminVehicleRow;
-    });
-
+    const items = (data as any[]).map((r) => mapAdminVehicleRow(r as Record<string, unknown>));
     const hasMore = items.length === limit;
     return { items, page, pageSize, hasMore };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Admin vehicles service failed.', err);
     return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
+  }
+}
+
+export async function fetchAdminVehicleDetail(
+  vehicleId: string,
+): Promise<AdminVehicleDetail | null> {
+  try {
+    const client = getInsforgeClient();
+    const { data, error } = await client.database
+      .from('admin_vehicles_view')
+      .select(
+        'id, account_id, account_name, make, model, year, vin, license_plate, current_mileage, health_score, created_at, owner_email, last_service_date, next_service_due, document_count, pending_alert_count',
+      )
+      .eq('id', vehicleId)
+      .maybeSingle();
+
+    if (error || !data) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to load admin vehicle detail.', error);
+      return null;
+    }
+
+    const row = data as Record<string, unknown>;
+    return {
+      ...mapAdminVehicleRow(row),
+      accountId: row.account_id as string,
+    };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Admin vehicle detail failed.', err);
+    return null;
   }
 }
 

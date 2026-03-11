@@ -46,6 +46,7 @@ export const queryKeys = {
     detail: (slug: string) => ['blog', 'detail', slug] as const,
   },
   admin: {
+    metrics: () => ['admin', 'metrics'] as const,
     vehicles: (params?: object) => ['admin', 'vehicles', params ?? {}] as const,
     maintenance: (params?: object) => ['admin', 'maintenance', params ?? {}] as const,
     fuel: (params?: object) => ['admin', 'fuel', params ?? {}] as const,

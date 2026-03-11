@@ -476,3 +476,147 @@ CREATE POLICY "users_select_own_memberships" ON account_members FOR SELECT
     )
   );
 
+-- =========================
+--  Phase E: Admin Enhancements
+-- =========================
+
+-- Profiles: account status and flagging for admin workflows
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS account_status TEXT DEFAULT 'active';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS flagged_at TIMESTAMPTZ;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS flagged_reason TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_account_status_check') THEN
+    ALTER TABLE profiles ADD CONSTRAINT profiles_account_status_check
+    CHECK (account_status IS NULL OR account_status IN ('active', 'suspended', 'pending'));
+  END IF;
+END $$;
+
+-- admin_account_memberships_view: user_id, account_id, account_name, role
+CREATE OR REPLACE VIEW admin_account_memberships_view AS
+SELECT
+  am.user_id,
+  am.account_id,
+  a.name AS account_name,
+  am.role::TEXT AS role
+FROM account_members am
+JOIN accounts a ON a.id = am.account_id;
+
+-- auth_users_view: admin user record with verification, consent, onboarding, vehicles, plan, status
+CREATE OR REPLACE VIEW auth_users_view AS
+SELECT
+  u.id,
+  u.email,
+  COALESCE(p.display_name, u.raw_user_meta_data->>'name') AS full_name,
+  u.created_at,
+  a_def.name AS default_account_name,
+  u.email_confirmed_at,
+  (SELECT c.granted FROM consents c WHERE c.user_id = u.id AND c.consent_type = 'marketing' ORDER BY c.created_at DESC LIMIT 1) AS marketing_consent,
+  (op.completed_at IS NOT NULL) AS onboarding_completed,
+  (SELECT COUNT(*)::INT FROM vehicles v JOIN accounts a ON v.account_id = a.id WHERE a.owner_user_id = u.id AND v.archived_at IS NULL) AS vehicle_count,
+  (SELECT pl.code FROM subscriptions sub JOIN plans pl ON pl.id = sub.plan_id WHERE sub.account_id = a_def.id AND sub.status IN ('active','trialing') ORDER BY sub.current_period_end DESC NULLS LAST LIMIT 1) AS plan_code,
+  COALESCE(p.account_status, 'active') AS account_status,
+  p.flagged_at,
+  p.flagged_reason
+FROM auth.users u
+LEFT JOIN profiles p ON p.user_id = u.id
+LEFT JOIN accounts a_def ON a_def.id = p.default_account_id
+LEFT JOIN onboarding_progress op ON op.user_id = u.id;
+
+-- admin_vehicles_view: admin vehicle record with owner, service, documents, alerts
+CREATE OR REPLACE VIEW admin_vehicles_view AS
+SELECT
+  v.id,
+  v.account_id,
+  v.owner_user_id,
+  a.name AS account_name,
+  v.make,
+  v.model,
+  v.year,
+  v.vin,
+  v.license_plate,
+  v.current_mileage,
+  v.health_score,
+  v.created_at,
+  v.archived_at,
+  (SELECT u.email FROM auth.users u WHERE u.id = a.owner_user_id) AS owner_email,
+  COALESCE(
+    (SELECT MAX(ml.service_date) FROM maintenance_logs ml WHERE ml.vehicle_id = v.id),
+    (SELECT sp.last_service_date FROM service_preferences sp WHERE sp.vehicle_id = v.id LIMIT 1)
+  ) AS last_service_date,
+  (SELECT sp.last_service_date + (sp.service_interval_months || ' months')::INTERVAL FROM service_preferences sp WHERE sp.vehicle_id = v.id AND sp.service_interval_months IS NOT NULL LIMIT 1)::DATE AS next_service_due,
+  (SELECT COUNT(*)::INT FROM documents d WHERE d.vehicle_id = v.id AND d.deleted_at IS NULL) AS document_count,
+  (SELECT COUNT(*)::INT FROM alerts al WHERE al.vehicle_id = v.id AND al.status = 'pending') AS pending_alert_count
+FROM vehicles v
+JOIN accounts a ON a.id = v.account_id;
+
+-- Admin views: readable by authenticated users; admin UI access enforced at app layer (VITE_ADMIN_EMAILS)
+GRANT SELECT ON admin_account_memberships_view TO authenticated;
+GRANT SELECT ON auth_users_view TO authenticated;
+GRANT SELECT ON admin_vehicles_view TO authenticated;
+
+-- admin_dashboard_metrics: single-row RPC for dashboard metrics
+CREATE OR REPLACE FUNCTION admin_dashboard_metrics()
+RETURNS JSONB
+LANGUAGE SQL
+STABLE
+AS $$
+  SELECT jsonb_build_object(
+    'newRegistrationsThisWeek', (SELECT COUNT(*)::INT FROM auth_users_view uv WHERE uv.created_at >= date_trunc('week', now())),
+    'verifiedCount', (SELECT COUNT(*)::INT FROM auth_users_view uv WHERE uv.email_confirmed_at IS NOT NULL),
+    'unverifiedCount', (SELECT COUNT(*)::INT FROM auth_users_view uv WHERE uv.email_confirmed_at IS NULL),
+    'totalUsers', (SELECT COUNT(*)::INT FROM auth_users_view),
+    'onboardingCompletedCount', (SELECT COUNT(*)::INT FROM auth_users_view uv WHERE uv.onboarding_completed = true),
+    'vehiclesPerUser', (SELECT COALESCE(AVG(uv.vehicle_count), 0)::NUMERIC(10,2) FROM auth_users_view uv),
+    'upcomingReminderCount', (SELECT COUNT(*)::INT FROM alerts a WHERE a.status = 'pending' AND a.kind IN ('maintenance_due', 'document_expiring', 'subscription_renewal')),
+    'overdueReminderCount', (SELECT COUNT(*)::INT FROM alerts a WHERE a.status = 'pending' AND a.kind = 'maintenance_overdue'),
+    'totalVehicles', (SELECT COUNT(*)::INT FROM vehicles v WHERE v.archived_at IS NULL)
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION admin_dashboard_metrics() TO authenticated;
+
+-- admin_set_account_status: admin-only RPC to update user account status (SECURITY DEFINER)
+CREATE OR REPLACE FUNCTION admin_set_account_status(p_user_id UUID, p_status TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_status NOT IN ('active', 'suspended', 'pending') THEN
+    RAISE EXCEPTION 'Invalid account_status: %', p_status;
+  END IF;
+  UPDATE profiles SET account_status = p_status, updated_at = now() WHERE user_id = p_user_id;
+  IF NOT FOUND THEN
+    INSERT INTO profiles (user_id, account_status, created_at, updated_at)
+    VALUES (p_user_id, p_status, now(), now());
+  END IF;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION admin_set_account_status(UUID, TEXT) TO authenticated;
+
+-- admin_set_flagged: admin-only RPC to flag/unflag a user
+CREATE OR REPLACE FUNCTION admin_set_flagged(p_user_id UUID, p_flagged BOOLEAN, p_reason TEXT DEFAULT NULL)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE profiles SET
+    flagged_at = CASE WHEN p_flagged THEN now() ELSE NULL END,
+    flagged_reason = CASE WHEN p_flagged THEN p_reason ELSE NULL END,
+    updated_at = now()
+  WHERE user_id = p_user_id;
+  IF NOT FOUND THEN
+    INSERT INTO profiles (user_id, flagged_at, flagged_reason, created_at, updated_at)
+    VALUES (p_user_id, CASE WHEN p_flagged THEN now() ELSE NULL END, p_reason, now(), now());
+  END IF;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION admin_set_flagged(UUID, BOOLEAN, TEXT) TO authenticated;
+
