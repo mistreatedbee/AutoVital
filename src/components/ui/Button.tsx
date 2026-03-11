@@ -1,14 +1,30 @@
 import React from 'react';
 import { motion, HTMLMotionProps } from 'framer-motion';
 import { Loader2Icon } from 'lucide-react';
+import { cn } from '../../lib/cn';
+
+type ButtonVariant =
+  | 'default'
+  | 'secondary'
+  | 'outline'
+  | 'ghost'
+  | 'destructive'
+  | 'link'
+  // legacy variants (backwards compatible)
+  | 'primary'
+  | 'accent'
+  | 'white';
+
+type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
+
 interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'ref'> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'accent' | 'white';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   icon?: React.ReactNode;
   loading?: boolean;
 }
 export function Button({
-  variant = 'primary',
+  variant = 'default',
   size = 'md',
   className = '',
   children,
@@ -17,24 +33,35 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const baseStyles =
-  'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed';
-  const variants = {
+  const baseStyles = cn(
+    'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200',
+    'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background',
+    'disabled:opacity-60 disabled:pointer-events-none'
+  );
+
+  const variants: Record<ButtonVariant, string> = {
+    default:
+      'bg-primaryToken text-primaryToken-foreground shadow-sm hover:opacity-95',
+    secondary: 'bg-secondary text-secondary-foreground shadow-sm hover:bg-muted',
+    outline:
+      'border border-border bg-transparent text-foreground shadow-sm hover:bg-muted',
+    ghost: 'bg-transparent text-foreground hover:bg-muted',
+    destructive:
+      'bg-destructive text-destructive-foreground shadow-sm hover:opacity-95',
+    link: 'bg-transparent text-primaryToken underline-offset-4 hover:underline',
+    // legacy
     primary:
-    'bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 hover:from-primary-500 hover:to-primary-400 focus:ring-primary-500',
-    secondary:
-    'bg-white text-slate-700 border border-slate-200 hover:border-primary-500 hover:text-primary-600 hover:bg-primary-50 focus:ring-primary-500 shadow-sm',
-    ghost:
-    'bg-transparent text-slate-600 hover:text-primary-600 hover:bg-primary-50 focus:ring-primary-500',
+      'bg-primaryToken text-primaryToken-foreground shadow-sm hover:opacity-95',
     accent:
-    'bg-gradient-to-r from-accent-500 to-accent-400 text-dark shadow-lg shadow-accent-500/30 hover:shadow-accent-500/50 hover:from-accent-400 hover:to-accent-300 focus:ring-accent-500',
-    white:
-    'bg-white text-primary-600 shadow-lg hover:bg-slate-50 focus:ring-white focus:ring-offset-dark'
+      'bg-accentToken text-accentToken-foreground shadow-sm hover:opacity-95',
+    white: 'bg-cardToken text-primaryToken shadow-sm hover:bg-muted',
   };
-  const sizes = {
+
+  const sizes: Record<ButtonSize, string> = {
     sm: 'px-4 py-2 text-sm',
     md: 'px-6 py-3 text-base',
-    lg: 'px-8 py-4 text-lg'
+    lg: 'px-8 py-4 text-lg',
+    icon: 'h-10 w-10 p-0',
   };
   return (
     <motion.button
@@ -52,7 +79,7 @@ export function Button({
         scale: 0.98
       }
       }
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      className={cn(baseStyles, variants[variant], sizes[size], className)}
       disabled={disabled || loading}
       {...props}>
 

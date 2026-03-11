@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable } from '../../components/ui/DataTable';
 import { StatCard } from '../../components/ui/StatCard';
+import { chartColors, cssVarHsl } from '../../lib/tokens';
 import {
   fetchFuelEfficiency,
   fetchFuelLogs,
@@ -123,7 +124,7 @@ export function FuelTracker() {
         </div>
         <div className="h-72 w-full">
           {loading ? (
-            <div className="flex items-center justify-center h-full text-slate-500">
+            <div className="flex items-center justify-center h-full text-muted-foreground">
               Loading fuel data...
             </div>
           ) : (
@@ -140,14 +141,14 @@ export function FuelTracker() {
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
-                  stroke="#e2e8f0" />
+                  stroke={chartColors.border()} />
 
                 <XAxis
                   dataKey="date"
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: '#64748b',
+                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
                     fontSize: 12,
                   }}
                   dy={10} />
@@ -156,7 +157,7 @@ export function FuelTracker() {
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: '#64748b',
+                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
                     fontSize: 12,
                   }}
                   domain={['dataMin - 2', 'dataMax + 2']} />
@@ -172,13 +173,13 @@ export function FuelTracker() {
                 <Line
                   type="monotone"
                   dataKey="mpg"
-                  stroke="#3B82F6"
+                  stroke={chartColors.accent()}
                   strokeWidth={3}
                   dot={{
                     r: 4,
-                    fill: '#3B82F6',
+                    fill: chartColors.accent(),
                     strokeWidth: 2,
-                    stroke: '#fff',
+                    stroke: cssVarHsl('--card', '0 0% 100%'),
                   }}
                   activeDot={{
                     r: 6,

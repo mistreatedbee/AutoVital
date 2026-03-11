@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '../../lib/cn';
 interface BadgeProps {
   children: React.ReactNode;
   variant?: 'primary' | 'accent' | 'warning' | 'neutral' | 'dark' | 'success' | 'critical';
@@ -12,17 +13,21 @@ export function Badge({
   icon
 }: BadgeProps) {
   const variants = {
-    primary: 'bg-primary-50 text-primary-700 border-primary-200',
-    accent: 'bg-accent-50 text-accent-700 border-accent-200',
-    warning: 'bg-amber-50 text-amber-700 border-amber-200',
-    success: 'bg-[#ECFDF3] text-[#22C55E] border-[#BBF7D0]',
-    critical: 'bg-primary-50 text-primary-700 border-primary-200',
-    neutral: 'bg-slate-100 text-slate-700 border-slate-200',
-    dark: 'bg-slate-800 text-slate-300 border-slate-700'
+    primary: 'bg-primaryToken/10 text-primaryToken border-primaryToken/20',
+    accent: 'bg-accentToken/10 text-accentToken border-accentToken/20',
+    warning: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+    success: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+    critical: 'bg-destructive/10 text-destructive border-destructive/20',
+    neutral: 'bg-muted text-muted-foreground border-border',
+    dark: 'bg-sidebar text-sidebar-foreground border-sidebar-border'
   };
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${variants[variant]} ${className}`}>
+      className={cn(
+        'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border',
+        variants[variant],
+        className
+      )}>
 
       {icon && <span className="mr-1.5">{icon}</span>}
       {children}

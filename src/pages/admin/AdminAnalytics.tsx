@@ -14,6 +14,7 @@ import {
 'recharts';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { chartColors, cssVarHsl } from '../../lib/tokens';
 const retentionData = [
 {
   month: 'Jan',
@@ -58,16 +59,21 @@ const featureData = [
   value: 10
 }];
 
-const COLORS = ['#E31B23', '#3B82F6', '#9CA3AF', '#D1D5DB'];
 export function AdminAnalytics() {
+  const COLORS = [
+    chartColors.primary(),
+    chartColors.accent(),
+    cssVarHsl('--chart-3', '215 20% 65%'),
+    cssVarHsl('--chart-4', '215 28% 83%'),
+  ];
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 font-heading tracking-tight">
+          <h1 className="text-3xl font-bold text-foreground font-heading tracking-tight">
             Deep Analytics
           </h1>
-          <p className="text-slate-500 mt-1">
+          <p className="text-muted-foreground mt-1">
             Platform usage, retention, and engagement metrics.
           </p>
         </div>
@@ -102,14 +108,14 @@ export function AdminAnalytics() {
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
-                  stroke="#e2e8f0" />
+                  stroke={chartColors.border()} />
 
                 <XAxis
                   dataKey="month"
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: '#64748b',
+                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
                     fontSize: 12
                   }}
                   dy={10} />
@@ -118,7 +124,7 @@ export function AdminAnalytics() {
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: '#64748b',
+                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
                     fontSize: 12
                   }}
                   tickFormatter={(val) => `${val}%`}
@@ -134,11 +140,11 @@ export function AdminAnalytics() {
                 <Line
                   type="monotone"
                   dataKey="rate"
-                  stroke="#e11d48"
+                  stroke={chartColors.primary()}
                   strokeWidth={3}
                   dot={{
                     r: 4,
-                    fill: '#e11d48'
+                    fill: chartColors.primary()
                   }}
                   activeDot={{
                     r: 6
@@ -152,10 +158,10 @@ export function AdminAnalytics() {
         <Card className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 font-heading">
+              <h2 className="text-lg font-bold text-foreground font-heading">
                 Feature Usage Breakdown
               </h2>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 Most utilized platform features
               </p>
             </div>

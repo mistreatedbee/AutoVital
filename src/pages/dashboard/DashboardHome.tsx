@@ -366,21 +366,21 @@ export function DashboardHome() {
                       x2="0"
                       y2="1">
 
-                      <stop offset="5%" stopColor="#E31B23" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#E31B23" stopOpacity={0} />
+                      <stop offset="5%" stopColor="hsl(var(--primary) / 0.3)" stopOpacity={1} />
+                      <stop offset="95%" stopColor="hsl(var(--primary) / 0)" stopOpacity={1} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
-                    stroke="#e2e8f0" />
+                    stroke="hsl(var(--border))" />
 
                   <XAxis
                     dataKey="month"
                     axisLine={false}
                     tickLine={false}
                     tick={{
-                      fill: '#64748b',
+                      fill: 'hsl(var(--muted-foreground))',
                       fontSize: 12,
                       fontWeight: 500
                     }}
@@ -390,7 +390,7 @@ export function DashboardHome() {
                     axisLine={false}
                     tickLine={false}
                     tick={{
-                      fill: '#64748b',
+                      fill: 'hsl(var(--muted-foreground))',
                       fontSize: 12,
                       fontWeight: 500
                     }}
@@ -399,7 +399,7 @@ export function DashboardHome() {
                   <Tooltip
                     contentStyle={{
                       borderRadius: '12px',
-                      border: '1px solid #e2e8f0',
+                      border: '1px solid hsl(var(--border))',
                       boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
                       fontWeight: 600
                     }}
@@ -411,7 +411,7 @@ export function DashboardHome() {
                   <Area
                     type="monotone"
                     dataKey="amount"
-                    stroke="#E31B23"
+                    stroke="hsl(var(--primary))"
                     strokeWidth={3}
                     fillOpacity={1}
                     fill="url(#colorAmount)"

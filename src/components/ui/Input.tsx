@@ -1,4 +1,5 @@
 import React, { forwardRef } from 'react';
+import { cn } from '../../lib/cn';
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
@@ -26,19 +27,20 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
-            className={`
-              w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 
-              transition-colors placeholder:text-slate-400
-              focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
-              disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500
-              ${icon ? 'pl-10' : ''}
-              ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-surface-300'}
-              ${className}
-            `}
+            className={cn(
+              'w-full rounded-xl border bg-background px-4 py-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring',
+              'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground',
+              icon ? 'pl-10' : null,
+              error
+                ? 'border-destructive focus:border-destructive focus:ring-destructive/30'
+                : 'border-input',
+              className
+            )}
             {...props} />
 
         </div>
-        {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-sm text-destructive mt-1">{error}</p>}
       </div>);
 
   }

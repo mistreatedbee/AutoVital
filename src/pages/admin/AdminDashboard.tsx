@@ -27,6 +27,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { chartColors, cssVarHsl } from '../../lib/tokens';
 const revenueData = [
 {
   month: 'Jan',
@@ -153,12 +154,12 @@ export function AdminDashboard() {
 
       {/* Platform Health */}
       <div>
-        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">
+        <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
           Platform Health
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="p-4 flex items-center gap-4 border-slate-200">
-            <div className="w-10 h-10 rounded-full bg-[#ECFDF3] text-[#22C55E] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
               <ServerIcon className="w-5 h-5" />
             </div>
             <div>
@@ -191,7 +192,7 @@ export function AdminDashboard() {
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-4 border-slate-200">
-            <div className="w-10 h-10 rounded-full bg-[#ECFDF3] text-[#22C55E] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
               <AlertCircleIcon className="w-5 h-5" />
             </div>
             <div>
@@ -236,21 +237,21 @@ export function AdminDashboard() {
 
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#e11d48" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#e11d48" stopOpacity={0} />
+                    <stop offset="5%" stopColor={chartColors.primary()} stopOpacity={0.35} />
+                    <stop offset="95%" stopColor={chartColors.primary()} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
-                  stroke="#f1f5f9" />
+                  stroke={cssVarHsl('--border', '214 32% 91%')} />
 
                 <XAxis
                   dataKey="month"
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: '#94a3b8',
+                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
                     fontSize: 12,
                     fontWeight: 500
                   }}
@@ -260,7 +261,7 @@ export function AdminDashboard() {
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: '#94a3b8',
+                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
                     fontSize: 12,
                     fontWeight: 500
                   }}
@@ -269,7 +270,7 @@ export function AdminDashboard() {
                 <Tooltip
                   contentStyle={{
                     borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
+                    border: `1px solid ${cssVarHsl('--border', '214 32% 91%')}`,
                     boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
                     fontWeight: 600
                   }}
@@ -281,7 +282,7 @@ export function AdminDashboard() {
                 <Area
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#e11d48"
+                  stroke={chartColors.primary()}
                   strokeWidth={4}
                   fillOpacity={1}
                   fill="url(#colorRevenue)"
@@ -324,14 +325,14 @@ export function AdminDashboard() {
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
-                  stroke="#f1f5f9" />
+                  stroke={cssVarHsl('--border', '214 32% 91%')} />
 
                 <XAxis
                   dataKey="day"
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: '#94a3b8',
+                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
                     fontSize: 12,
                     fontWeight: 500
                   }}
@@ -341,7 +342,7 @@ export function AdminDashboard() {
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: '#94a3b8',
+                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
                     fontSize: 12,
                     fontWeight: 500
                   }} />
@@ -349,18 +350,18 @@ export function AdminDashboard() {
                 <Tooltip
                   contentStyle={{
                     borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
+                    border: `1px solid ${cssVarHsl('--border', '214 32% 91%')}`,
                     boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
                     fontWeight: 600
                   }}
                   cursor={{
-                    fill: '#f8fafc'
+                    fill: cssVarHsl('--muted', '210 40% 96%')
                   }} />
 
-                <ReferenceLine y={181} stroke="#94a3b8" strokeDasharray="3 3" />
+                <ReferenceLine y={181} stroke={cssVarHsl('--muted-foreground', '215 16% 47%')} strokeDasharray="3 3" />
                 <Bar
                   dataKey="users"
-                  fill="#3b82f6"
+                  fill={chartColors.accent()}
                   radius={[6, 6, 0, 0]}
                   maxBarSize={50} />
 

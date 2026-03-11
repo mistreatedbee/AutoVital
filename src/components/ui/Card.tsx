@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, HTMLMotionProps } from 'framer-motion';
+import { cn } from '../../lib/cn';
 interface CardProps extends HTMLMotionProps<'div'> {
   hover?: boolean;
   glass?: boolean;
@@ -19,15 +20,15 @@ export function Card({
     styles += dark ? ' glass-panel-dark' : ' glass-panel';
   } else {
     styles += dark ?
-    ' bg-slate-800 border border-slate-700' :
-    ' bg-white border border-surface-200 shadow-card';
+      ' bg-sidebar border border-sidebar-border text-white' :
+      ' bg-cardToken text-cardToken-foreground border border-border shadow-card';
   }
   if (hover) {
     styles +=
     ' transition-all duration-300 hover:shadow-card-hover hover:-translate-y-1';
   }
   return (
-    <motion.div className={`${styles} ${className}`} {...props}>
+    <motion.div className={cn(styles, className)} {...props}>
       {children}
     </motion.div>);
 

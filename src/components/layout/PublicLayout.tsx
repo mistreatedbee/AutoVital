@@ -12,7 +12,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
     window.scrollTo(0, 0);
   }, [location.pathname]);
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 font-body">
+    <div className="min-h-screen flex flex-col bg-background text-foreground font-body">
       <PublicNavbar />
       <main className="flex-grow">{children}</main>
       <Footer />

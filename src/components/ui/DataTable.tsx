@@ -1,5 +1,7 @@
 import React from 'react';
 import { SearchXIcon } from 'lucide-react';
+import { cn } from '../../lib/cn';
+import { EmptyState } from './EmptyState';
 interface Column {
   key: string;
   header: string;
@@ -19,33 +21,41 @@ export function DataTable({
 }: DataTableProps) {
   return (
     <div
-      className={`w-full flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden ${className}`}>
+      className={cn(
+        'w-full flex flex-col rounded-xl border border-border bg-cardToken text-cardToken-foreground shadow-sm overflow-hidden',
+        className
+      )}>
 
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/80 border-b border-slate-200">
+            <tr className="bg-muted/60 border-b border-border">
               {columns.map((col) =>
               <th
                 key={col.key}
-                className="px-6 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">
 
                   {col.header}
                 </th>
               )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-border">
             {data.map((row, rowIndex) =>
             <tr
               key={rowIndex}
               onClick={() => onRowClick?.(row)}
-              className={`group transition-all duration-200 border-l-2 border-transparent even:bg-slate-50/40 ${onRowClick ? 'cursor-pointer hover:bg-slate-50 hover:border-l-primary-500' : 'hover:bg-slate-50/80'}`}>
+              className={cn(
+                'group transition-all duration-200 border-l-2 border-transparent even:bg-muted/25',
+                onRowClick
+                  ? 'cursor-pointer hover:bg-muted/40 hover:border-l-primaryToken'
+                  : 'hover:bg-muted/40'
+              )}>
 
                 {columns.map((col) =>
               <td
                 key={col.key}
-                className="px-6 py-4 text-sm text-slate-700 whitespace-nowrap">
+                className="px-6 py-4 text-sm text-foreground whitespace-nowrap">
 
                     {col.render ? col.render(row[col.key], row) : row[col.key]}
                   </td>
@@ -55,15 +65,11 @@ export function DataTable({
             {data.length === 0 &&
             <tr>
                 <td colSpan={columns.length} className="px-6 py-16 text-center">
-                  <div className="flex flex-col items-center justify-center text-slate-400">
-                    <SearchXIcon className="w-12 h-12 mb-4 text-slate-300" />
-                    <p className="text-base font-medium text-slate-900 mb-1">
-                      No results found
-                    </p>
-                    <p className="text-sm">
-                      We couldn't find any data matching your criteria.
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon={<SearchXIcon className="w-12 h-12" />}
+                    title="No results found"
+                    description="We couldn't find any data matching your criteria."
+                  />
                 </td>
               </tr>
             }
@@ -73,10 +79,10 @@ export function DataTable({
 
       {/* Footer */}
       {data.length > 0 &&
-      <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-sm text-slate-500">
+      <div className="px-6 py-4 border-t border-border bg-muted/40 flex items-center justify-between text-sm text-muted-foreground">
           <span>
             Showing{' '}
-            <span className="font-medium text-slate-900">{data.length}</span>{' '}
+            <span className="font-medium text-foreground">{data.length}</span>{' '}
             results
           </span>
         </div>

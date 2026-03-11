@@ -85,9 +85,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   };
   const SidebarContent = () =>
-  <div className="flex flex-col h-full bg-[#111827] text-[#9CA3AF]">
+  <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
       {/* Brand */}
-      <div className="h-20 flex items-center px-6 border-b border-slate-800">
+      <div className="h-20 flex items-center px-6 border-b border-sidebar-border">
         <Link
         to="/dashboard"
         className="flex items-center gap-3 font-heading font-bold text-xl text-white">
@@ -128,23 +128,23 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
 
       {/* User Profile & Logout */}
-      <div className="p-4 border-t border-slate-800">
+      <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-4 py-3 mb-2">
           <img
           src="https://i.pravatar.cc/150?img=11"
           alt="User"
-          className="w-10 h-10 rounded-full border-2 border-slate-700" />
+          className="w-10 h-10 rounded-full border-2 border-sidebar-border" />
 
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">
               Alex Thompson
             </p>
-            <p className="text-xs text-slate-500 truncate">Pro Plan</p>
+            <p className="text-xs text-sidebar-muted truncate">Pro Plan</p>
           </div>
         </div>
         <button
         onClick={handleLogout}
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-primary-400 transition-colors">
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-muted hover:bg-white/5 hover:text-primaryToken transition-colors">
 
           <LogOutIcon className="w-5 h-5" />
           Log Out
@@ -153,7 +153,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     </div>;
 
   return (
-    <div className="min-h-screen flex bg-surface-50 font-body">
+    <div className="min-h-screen flex bg-surfaceToken font-body text-foreground">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-72 fixed inset-y-0 z-20">
         <SidebarContent />
@@ -174,7 +174,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               opacity: 0
             }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" />
+            className="fixed inset-0 bg-sidebar/60 backdrop-blur-sm z-40 lg:hidden" />
 
             <motion.aside
             initial={{
@@ -202,11 +202,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col lg:pl-72 min-h-screen">
         {/* Top Header */}
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-10 shadow-sm">
+        <header className="h-20 bg-cardToken border-b border-border flex items-center justify-between px-4 sm:px-8 sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-4 flex-1">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 -ml-2 text-slate-500 hover:text-slate-900 lg:hidden rounded-lg hover:bg-slate-100">
+              className="p-2 -ml-2 text-muted-foreground hover:text-foreground lg:hidden rounded-lg hover:bg-muted">
 
               <MenuIcon className="w-6 h-6" />
             </button>
@@ -214,12 +214,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <Input
                 placeholder="Search vehicles, logs, documents..."
                 icon={<SearchIcon className="w-4 h-4" />}
-                className="bg-slate-50 border-transparent focus:bg-white" />
+                className="bg-muted/60 border-transparent focus:bg-background" />
 
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="relative p-2 text-slate-500 hover:text-slate-900 rounded-full hover:bg-slate-100 transition-colors">
+            <button className="relative p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors">
               <BellIcon className="w-6 h-6" />
               <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
             </button>
@@ -227,7 +227,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <img
                 src="https://i.pravatar.cc/150?img=11"
                 alt="User"
-                className="w-9 h-9 rounded-full border border-slate-200" />
+                className="w-9 h-9 rounded-full border border-border" />
 
             </Link>
           </div>

@@ -91,9 +91,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     }
   };
   const SidebarContent = () =>
-  <div className="flex flex-col h-full bg-[#111827] text-[#9CA3AF] border-r border-slate-800">
+  <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       {/* Brand */}
-      <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800">
+      <div className="h-20 flex items-center justify-between px-6 border-b border-sidebar-border">
         <Link
         to="/admin"
         className="flex items-center gap-3 font-heading font-bold text-xl text-white">
@@ -105,7 +105,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </Link>
         <Badge
         variant="dark"
-        className="bg-primary-500/10 text-primary-300 border-primary-500/30 text-[10px] uppercase tracking-wider">
+        className="bg-primaryToken/10 text-primaryToken-foreground border-primaryToken/20 text-[10px] uppercase tracking-wider">
 
           Admin
         </Badge>
@@ -137,21 +137,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </div>
 
       {/* User Profile & Logout */}
-      <div className="p-4 border-t border-slate-800">
+      <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-4 py-3 mb-2">
-          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 border-2 border-slate-700">
+          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-sidebar-muted border-2 border-sidebar-border">
             <ShieldAlertIcon className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">
               Super Admin
             </p>
-            <p className="text-xs text-slate-500 truncate">System Access</p>
+            <p className="text-xs text-sidebar-muted truncate">System Access</p>
           </div>
         </div>
         <button
         onClick={handleLogout}
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-rose-400 transition-colors">
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-muted hover:bg-white/5 hover:text-destructive transition-colors">
 
           <LogOutIcon className="w-5 h-5" />
           Secure Logout
@@ -160,7 +160,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     </div>;
 
   return (
-    <div className="min-h-screen flex bg-surface-50 font-body">
+    <div className="min-h-screen flex bg-surfaceToken font-body text-foreground">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-72 fixed inset-y-0 z-20">
         <SidebarContent />
@@ -181,7 +181,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               opacity: 0
             }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" />
+            className="fixed inset-0 bg-sidebar/60 backdrop-blur-sm z-40 lg:hidden" />
 
             <motion.aside
             initial={{
@@ -209,11 +209,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col lg:pl-72 min-h-screen">
         {/* Top Header */}
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-10 shadow-sm">
+        <header className="h-20 bg-cardToken border-b border-border flex items-center justify-between px-4 sm:px-8 sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-4 flex-1">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 -ml-2 text-slate-500 hover:text-slate-900 lg:hidden rounded-lg hover:bg-slate-100">
+              className="p-2 -ml-2 text-muted-foreground hover:text-foreground lg:hidden rounded-lg hover:bg-muted">
 
               <MenuIcon className="w-6 h-6" />
             </button>
@@ -221,7 +221,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <Input
                 placeholder="Search users, vehicles, tickets..."
                 icon={<SearchIcon className="w-4 h-4" />}
-                className="bg-slate-50 border-transparent focus:bg-white" />
+                className="bg-muted/60 border-transparent focus:bg-background" />
 
             </div>
           </div>
@@ -233,7 +233,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <span className="w-2 h-2 rounded-full bg-amber-500 mr-2 animate-pulse" />
               Admin Mode
             </Badge>
-            <button className="relative p-2 text-slate-500 hover:text-slate-900 rounded-full hover:bg-slate-100 transition-colors">
+            <button className="relative p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors">
               <BellIcon className="w-6 h-6" />
               <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
             </button>

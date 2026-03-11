@@ -115,8 +115,8 @@ export function VehicleDetails() {
           </div>
         </Card>
 
-        <Card className="p-6 flex flex-col items-center justify-center text-center bg-dark text-white border-slate-800">
-          <h3 className="text-slate-400 font-medium mb-6">
+        <Card className="p-6 flex flex-col items-center justify-center text-center bg-sidebar text-white border-sidebar-border">
+          <h3 className="text-sidebar-foreground/80 font-medium mb-6">
             Overall Health Score
           </h3>
           <div className="relative w-40 h-40 flex items-center justify-center mb-6">
@@ -129,7 +129,7 @@ export function VehicleDetails() {
                 cy="50"
                 r="45"
                 fill="none"
-                stroke="#1E293B"
+                stroke="hsl(var(--border))"
                 strokeWidth="10" />
 
               <circle
@@ -137,7 +137,7 @@ export function VehicleDetails() {
                 cy="50"
                 r="45"
                 fill="none"
-                stroke="#22C55E"
+                stroke="hsl(var(--accent))"
                 strokeWidth="10"
                 strokeDasharray="283"
                 strokeDashoffset="5.66"
@@ -146,13 +146,13 @@ export function VehicleDetails() {
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-5xl font-bold font-heading">
-                98<span className="text-2xl text-slate-400">%</span>
+                98<span className="text-2xl text-sidebar-foreground/80">%</span>
               </span>
             </div>
           </div>
           <Badge
             variant="accent"
-            className="bg-accent-500/20 text-accent-400 border-accent-500/30">
+            className="bg-accentToken/20 text-accentToken border-accentToken/30">
 
             System Optimal
           </Badge>

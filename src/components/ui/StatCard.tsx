@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card } from './Card';
 import { TrendingUpIcon, TrendingDownIcon, MinusIcon } from 'lucide-react';
+import { cssVarHsl } from '../../lib/tokens';
 interface StatCardProps {
   title: string;
   value: string | number;
@@ -53,7 +54,11 @@ export function StatCard({
     }).
     join(' ');
     const strokeColor =
-    trend === 'up' ? '#10b981' : trend === 'down' ? '#f43f5e' : '#94a3b8';
+      trend === 'up'
+        ? cssVarHsl('--success', '160 84% 39%')
+        : trend === 'down'
+          ? cssVarHsl('--destructive', '350 89% 60%')
+          : cssVarHsl('--muted-foreground', '215 16% 47%');
     return (
       <div className="h-10 w-24 ml-auto opacity-80">
         <svg

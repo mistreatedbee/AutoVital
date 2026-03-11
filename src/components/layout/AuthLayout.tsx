@@ -11,18 +11,18 @@ interface AuthLayoutProps {
 }
 export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen flex bg-white font-body">
+    <div className="min-h-screen flex bg-background text-foreground font-body">
       {/* Left Column - Form */}
       <div className="w-full lg:w-1/2 flex flex-col relative">
         <div className="p-8 flex items-center">
           <Link
             to="/"
-            className="flex items-center gap-3 font-heading font-bold text-xl text-slate-900">
+            className="flex items-center gap-3 font-heading font-bold text-xl text-foreground">
 
             <img
               src="/logo.svg"
               alt="AutoVital"
-              className="h-9 w-9 rounded-lg object-contain shadow-md bg-white" />
+              className="h-9 w-9 rounded-lg object-contain shadow-md bg-cardToken" />
             <span>AutoVital</span>
           </Link>
         </div>
@@ -42,20 +42,20 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
             }}
             className="w-full max-w-md mx-auto">
 
-            <h1 className="text-3xl font-bold text-slate-900 font-heading mb-3">
+            <h1 className="text-3xl font-bold text-foreground font-heading mb-3">
               {title}
             </h1>
-            <p className="text-slate-500 mb-8">{subtitle}</p>
+            <p className="text-muted-foreground mb-8">{subtitle}</p>
             {children}
           </motion.div>
         </div>
       </div>
 
       {/* Right Column - Visual (Hidden on Mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-dark relative overflow-hidden items-center justify-center p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-sidebar relative overflow-hidden items-center justify-center p-12">
         {/* Background Glows */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-600/20 rounded-full blur-3xl mix-blend-screen" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent-500/20 rounded-full blur-3xl mix-blend-screen" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primaryToken/20 rounded-full blur-3xl mix-blend-screen" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accentToken/20 rounded-full blur-3xl mix-blend-screen" />
 
         {/* Abstract Dashboard UI */}
         <motion.div
@@ -85,7 +85,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
               </div>
               <Badge
                 variant="accent"
-                className="bg-accent-500/20 text-accent-400 border-accent-500/30">
+                className="bg-accentToken/20 text-accentToken border-accentToken/30">
 
                 System Optimal
               </Badge>
@@ -93,12 +93,12 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
 
             <div className="space-y-4">
               <div className="bg-white/5 border border-white/5 rounded-xl p-4 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center text-primary-400">
+                <div className="w-10 h-10 rounded-full bg-primaryToken/20 flex items-center justify-center text-primaryToken">
                   <ShieldCheckIcon className="w-5 h-5" />
                 </div>
                 <div className="flex-1">
-                  <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary-500 w-[94%]" />
+                  <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-primaryToken w-[94%]" />
                   </div>
                   <div className="flex justify-between mt-2 text-xs">
                     <span className="text-slate-400">Overall Score</span>

@@ -9,11 +9,65 @@
 /* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
 
 @layer base {
+  :root {
+    /* Semantic design tokens (HSL triplets) */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --surface: 0 0% 96%;
+    --surface-foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 358 79% 50%;
+
+    /* Brand */
+    --primary: 358 79% 50%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 217 91% 60%;
+    --accent-foreground: 221 39% 11%;
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --destructive: 350 89% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Layout */
+    --sidebar: 221 39% 11%;
+    --sidebar-foreground: 215 20% 65%;
+    --sidebar-muted: 215 16% 47%;
+    --sidebar-border: 215 28% 17%;
+    --sidebar-active: 358 79% 50%;
+
+    /* Data viz */
+    --chart-1: 358 79% 50%;
+    --chart-2: 217 91% 60%;
+    --chart-3: 215 20% 65%;
+    --chart-4: 215 28% 83%;
+
+    /* Premium background gradients */
+    --premium-1: 222 47% 11%;
+    --premium-2: 221 83% 33%;
+    --premium-3: 221 85% 21%;
+  }
+}
+
+@layer base {
   html {
     scroll-behavior: smooth;
   }
   body {
-    @apply font-body text-slate-800 bg-slate-50 antialiased selection:bg-primary-500/30 selection:text-primary-900;
+    @apply font-body text-foreground bg-background antialiased selection:bg-primaryToken/20 selection:text-primaryToken-foreground;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading tracking-tight;
@@ -43,7 +97,12 @@
   }
   .animate-shimmer {
     animation: shimmer 2s linear infinite;
-    background: linear-gradient(to right, #f6f7f8 4%, #edeef1 25%, #f6f7f8 36%);
+    background: linear-gradient(
+      to right,
+      hsl(var(--muted)) 4%,
+      hsl(var(--secondary)) 25%,
+      hsl(var(--muted)) 36%
+    );
     background-size: 1000px 100%;
   }
   @keyframes shimmer {
@@ -51,7 +110,13 @@
     100% { background-position: 1000px 0; }
   }
   .bg-animated-gradient {
-    background: linear-gradient(-45deg, #0F172A, #1e3a8a, #172554, #0F172A);
+    background: linear-gradient(
+      -45deg,
+      hsl(var(--premium-1)),
+      hsl(var(--premium-2)),
+      hsl(var(--premium-3)),
+      hsl(var(--premium-1))
+    );
     background-size: 400% 400%;
     animation: gradient 15s ease infinite;
   }

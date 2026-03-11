@@ -61,7 +61,7 @@ export function LandingPage() {
     <div className="w-full overflow-hidden font-body">
 
       {/* ─── HERO ──────────────────────────────────────────────────────── */}
-      <section className="relative bg-[#0C0C0F] text-white min-h-[92vh] flex items-center overflow-hidden">
+      <section className="relative bg-sidebar text-white min-h-[92vh] flex items-center overflow-hidden">
         {/* Background grid */}
         <div
           className="absolute inset-0 opacity-[0.04]"
@@ -103,7 +103,7 @@ export function LandingPage() {
                     fill="none"
                     preserveAspectRatio="none"
                   >
-                    <path d="M0 3 Q50 0 100 3 Q150 6 200 3" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+                    <path d="M0 3 Q50 0 100 3 Q150 6 200 3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" />
                   </svg>
                 </span>
                 {' '}Before Problems Start.
@@ -152,7 +152,7 @@ export function LandingPage() {
               <motion.div custom={0.4} variants={fadeUpVariants} initial="hidden" animate="visible" className="flex items-center gap-6 pt-2">
                 <div className="flex -space-x-2">
                   {[11, 5, 33, 25, 44].map((n) => (
-                    <img key={n} src={`https://i.pravatar.cc/40?img=${n}`} alt="" className="w-8 h-8 rounded-full border-2 border-[#0C0C0F] object-cover" />
+                    <img key={n} src={`https://i.pravatar.cc/40?img=${n}`} alt="" className="w-8 h-8 rounded-full border-2 border-sidebar object-cover" />
                   ))}
                 </div>
                 <p className="text-sm text-slate-500">
@@ -196,7 +196,7 @@ export function LandingPage() {
                         const fb = document.createElement('div');
                         fb.className = 'logo-fallback w-full flex items-center justify-center rounded-2xl bg-gradient-to-br from-red-900/40 to-slate-900';
                         fb.style.minHeight = '280px';
-                        fb.innerHTML = '<span style="color:#ef4444;font-size:3rem;font-weight:900;letter-spacing:-0.04em">AutoVital</span>';
+                        fb.innerHTML = '<span style="color:hsl(var(--primary));font-size:3rem;font-weight:900;letter-spacing:-0.04em">AutoVital</span>';
                         p.appendChild(fb);
                       }
                     }}
@@ -363,7 +363,7 @@ export function LandingPage() {
       </section>
 
       {/* ─── FEATURES GRID ─────────────────────────────────────────────── */}
-      <section className="py-28 bg-[#F8F9FC]">
+      <section className="py-28 bg-background">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <SectionHeading
             badge="Features"
@@ -405,7 +405,7 @@ export function LandingPage() {
       </section>
 
       {/* ─── HEALTH SCORE (DARK) ───────────────────────────────────────── */}
-      <section className="py-28 bg-[#0C0C0F] relative overflow-hidden">
+      <section className="py-28 bg-sidebar relative overflow-hidden">
         <div className="absolute top-1/2 right-0 w-[700px] h-[700px] bg-red-900/20 blur-[140px] rounded-full transform -translate-y-1/2 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-red-900/10 blur-[120px] rounded-full pointer-events-none" />
 
@@ -460,10 +460,10 @@ export function LandingPage() {
                 {/* Score ring */}
                 <div className="aspect-square flex items-center justify-center">
                   <svg className="absolute inset-0 w-full h-full -rotate-90 drop-shadow-[0_0_40px_rgba(220,38,38,0.25)]" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="42" fill="none" stroke="#1E293B" strokeWidth="6" />
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--border))" strokeWidth="6" />
                     <motion.circle
                       cx="50" cy="50" r="42"
-                      fill="none" stroke="#DC2626" strokeWidth="6"
+                      fill="none" stroke="hsl(var(--primary))" strokeWidth="6"
                       strokeLinecap="round"
                       strokeDasharray="264"
                       initial={{ strokeDashoffset: 264 }}
@@ -590,7 +590,7 @@ export function LandingPage() {
       </section>
 
       {/* ─── PRICING ───────────────────────────────────────────────────── */}
-      <section className="py-28 bg-[#F8F9FC]">
+      <section className="py-28 bg-background">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <SectionHeading
             title="Simple, transparent pricing"
@@ -676,7 +676,7 @@ export function LandingPage() {
       </section>
 
       {/* ─── FINAL CTA ─────────────────────────────────────────────────── */}
-      <section className="py-28 bg-[#0C0C0F] relative overflow-hidden">
+      <section className="py-28 bg-sidebar relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.03]"
           style={{

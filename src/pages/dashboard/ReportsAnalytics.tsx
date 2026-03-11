@@ -15,6 +15,7 @@ import {
 'recharts';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { chartColors, cssVarHsl } from '../../lib/tokens';
 const monthlyCosts = [
 {
   name: 'Jan',
@@ -65,16 +66,21 @@ const categoryData = [
   value: 600
 }];
 
-const COLORS = ['#E31B23', '#3B82F6', '#9CA3AF', '#D1D5DB'];
 export function ReportsAnalytics() {
+  const COLORS = [
+    chartColors.primary(),
+    chartColors.accent(),
+    chartColors.muted(),
+    cssVarHsl('--chart-4', '215 28% 83%'),
+  ];
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 font-heading tracking-tight">
+          <h1 className="text-3xl font-bold text-foreground font-heading tracking-tight">
             Reports & Analytics
           </h1>
-          <p className="text-slate-500 mt-1">
+          <p className="text-muted-foreground mt-1">
             Deep insights into your vehicle costs.
           </p>
         </div>
@@ -85,7 +91,7 @@ export function ReportsAnalytics() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card className="p-6">
-          <h2 className="text-lg font-bold text-slate-900 font-heading mb-6">
+          <h2 className="text-lg font-bold text-foreground font-heading mb-6">
             Cost Breakdown (YTD)
           </h2>
           <div className="h-80">
@@ -122,7 +128,7 @@ export function ReportsAnalytics() {
         </Card>
 
         <Card className="p-6">
-          <h2 className="text-lg font-bold text-slate-900 font-heading mb-6">
+          <h2 className="text-lg font-bold text-foreground font-heading mb-6">
             Monthly Spend by Category
           </h2>
           <div className="h-80">
@@ -139,14 +145,14 @@ export function ReportsAnalytics() {
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
-                  stroke="#e2e8f0" />
+                  stroke={chartColors.border()} />
 
                 <XAxis
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: '#64748b',
+                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
                     fontSize: 12
                   }}
                   dy={10} />
@@ -155,14 +161,14 @@ export function ReportsAnalytics() {
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: '#64748b',
+                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
                     fontSize: 12
                   }}
                   tickFormatter={(val) => `$${val}`} />
 
                 <Tooltip
                   cursor={{
-                    fill: '#f1f5f9'
+                    fill: cssVarHsl('--muted', '210 40% 96%')
                   }}
                   contentStyle={{
                     borderRadius: '12px',
@@ -181,13 +187,13 @@ export function ReportsAnalytics() {
                 <Bar
                   dataKey="Fuel"
                   stackId="a"
-                  fill="#3B82F6"
+                  fill={chartColors.accent()}
                   radius={[0, 0, 4, 4]} />
 
                 <Bar
                   dataKey="Maintenance"
                   stackId="a"
-                  fill="#E31B23"
+                  fill={chartColors.primary()}
                   radius={[4, 4, 0, 0]} />
 
               </BarChart>
