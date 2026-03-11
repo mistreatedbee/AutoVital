@@ -12,6 +12,8 @@ interface AuthUser {
   id: string;
   email: string;
   name?: string | null;
+  /** Whether the user's email has been verified. Defaults true when unknown. */
+  emailVerified?: boolean;
 }
 
 export interface SignUpParams {
@@ -37,6 +39,8 @@ interface AuthContextValue {
   loading: boolean;
   error: string | null;
   signInWithPassword: (email: string, password: string) => Promise<void>;
+  /** Verify current password for reauth before high-risk changes. Throws on failure. */
+  reauthWithPassword: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   signUp: (params: SignUpParams) => Promise<SignUpResult>;
   verifyEmail: (params: VerifyEmailParams) => Promise<AuthUser>;
@@ -56,12 +60,20 @@ function mapUserFromApi(user: {
   email?: string | null;
   name?: string | null;
   profile?: { name?: string | null };
+  email_confirmed_at?: string | null;
+  emailVerified?: boolean;
+  email_verified?: boolean;
 }): AuthUser {
   const name = user.profile?.name ?? user.name ?? null;
+  const emailVerified =
+    user.email_confirmed_at != null && user.email_confirmed_at !== ''
+      ? true
+      : user.emailVerified ?? user.email_verified ?? true;
   return {
     id: user.id,
     email: user.email ?? '',
     name: name ?? null,
+    emailVerified,
   };
 }
 
@@ -106,6 +118,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  const reauthWithPassword = useCallback(async (email: string, password: string) => {
+    const client = getInsforgeClient();
+    const { error: signInError } = await client.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (signInError) {
+      throw signInError;
+    }
   }, []);
 
   const signInWithPassword = useCallback(async (email: string, password: string) => {
@@ -308,6 +331,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     error,
     signInWithPassword,
+    reauthWithPassword,
     signOut,
     signUp,
     verifyEmail,

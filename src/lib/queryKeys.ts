@@ -59,4 +59,7 @@ export const queryKeys = {
   profile: {
     current: (userId: string) => ['profile', userId] as const,
   },
+  consents: {
+    user: () => ['consents', 'user'] as const,
+  },
 };

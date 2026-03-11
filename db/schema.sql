@@ -398,6 +398,27 @@ CREATE POLICY "users_update_own_onboarding" ON onboarding_progress FOR UPDATE
   TO authenticated USING (user_id = auth.uid());
 
 -- =========================
+--  Phase D: Consent Logging (POPIA)
+-- =========================
+
+CREATE TABLE IF NOT EXISTS consents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  consent_type TEXT NOT NULL,  -- 'terms', 'privacy', 'marketing'
+  granted BOOLEAN NOT NULL,
+  ip_address TEXT,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_consents_user_id ON consents(user_id);
+CREATE INDEX IF NOT EXISTS idx_consents_user_type ON consents(user_id, consent_type);
+
+ALTER TABLE consents ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users_select_own_consents" ON consents FOR SELECT TO authenticated USING (user_id = auth.uid());
+CREATE POLICY "users_insert_own_consents" ON consents FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+
+-- =========================
 --  RLS Policies (Phase A: Bootstrap)
 -- =========================
 

@@ -33,7 +33,8 @@ export function VerifyEmailPage() {
         return bootstrapAccountAndProfile(
           verifiedUser.id,
           verifiedUser.name || 'User',
-          undefined
+          undefined,
+          { userAgent: navigator.userAgent, marketingConsent: false }
         );
       })
       .then(() => {

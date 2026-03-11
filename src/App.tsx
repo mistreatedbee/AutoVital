@@ -37,6 +37,7 @@ import { ProtectedRoute } from './routes/ProtectedRoute';
 import { AdminRoute } from './routes/AdminRoute';
 import { OnboardingRoute } from './routes/OnboardingRoute';
 import { RequireOnboardingComplete } from './routes/RequireOnboardingComplete';
+import { RequireEmailVerified } from './routes/RequireEmailVerified';
 function AppRoutes() {
   useDocumentTitle();
   return (
@@ -171,28 +172,27 @@ function AppRoutes() {
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/welcome" element={<WelcomePage />} />
 
-        {/* ONBOARDING - protected, redirect to dashboard if complete */}
+        {/* ONBOARDING - protected, requires verified email, redirect to dashboard if complete */}
         <Route element={<ProtectedRoute />}>
-          <Route
-            path="/onboarding"
-            element={
-              <OnboardingRoute>
-                <OnboardingFlow />
-              </OnboardingRoute>
-            }
-          />
-        </Route>
-
-        {/* DASHBOARD - protected, redirect to onboarding if incomplete */}
-        <Route element={<ProtectedRoute />}>
-          <Route
-            path="/dashboard/*"
-            element={
-              <RequireOnboardingComplete>
-                <DashboardApp />
-              </RequireOnboardingComplete>
-            }
-          />
+          <Route element={<RequireEmailVerified />}>
+            <Route
+              path="/onboarding"
+              element={
+                <OnboardingRoute>
+                  <OnboardingFlow />
+                </OnboardingRoute>
+              }
+            />
+            {/* DASHBOARD - requires onboarding complete */}
+            <Route
+              path="/dashboard/*"
+              element={
+                <RequireOnboardingComplete>
+                  <DashboardApp />
+                </RequireOnboardingComplete>
+              }
+            />
+          </Route>
         </Route>
 
         <Route element={<ProtectedRoute />}>

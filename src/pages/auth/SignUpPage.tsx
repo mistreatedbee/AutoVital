@@ -112,7 +112,8 @@ export function SignUpPage() {
         await bootstrapAccountAndProfile(
           result.user.id,
           result.user.name || name.trim(),
-          phone.trim() || undefined
+          phone.trim() || undefined,
+          { userAgent: navigator.userAgent, marketingConsent }
         );
         navigate('/onboarding', { replace: true });
       }
@@ -137,7 +138,8 @@ export function SignUpPage() {
       await bootstrapAccountAndProfile(
         verifiedUser.id,
         verifiedUser.name || name.trim(),
-        phone.trim() || undefined
+        phone.trim() || undefined,
+        { userAgent: navigator.userAgent, marketingConsent }
       );
       navigate('/onboarding', { replace: true });
     } catch {

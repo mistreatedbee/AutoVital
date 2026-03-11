@@ -1,4 +1,5 @@
 import { getInsforgeClient } from './insforgeClient';
+import { recordConsents } from '../services/consents';
 
 function slugify(text: string): string {
   return text
@@ -8,14 +9,21 @@ function slugify(text: string): string {
     .slice(0, 30) || 'garage';
 }
 
+export interface BootstrapOptions {
+  userAgent?: string | null;
+  marketingConsent?: boolean;
+}
+
 /**
  * Bootstrap account, profile, and account_members for a newly signed-up user.
  * Idempotent: if profile already exists, returns without error.
+ * When bootstrapping a new user, records consents (terms, privacy, marketing).
  */
 export async function bootstrapAccountAndProfile(
   userId: string,
   userName: string,
-  phone?: string | null
+  phone?: string | null,
+  options?: BootstrapOptions
 ): Promise<void> {
   const client = getInsforgeClient();
 
@@ -80,4 +88,12 @@ export async function bootstrapAccountAndProfile(
     await client.database.from('accounts').delete().eq('id', accountId);
     throw new Error(memberError.message ?? 'Failed to add account membership');
   }
+
+  // Record consent audit trail (Phase D: POPIA)
+  await recordConsents(userId, {
+    terms: true,
+    privacy: true,
+    marketing: options?.marketingConsent ?? false,
+    userAgent: options?.userAgent ?? null,
+  });
 }

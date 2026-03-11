@@ -1,8 +1,149 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { getUserConsents, updateMarketingConsent } from '../../services/consents';
+import { changePassword, changeEmail } from '../../services/authSettings';
+import { queryKeys } from '../../lib/queryKeys';
+import { useAuth } from '../../auth/AuthProvider';
+import { ReauthModal } from '../../components/auth/ReauthModal';
+import {
+  getPasswordStrength,
+  getStrengthColor,
+  getStrengthWidth,
+} from '../../lib/passwordStrength';
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export function ProfileSettings() {
+  const { user, reauthWithPassword } = useAuth();
+  const queryClient = useQueryClient();
+  const [marketingLoading, setMarketingLoading] = useState(false);
+
+  const [reauthModalOpen, setReauthModalOpen] = useState(false);
+  const [reauthMode, setReauthMode] = useState<'password' | 'email' | null>(null);
+  const [verifiedPassword, setVerifiedPassword] = useState<string | null>(null);
+
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  const [newEmail, setNewEmail] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  const { data: consents, isLoading: consentsLoading } = useQuery({
+    queryKey: queryKeys.consents.user(),
+    queryFn: getUserConsents,
+    enabled: !!user?.id,
+  });
+
+  const marketingMutation = useMutation({
+    mutationFn: (granted: boolean) =>
+      updateMarketingConsent(granted, typeof navigator !== 'undefined' ? navigator.userAgent : null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.consents.user() });
+      setMarketingLoading(false);
+    },
+    onError: () => setMarketingLoading(false),
+  });
+
+  const marketingConsent = consents?.find((c) => c.consent_type === 'marketing');
+  const termsConsent = consents?.find((c) => c.consent_type === 'terms');
+  const privacyConsent = consents?.find((c) => c.consent_type === 'privacy');
+
+  const handleMarketingToggle = (checked: boolean) => {
+    setMarketingLoading(true);
+    marketingMutation.mutate(checked);
+  };
+
+  const handleReauthSuccess = (password: string) => {
+    setVerifiedPassword(password);
+  };
+
+  const handlePasswordReauth = () => {
+    setReauthMode('password');
+    setReauthModalOpen(true);
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError(null);
+  };
+
+  const handleEmailReauth = () => {
+    setReauthMode('email');
+    setReauthModalOpen(true);
+    setNewEmail('');
+    setEmailError(null);
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verifiedPassword) return;
+    setPasswordError(null);
+    if (newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match');
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      await changePassword(verifiedPassword, newPassword);
+      setVerifiedPassword(null);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: unknown) {
+      setPasswordError(
+        err instanceof Error ? err.message : 'Failed to change password'
+      );
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verifiedPassword || !user?.email) return;
+    setEmailError(null);
+    const trimmed = newEmail.trim();
+    if (!trimmed) {
+      setEmailError('Please enter a new email address');
+      return;
+    }
+    if (trimmed === user.email) {
+      setEmailError('New email must be different from current');
+      return;
+    }
+    setEmailLoading(true);
+    try {
+      await changeEmail(verifiedPassword, trimmed);
+      setVerifiedPassword(null);
+      setNewEmail('');
+    } catch (err: unknown) {
+      setEmailError(
+        err instanceof Error ? err.message : 'Failed to change email'
+      );
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const strength = getPasswordStrength(newPassword);
+
   return (
     <div className="space-y-8 max-w-3xl">
       <div>
@@ -34,10 +175,50 @@ export function ProfileSettings() {
               <Input label="First Name" defaultValue="Alex" />
               <Input label="Last Name" defaultValue="Thompson" />
             </div>
-            <Input
-              label="Email Address"
-              type="email"
-              defaultValue="alex.thompson@example.com" />
+            <div>
+              <Input
+                label="Email Address"
+                type="email"
+                value={user?.email ?? ''}
+                readOnly
+                className="bg-slate-50"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="mt-2"
+                onClick={handleEmailReauth}
+              >
+                Change Email
+              </Button>
+              {reauthMode === 'email' && verifiedPassword && (
+                <form
+                  onSubmit={handleEmailSubmit}
+                  className="mt-4 p-4 border border-slate-200 rounded-lg bg-slate-50/50 space-y-3"
+                >
+                  <Input
+                    label="New email address"
+                    type="email"
+                    placeholder="new@example.com"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    error={emailError ?? undefined}
+                  />
+                  {emailError && (
+                    <p className="text-sm text-rose-600">{emailError}</p>
+                  )}
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    loading={emailLoading}
+                  >
+                    Update Email
+                  </Button>
+                </form>
+              )}
+            </div>
 
             <Input
               label="Phone Number"
@@ -53,17 +234,162 @@ export function ProfileSettings() {
 
       <Card className="p-6">
         <h2 className="text-lg font-bold text-slate-900 font-heading mb-6">
+          Privacy & Consent
+        </h2>
+        {consentsLoading ? (
+          <p className="text-sm text-slate-500">Loading consent history…</p>
+        ) : consents && consents.length > 0 ? (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              {termsConsent && (
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="text-slate-700">
+                    <Link to="/terms" className="text-primary-600 hover:underline">
+                      Terms of Service
+                    </Link>
+                    {' — '}
+                    {termsConsent.granted ? 'Accepted' : 'Declined'} on{' '}
+                    {formatDate(termsConsent.created_at)}
+                  </span>
+                </div>
+              )}
+              {privacyConsent && (
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="text-slate-700">
+                    <Link to="/privacy" className="text-primary-600 hover:underline">
+                      Privacy Policy
+                    </Link>
+                    {' — '}
+                    {privacyConsent.granted ? 'Accepted' : 'Declined'} on{' '}
+                    {formatDate(privacyConsent.created_at)}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between py-2">
+                <span className="text-slate-700">
+                  Marketing emails — {marketingConsent?.granted ? 'Opted in' : 'Opted out'}
+                  {marketingConsent?.created_at && ` (${formatDate(marketingConsent.created_at)})`}
+                </span>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={marketingConsent?.granted ?? false}
+                    onChange={(e) => handleMarketingToggle(e.target.checked)}
+                    disabled={marketingLoading}
+                    className="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-slate-600">
+                    {marketingLoading ? 'Updating…' : 'Send me tips and updates'}
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">
+            No consent records yet. Consent is recorded when you sign up.
+          </p>
+        )}
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="text-lg font-bold text-slate-900 font-heading mb-6">
           Change Password
         </h2>
-        <div className="space-y-4 max-w-md">
-          <Input label="Current Password" type="password" />
-          <Input label="New Password" type="password" />
-          <Input label="Confirm New Password" type="password" />
-          <div className="pt-2">
-            <Button variant="secondary">Update Password</Button>
-          </div>
-        </div>
+        <p className="text-sm text-slate-600 mb-4">
+          You must confirm your current password before changing it.
+        </p>
+        {!verifiedPassword ? (
+          <Button variant="secondary" onClick={handlePasswordReauth}>
+            Change Password
+          </Button>
+        ) : (
+          <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md">
+            <div className="space-y-1">
+              <Input
+                label="New Password"
+                type="password"
+                placeholder="••••••••"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                error={
+                  newPassword && newPassword.length < 8
+                    ? 'Password must be at least 8 characters'
+                    : undefined
+                }
+              />
+              {newPassword && (
+                <div className="mt-1">
+                  <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${getStrengthColor(strength)} ${getStrengthWidth(strength)}`}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1 capitalize">
+                    {strength}
+                  </p>
+                </div>
+              )}
+            </div>
+            <Input
+              label="Confirm New Password"
+              type="password"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              error={
+                confirmPassword && newPassword !== confirmPassword
+                  ? 'Passwords do not match'
+                  : undefined
+              }
+            />
+            {passwordError && (
+              <p className="text-sm text-rose-600">{passwordError}</p>
+            )}
+            <div className="flex gap-2">
+              <Button
+                type="submit"
+                variant="primary"
+                loading={passwordLoading}
+              >
+                Update Password
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setVerifiedPassword(null);
+                  setNewPassword('');
+                  setConfirmPassword('');
+                  setPasswordError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
       </Card>
+
+      <ReauthModal
+        open={reauthModalOpen}
+        onOpenChange={(open) => {
+          setReauthModalOpen(open);
+          if (!open) setReauthMode(null);
+        }}
+        onSuccess={handleReauthSuccess}
+        title={
+          reauthMode === 'password'
+            ? 'Confirm your password'
+            : reauthMode === 'email'
+              ? 'Confirm your password'
+              : 'Re-authenticate'
+        }
+        description="Enter your current password to continue with this action."
+        verify={(password) =>
+          reauthWithPassword(user?.email ?? '', password)
+        }
+      />
 
       <Card className="p-6 border-rose-200 bg-rose-50/30">
         <h2 className="text-lg font-bold text-rose-900 font-heading mb-2">
