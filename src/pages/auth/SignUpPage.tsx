@@ -117,8 +117,13 @@ export function SignUpPage() {
         );
         navigate('/onboarding', { replace: true });
       }
-    } catch {
-      setFormError(authError ?? 'Failed to create account. Please try again.');
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message;
+      const friendly =
+        msg?.toLowerCase().includes('already exists')
+          ? 'An account with this email already exists. Sign in instead.'
+          : msg ?? authError ?? 'Failed to create account. Please try again.';
+      setFormError(friendly);
     } finally {
       setLoading(false);
     }

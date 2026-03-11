@@ -4,7 +4,9 @@ import { createClient } from '@insforge/sdk';
 // Configure these in your Vite environment for local/dev/prod:
 // VITE_INSFORGE_URL, VITE_INSFORGE_ANON_KEY
 
-const baseUrl = import.meta.env.VITE_INSFORGE_URL as string | undefined;
+// Normalize baseUrl: remove trailing slash to avoid double-slash in API paths
+const rawUrl = import.meta.env.VITE_INSFORGE_URL as string | undefined;
+const baseUrl = rawUrl?.replace(/\/+$/, '') ?? undefined;
 const anonKey = import.meta.env.VITE_INSFORGE_ANON_KEY as string | undefined;
 
 if (!baseUrl || !anonKey) {

@@ -93,8 +93,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isMounted) return;
 
         if (sessionError) {
-          // eslint-disable-next-line no-console
-          console.error('Failed to get current session', sessionError);
+          // "No refresh token provided" / "Invalid CSRF token" are expected when not logged in
+          const msg = String(sessionError?.message ?? sessionError);
+          if (!msg.includes('refresh token') && !msg.includes('CSRF')) {
+            // eslint-disable-next-line no-console
+            console.error('Failed to get current session', sessionError);
+          }
           setUser(null);
         } else if (data?.session?.user) {
           setUser(mapUserFromApi(data.session.user as any));
