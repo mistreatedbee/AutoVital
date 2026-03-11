@@ -314,6 +314,53 @@ FROM vehicle_health_snapshots vhs
 ORDER BY vhs.vehicle_id, vhs.snapshot_date DESC, vhs.created_at DESC;
 
 -- =========================
+--  Blog (Public + Admin)
+-- =========================
+
+CREATE TABLE IF NOT EXISTS blog_posts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  excerpt TEXT,
+  content_markdown TEXT NOT NULL DEFAULT '',
+  cover_image_url TEXT,
+  category TEXT,
+  author_name TEXT,
+  reading_time_minutes INTEGER,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+  seo_title TEXT,
+  seo_description TEXT,
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE blog_posts ENABLE ROW LEVEL SECURITY;
+
+-- Allow anon to read published posts (public blog); authenticated can read/write all
+GRANT SELECT ON blog_posts TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON blog_posts TO authenticated;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'blog_posts' AND policyname = 'public_read_published_blog_posts') THEN
+    CREATE POLICY "public_read_published_blog_posts" ON blog_posts FOR SELECT USING (status = 'published');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'blog_posts' AND policyname = 'authenticated_read_all_blog_posts') THEN
+    CREATE POLICY "authenticated_read_all_blog_posts" ON blog_posts FOR SELECT TO authenticated USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'blog_posts' AND policyname = 'authenticated_insert_blog_posts') THEN
+    CREATE POLICY "authenticated_insert_blog_posts" ON blog_posts FOR INSERT TO authenticated WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'blog_posts' AND policyname = 'authenticated_update_blog_posts') THEN
+    CREATE POLICY "authenticated_update_blog_posts" ON blog_posts FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'blog_posts' AND policyname = 'authenticated_delete_blog_posts') THEN
+    CREATE POLICY "authenticated_delete_blog_posts" ON blog_posts FOR DELETE TO authenticated USING (true);
+  END IF;
+END $$;
+
+-- =========================
 --  Audit Logs (Admin Actions)
 -- =========================
 
@@ -561,6 +608,24 @@ END $$;
 -- =========================
 --  RLS Policies (Phase A: Bootstrap)
 -- =========================
+-- SECURITY DEFINER helpers prevent infinite recursion between accounts/account_members RLS.
+-- See: .agents/skills/insforge/database/postgres-rls.md
+
+CREATE OR REPLACE FUNCTION user_owns_account(p_account_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM accounts
+    WHERE id = p_account_id AND owner_user_id = auth.uid()
+  );
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
+
+CREATE OR REPLACE FUNCTION user_is_account_member(p_account_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM account_members
+    WHERE account_id = p_account_id AND user_id = auth.uid()
+  );
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
 
 ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -573,7 +638,7 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'accounts' AND policyname = 'users_select_own_accounts') THEN
     CREATE POLICY "users_select_own_accounts" ON accounts FOR SELECT TO authenticated USING (
-      owner_user_id = auth.uid() OR EXISTS (SELECT 1 FROM account_members WHERE account_id = accounts.id AND user_id = auth.uid())
+      user_owns_account(id) OR user_is_account_member(id)
     );
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'accounts' AND policyname = 'owner_update_account') THEN
@@ -590,12 +655,12 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'account_members' AND policyname = 'owners_add_self_to_account') THEN
     CREATE POLICY "owners_add_self_to_account" ON account_members FOR INSERT TO authenticated WITH CHECK (
-      user_id = auth.uid() AND EXISTS (SELECT 1 FROM accounts WHERE id = account_id AND owner_user_id = auth.uid())
+      user_id = auth.uid() AND user_owns_account(account_id)
     );
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'account_members' AND policyname = 'users_select_own_memberships') THEN
     CREATE POLICY "users_select_own_memberships" ON account_members FOR SELECT TO authenticated USING (
-      user_id = auth.uid() OR EXISTS (SELECT 1 FROM accounts WHERE id = account_id AND owner_user_id = auth.uid())
+      user_id = auth.uid() OR user_owns_account(account_id)
     );
   END IF;
 END $$;

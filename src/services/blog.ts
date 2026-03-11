@@ -1,5 +1,21 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
 
+// #region agent log
+const _dbg = (msg: string, data: Record<string, unknown>) => {
+  fetch('http://127.0.0.1:7293/ingest/e3e34ecb-6f03-4ff2-80b8-7e6b2f049d58', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '2511e9' },
+    body: JSON.stringify({
+      sessionId: '2511e9',
+      location: 'blog.ts',
+      message: msg,
+      data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+};
+// #endregion
+
 export type BlogPostStatus = 'draft' | 'published';
 
 export interface BlogPost {
@@ -65,6 +81,7 @@ export async function fetchPublishedBlogPosts(
   const page = Math.max(1, params.page ?? 1);
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
+  _dbg('fetchPublishedBlogPosts entry', { hypothesisId: 'E', page, pageSize, from, to });
 
   try {
     const client = getInsforgeClient();
@@ -93,6 +110,15 @@ export async function fetchPublishedBlogPosts(
     const { data, error } = await (q as any).range?.(from, to) ?? q;
 
     if (error || !data) {
+      _dbg('blog_posts list error', {
+        hypothesisId: 'A',
+        table: 'blog_posts',
+        fn: 'fetchPublishedBlogPosts',
+        errorMsg: (error as any)?.message,
+        errorCode: (error as any)?.code,
+        errorStatus: (error as any)?.status,
+        hasData: !!data,
+      });
       // eslint-disable-next-line no-console
       console.warn('Failed to load blog posts from backend, using fallback.', error);
       return { posts: [], page: 1, pageSize, hasMore: false };
@@ -102,6 +128,12 @@ export async function fetchPublishedBlogPosts(
     const hasMore = posts.length === pageSize;
     return { posts, page, pageSize, hasMore };
   } catch (err) {
+    _dbg('blog_posts list exception', {
+      hypothesisId: 'A',
+      table: 'blog_posts',
+      fn: 'fetchPublishedBlogPosts',
+      errMsg: err instanceof Error ? err.message : String(err),
+    });
     // eslint-disable-next-line no-console
     console.warn('Blog service unavailable, using fallback.', err);
     return { posts: [], page: 1, pageSize, hasMore: false };
@@ -126,6 +158,15 @@ export async function fetchPublishedBlogPostBySlug(
       .limit(1);
 
     if (error) {
+      _dbg('blog_posts slug error', {
+        hypothesisId: 'D',
+        table: 'blog_posts',
+        fn: 'fetchPublishedBlogPostBySlug',
+        slug: clean,
+        errorMsg: (error as any)?.message,
+        errorCode: (error as any)?.code,
+        errorStatus: (error as any)?.status,
+      });
       // eslint-disable-next-line no-console
       console.warn('Failed to load blog post by slug.', error);
       return null;
@@ -134,6 +175,12 @@ export async function fetchPublishedBlogPostBySlug(
     const post = (data as BlogPost[] | null | undefined)?.[0] ?? null;
     return post;
   } catch (err) {
+    _dbg('blog_posts slug exception', {
+      hypothesisId: 'D',
+      table: 'blog_posts',
+      fn: 'fetchPublishedBlogPostBySlug',
+      errMsg: err instanceof Error ? err.message : String(err),
+    });
     // eslint-disable-next-line no-console
     console.warn('Blog service unavailable for slug.', err);
     return null;
