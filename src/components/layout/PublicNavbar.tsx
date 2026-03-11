@@ -59,7 +59,7 @@ export function PublicNavbar() {
             className={`flex items-center gap-3 font-heading font-bold text-2xl tracking-tight transition-colors ${logoClasses}`}>
 
             <img
-              src="/logo.svg"
+              src="/logo.jpeg"
               alt="AutoVital"
               className="h-9 w-9 rounded-lg object-contain shadow-md bg-white" />
             <span>AutoVital</span>

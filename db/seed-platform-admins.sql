@@ -1,0 +1,41 @@
+-- Seed platform admins (System Admin and Company Admin)
+-- Run after schema.sql. Replace placeholders with actual UUIDs from auth.users and accounts.
+--
+-- How to obtain UUIDs:
+--   insforge db query "SELECT id, email FROM auth.users"
+--   insforge db query "SELECT id, name FROM accounts"
+--
+-- Passwords are NEVER seeded. Users must sign up at /signup or be created via InsForge Auth.
+-- This script only grants admin roles to existing users.
+
+-- =========================
+--  System Admin
+-- =========================
+-- Add a user as system admin (full platform access).
+-- Replace USER_ID with the auth.users.id of the system admin.
+-- User must already exist; add their email to VITE_ADMIN_EMAILS as well for bootstrap.
+--
+-- INSERT INTO platform_admins (user_id, role)
+-- VALUES ('USER_UUID_HERE'::uuid, 'system_admin')
+-- ON CONFLICT DO NOTHING;
+
+-- =========================
+--  Company Admin
+-- =========================
+-- Add a user as company admin for a specific account.
+-- Replace USER_ID and ACCOUNT_ID with actual UUIDs.
+-- User must already exist and have signed up.
+--
+-- INSERT INTO platform_admins (user_id, role, account_id)
+-- VALUES (
+--   'USER_UUID_HERE'::uuid,
+--   'company_admin',
+--   'ACCOUNT_UUID_HERE'::uuid
+-- );
+--
+-- Example (uncomment and replace with real identifiers):
+-- INSERT INTO platform_admins (user_id, role, account_id)
+-- SELECT u.id, 'company_admin', a.id
+-- FROM auth.users u, accounts a
+-- WHERE u.email = 'company-admin@example.com'
+--   AND a.id = (SELECT id FROM accounts WHERE name = 'Acme Fleet' LIMIT 1);

@@ -14,7 +14,7 @@ export function Footer() {
               className="flex items-center gap-3 font-heading font-bold text-2xl text-white mb-6">
 
               <img
-                src="/logo.svg"
+                src="/logo.jpeg"
                 alt="AutoVital"
                 className="h-9 w-9 rounded-lg object-contain bg-white shadow-md" />
               <span>AutoVital</span>

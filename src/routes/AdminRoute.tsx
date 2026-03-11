@@ -6,6 +6,7 @@ import {
   listMfaFactors,
   isAdminMfaVerifiedThisSession,
 } from '../services/adminMfa';
+import { fetchCurrentUserPlatformAdminStatus } from '../services/platformAdmins';
 
 function parseAdminAllowlist(raw: string | undefined): Set<string> {
   if (!raw) return new Set();
@@ -20,6 +21,11 @@ function parseAdminAllowlist(raw: string | undefined): Set<string> {
 export function AdminRoute() {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const [platformStatus, setPlatformStatus] = useState<{
+    isSystemAdmin: boolean;
+    isCompanyAdmin: boolean;
+    companyAccountIds: string[];
+  } | null>(null);
   const [mfaChecking, setMfaChecking] = useState(true);
   const [hasMfa, setHasMfa] = useState(false);
 
@@ -29,10 +35,35 @@ export function AdminRoute() {
   );
 
   const email = user?.email?.toLowerCase() ?? '';
-  const isAdmin = Boolean(email) && allowlist.has(email);
+  const isSystemAdminFromEnv = Boolean(email) && allowlist.has(email);
+  const isAdmin =
+    isSystemAdminFromEnv ||
+    (platformStatus !== null &&
+      (platformStatus.isSystemAdmin || platformStatus.isCompanyAdmin));
+
+  const platformCheckComplete = isSystemAdminFromEnv || platformStatus !== null;
 
   const isMfaRoute =
     location.pathname.endsWith('/mfa-setup') || location.pathname.endsWith('/mfa-verify');
+
+  useEffect(() => {
+    if (!user?.id || isSystemAdminFromEnv) {
+      setPlatformStatus({ isSystemAdmin: false, isCompanyAdmin: false, companyAccountIds: [] });
+      return;
+    }
+    let isMounted = true;
+    fetchCurrentUserPlatformAdminStatus(user.id)
+      .then((status) => {
+        if (isMounted) setPlatformStatus(status);
+      })
+      .catch(() => {
+        if (isMounted)
+          setPlatformStatus({ isSystemAdmin: false, isCompanyAdmin: false, companyAccountIds: [] });
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, isSystemAdminFromEnv]);
 
   useEffect(() => {
     if (!isAdmin || isMfaRoute) {
@@ -50,7 +81,9 @@ export function AdminRoute() {
       .finally(() => {
         if (isMounted) setMfaChecking(false);
       });
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [isAdmin, isMfaRoute]);
 
   if (loading) {
@@ -59,6 +92,10 @@ export function AdminRoute() {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!platformCheckComplete) {
+    return <AuthRouteLoading />;
   }
 
   if (!isAdmin) {

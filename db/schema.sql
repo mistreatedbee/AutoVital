@@ -126,6 +126,48 @@ CREATE TABLE IF NOT EXISTS vehicle_images (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- =========================
+--  Documents & Storage (must exist before maintenance_logs references it)
+-- =========================
+
+DO $$ BEGIN
+  CREATE TYPE document_type AS ENUM (
+    'insurance',
+    'registration',
+    'inspection',
+    'receipt',
+    'warranty',
+    'other'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+  vehicle_id UUID REFERENCES vehicles (id) ON DELETE SET NULL,
+  user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
+  type document_type NOT NULL,
+  name TEXT NOT NULL,
+  storage_bucket TEXT NOT NULL,
+  storage_key TEXT NOT NULL,
+  public_url TEXT,
+  size_bytes BIGINT,
+  mime_type TEXT,
+  tags TEXT[],
+  metadata JSONB,
+  expires_at TIMESTAMPTZ,
+  deleted_at TIMESTAMPTZ,
+  deleted_by_user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+
+-- =========================
+--  Maintenance Logs
+-- =========================
+
 CREATE TYPE maintenance_type AS ENUM (
   'oil_change',
   'tire_rotation',
@@ -181,42 +223,6 @@ CREATE TABLE IF NOT EXISTS mileage_logs (
 
 CREATE INDEX IF NOT EXISTS idx_mileage_logs_vehicle_date
   ON mileage_logs (vehicle_id, log_date DESC);
-
--- =========================
---  Documents & Storage
--- =========================
-
-CREATE TYPE document_type AS ENUM (
-  'insurance',
-  'registration',
-  'inspection',
-  'receipt',
-  'warranty',
-  'other'
-);
-
-CREATE TABLE IF NOT EXISTS documents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id UUID NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
-  vehicle_id UUID REFERENCES vehicles (id) ON DELETE SET NULL,
-  user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
-  type document_type NOT NULL,
-  name TEXT NOT NULL,
-  storage_bucket TEXT NOT NULL,
-  storage_key TEXT NOT NULL,
-  public_url TEXT,
-  size_bytes BIGINT,
-  mime_type TEXT,
-  tags TEXT[],
-  metadata JSONB,
-  expires_at TIMESTAMPTZ,
-  deleted_at TIMESTAMPTZ,
-  deleted_by_user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Phase F: Document expiry (migration for existing schemas)
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
 
 -- =========================
 --  Alerts & Health
@@ -553,10 +559,10 @@ CREATE OR REPLACE VIEW auth_users_view AS
 SELECT
   u.id,
   u.email,
-  COALESCE(p.display_name, u.raw_user_meta_data->>'name') AS full_name,
+  COALESCE(p.display_name, u.email) AS full_name,
   u.created_at,
   a_def.name AS default_account_name,
-  u.email_confirmed_at,
+  NULL::timestamptz AS email_confirmed_at,
   (SELECT c.granted FROM consents c WHERE c.user_id = u.id AND c.consent_type = 'marketing' ORDER BY c.created_at DESC LIMIT 1) AS marketing_consent,
   (op.completed_at IS NOT NULL) AS onboarding_completed,
   (SELECT COUNT(*)::INT FROM vehicles v JOIN accounts a ON v.account_id = a.id WHERE a.owner_user_id = u.id AND v.archived_at IS NULL) AS vehicle_count,
@@ -665,3 +671,36 @@ $$;
 
 GRANT EXECUTE ON FUNCTION admin_set_flagged(UUID, BOOLEAN, TEXT) TO authenticated;
 
+-- =========================
+--  Platform Admins (System Admin / Company Admin)
+-- =========================
+
+DO $$ BEGIN
+  CREATE TYPE platform_admin_role AS ENUM ('system_admin', 'company_admin');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS platform_admins (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role platform_admin_role NOT NULL,
+  account_id UUID REFERENCES accounts(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT platform_admins_company_admin_needs_account
+    CHECK (role != 'company_admin' OR account_id IS NOT NULL),
+  CONSTRAINT platform_admins_system_admin_no_account
+    CHECK (role != 'system_admin' OR account_id IS NULL)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS platform_admins_system_admin_unique
+  ON platform_admins (user_id) WHERE role = 'system_admin';
+CREATE UNIQUE INDEX IF NOT EXISTS platform_admins_company_admin_unique
+  ON platform_admins (user_id, account_id) WHERE role = 'company_admin';
+
+ALTER TABLE platform_admins ENABLE ROW LEVEL SECURITY;
+
+-- Authenticated users can read platform_admins (for AdminRoute / role checks)
+CREATE POLICY "authenticated_read_platform_admins" ON platform_admins
+  FOR SELECT TO authenticated USING (true);
+
+GRANT SELECT ON platform_admins TO authenticated;

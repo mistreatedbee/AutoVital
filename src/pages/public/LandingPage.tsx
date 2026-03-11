@@ -210,7 +210,7 @@ export function LandingPage() {
                   className="relative rounded-3xl overflow-hidden border border-white/10 shadow-[0_40px_120px_rgba(0,0,0,0.75),0_0_60px_rgba(220,38,38,0.12)] bg-slate-950/70 backdrop-blur-sm p-8"
                 >
                   <img
-                    src="/logo.svg"
+                    src="/logo.jpeg"
                     alt="AutoVital"
                     className="w-full h-auto object-contain rounded-2xl"
                     style={{ minHeight: '280px' }}
