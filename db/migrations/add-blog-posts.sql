@@ -27,7 +27,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON blog_posts TO authenticated;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'blog_posts' AND policyname = 'public_read_published_blog_posts') THEN
-    CREATE POLICY "public_read_published_blog_posts" ON blog_posts FOR SELECT USING (status = 'published');
+    CREATE POLICY "public_read_published_blog_posts" ON blog_posts FOR SELECT TO anon USING (status = 'published');
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'blog_posts' AND policyname = 'authenticated_read_all_blog_posts') THEN
     CREATE POLICY "authenticated_read_all_blog_posts" ON blog_posts FOR SELECT TO authenticated USING (true);
