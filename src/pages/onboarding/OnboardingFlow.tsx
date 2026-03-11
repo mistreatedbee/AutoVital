@@ -151,7 +151,7 @@ export function OnboardingFlow() {
                       <Toggle
                       options={['Miles / Gallons', 'Kilometers / Liters']}
                       value="Miles / Gallons"
-                      onChange={() => {}} />
+                      onChange={() => undefined} />
 
                     </div>
                   </div>

@@ -11,6 +11,14 @@ import { AboutPage } from './pages/public/AboutPage';
 import { ContactPage } from './pages/public/ContactPage';
 import { BlogPage } from './pages/public/BlogPage';
 import { BlogArticlePage } from './pages/public/BlogArticlePage';
+import { TermsPage } from './pages/public/TermsPage';
+import { PrivacyPage } from './pages/public/PrivacyPage';
+import { FaqPage } from './pages/public/FaqPage';
+import { CookiesPage } from './pages/public/CookiesPage';
+import { SecurityPage } from './pages/public/SecurityPage';
+import { CareersPage } from './pages/public/CareersPage';
+import { ChangelogPage } from './pages/public/ChangelogPage';
+import { NotFoundPage } from './pages/public/NotFoundPage';
 // Auth Pages
 import { LoginPage } from './pages/auth/LoginPage';
 import { SignUpPage } from './pages/auth/SignUpPage';
@@ -24,6 +32,8 @@ import { OnboardingFlow } from './pages/onboarding/OnboardingFlow';
 import { DashboardApp } from './pages/dashboard/DashboardApp';
 // Admin
 import { AdminApp } from './pages/admin/AdminApp';
+import { ProtectedRoute } from './routes/ProtectedRoute';
+import { AdminRoute } from './routes/AdminRoute';
 export function App() {
   return (
     <BrowserRouter>
@@ -93,6 +103,62 @@ export function App() {
             </PublicLayout>
           } />
 
+        <Route
+          path="/terms"
+          element={
+          <PublicLayout>
+              <TermsPage />
+            </PublicLayout>
+          } />
+
+        <Route
+          path="/privacy"
+          element={
+          <PublicLayout>
+              <PrivacyPage />
+            </PublicLayout>
+          } />
+
+        <Route
+          path="/faq"
+          element={
+          <PublicLayout>
+              <FaqPage />
+            </PublicLayout>
+          } />
+
+        <Route
+          path="/cookies"
+          element={
+          <PublicLayout>
+              <CookiesPage />
+            </PublicLayout>
+          } />
+
+        <Route
+          path="/security"
+          element={
+          <PublicLayout>
+              <SecurityPage />
+            </PublicLayout>
+          } />
+
+        <Route
+          path="/careers"
+          element={
+          <PublicLayout>
+              <CareersPage />
+            </PublicLayout>
+          } />
+
+        <Route
+          path="/changelog"
+          element={
+          <PublicLayout>
+              <ChangelogPage />
+            </PublicLayout>
+          } />
+
 
         {/* AUTH ROUTES (Standalone Layout) */}
         <Route path="/login" element={<LoginPage />} />
@@ -106,9 +172,23 @@ export function App() {
         <Route path="/onboarding" element={<OnboardingFlow />} />
 
         {/* DASHBOARD & ADMIN ROUTES */}
-        <Route path="/dashboard/*" element={<DashboardApp />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard/*" element={<DashboardApp />} />
+        </Route>
 
-        <Route path="/admin/*" element={<AdminApp />} />
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AdminRoute />}>
+            <Route path="/admin/*" element={<AdminApp />} />
+          </Route>
+        </Route>
+
+        <Route
+          path="*"
+          element={
+          <PublicLayout>
+              <NotFoundPage />
+            </PublicLayout>
+          } />
       </Routes>
     </BrowserRouter>);
 

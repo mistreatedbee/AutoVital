@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../auth/AuthProvider';
 import {
   HomeIcon,
   CarIcon,
@@ -13,7 +14,6 @@ import {
   SettingsIcon,
   LogOutIcon,
   MenuIcon,
-  XIcon,
   SearchIcon,
   ActivityIcon } from
 'lucide-react';
@@ -25,6 +25,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { signOut } = useAuth();
   // Close sidebar on route change (mobile)
   useEffect(() => {
     setSidebarOpen(false);
@@ -76,8 +77,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     icon: <SettingsIcon className="w-5 h-5" />
   }];
 
-  const handleLogout = () => {
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } finally {
+      navigate('/login');
+    }
   };
   const SidebarContent = () =>
   <div className="flex flex-col h-full bg-[#111827] text-[#9CA3AF]">

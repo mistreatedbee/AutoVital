@@ -20,7 +20,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
             className="flex items-center gap-3 font-heading font-bold text-xl text-slate-900">
 
             <img
-              src="/logo.jpeg"
+              src="/logo.svg"
               alt="AutoVital"
               className="h-9 w-9 rounded-lg object-contain shadow-md bg-white" />
             <span>AutoVital</span>

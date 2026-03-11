@@ -174,7 +174,7 @@ export function AlertsReminders() {
                   <Toggle
                     options={['Off', 'On']}
                     value="On"
-                    onChange={() => {}} />
+                    onChange={() => undefined} />
 
                 </div>
                 <p className="text-sm text-slate-500">
@@ -192,7 +192,7 @@ export function AlertsReminders() {
                   <Toggle
                     options={['Off', 'On']}
                     value="On"
-                    onChange={() => {}} />
+                    onChange={() => undefined} />
 
                 </div>
                 <p className="text-sm text-slate-500">

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../auth/AuthProvider';
 import {
   ActivityIcon,
   UsersIcon,
@@ -26,6 +27,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { signOut } = useAuth();
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
@@ -81,8 +83,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     icon: <SettingsIcon className="w-5 h-5" />
   }];
 
-  const handleLogout = () => {
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } finally {
+      navigate('/login');
+    }
   };
   const SidebarContent = () =>
   <div className="flex flex-col h-full bg-[#111827] text-[#9CA3AF] border-r border-slate-800">

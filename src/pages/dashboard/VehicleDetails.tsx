@@ -2,9 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeftIcon,
+  DollarSignIcon,
   EditIcon,
   SettingsIcon,
-  FileTextIcon,
   WrenchIcon,
   FuelIcon } from
 'lucide-react';
