@@ -5,6 +5,7 @@ import { AuthRouteLoading } from '../components/states/LoadingState';
 import {
   listMfaFactors,
   isAdminMfaVerifiedThisSession,
+  isMfaSupported,
 } from '../services/adminMfa';
 import { fetchCurrentUserPlatformAdminStatus } from '../services/platformAdmins';
 
@@ -46,6 +47,8 @@ export function AdminRoute() {
   const isMfaRoute =
     location.pathname.endsWith('/mfa-setup') || location.pathname.endsWith('/mfa-verify');
 
+  const mfaSupported = isMfaSupported();
+
   useEffect(() => {
     if (!user?.id || isSystemAdminFromEnv) {
       setPlatformStatus({ isSystemAdmin: false, isCompanyAdmin: false, companyAccountIds: [] });
@@ -66,8 +69,9 @@ export function AdminRoute() {
   }, [user?.id, isSystemAdminFromEnv]);
 
   useEffect(() => {
-    if (!isAdmin || isMfaRoute) {
+    if (!isAdmin || isMfaRoute || !mfaSupported) {
       setMfaChecking(false);
+      if (!mfaSupported) setHasMfa(true);
       return;
     }
     let isMounted = true;
@@ -84,7 +88,7 @@ export function AdminRoute() {
     return () => {
       isMounted = false;
     };
-  }, [isAdmin, isMfaRoute]);
+  }, [isAdmin, isMfaRoute, mfaSupported]);
 
   if (loading) {
     return <AuthRouteLoading />;
@@ -110,11 +114,11 @@ export function AdminRoute() {
     return <AuthRouteLoading />;
   }
 
-  if (!hasMfa) {
+  if (mfaSupported && !hasMfa) {
     return <Navigate to="/admin/mfa-setup" replace />;
   }
 
-  if (!isAdminMfaVerifiedThisSession()) {
+  if (mfaSupported && !isAdminMfaVerifiedThisSession()) {
     return <Navigate to="/admin/mfa-verify" replace />;
   }
 

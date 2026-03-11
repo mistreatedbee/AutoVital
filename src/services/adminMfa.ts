@@ -42,6 +42,17 @@ export function clearAdminMfaVerified(): void {
   }
 }
 
+/** Returns true if the auth provider supports MFA (enroll, list, challenge, verify). */
+export function isMfaSupported(): boolean {
+  try {
+    const client = getInsforgeClient();
+    const auth = (client.auth as { mfa?: { enroll?: unknown; listFactors?: unknown } }).mfa;
+    return Boolean(auth?.enroll && auth?.listFactors);
+  } catch {
+    return false;
+  }
+}
+
 export async function listMfaFactors(): Promise<MfaFactor[]> {
   const client = getInsforgeClient();
   const auth = (client.auth as { mfa?: { listFactors?: () => Promise<{ data?: { totp?: MfaFactor[] }; error?: unknown }> } }).mfa;
