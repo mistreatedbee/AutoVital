@@ -18,7 +18,10 @@ export interface AlertPreference {
   channel: AlertChannel;
   enabled: boolean;
   maintenanceLeadDays: number;
+  maintenanceLeadDaysArray?: number[];
   documentExpiryLeadDays: number;
+  reminderBasis?: string | null;
+  weeklySummaryEmail?: boolean;
   quietHours: unknown | null;
 }
 
@@ -118,7 +121,12 @@ export async function fetchAlertPreferences(
       channel: row.channel as AlertChannel,
       enabled: Boolean(row.enabled),
       maintenanceLeadDays: row.maintenance_lead_days ?? 14,
+      maintenanceLeadDaysArray: Array.isArray(row.maintenance_lead_days_array)
+        ? row.maintenance_lead_days_array
+        : [14, 7],
       documentExpiryLeadDays: row.document_expiry_lead_days ?? 30,
+      reminderBasis: row.reminder_basis ?? null,
+      weeklySummaryEmail: Boolean(row.weekly_summary_email),
       quietHours: row.quiet_hours ?? null,
     }));
   } catch (err) {
@@ -134,11 +142,14 @@ export async function upsertAlertPreference(input: {
   channel: AlertChannel;
   enabled: boolean;
   maintenanceLeadDays?: number;
+  maintenanceLeadDaysArray?: number[];
   documentExpiryLeadDays?: number;
+  reminderBasis?: string | null;
+  weeklySummaryEmail?: boolean;
 }): Promise<boolean> {
   try {
     const client = getInsforgeClient();
-    const payload = {
+    const payload: Record<string, unknown> = {
       user_id: input.userId,
       account_id: input.accountId,
       channel: input.channel,
@@ -146,6 +157,15 @@ export async function upsertAlertPreference(input: {
       maintenance_lead_days: input.maintenanceLeadDays ?? 14,
       document_expiry_lead_days: input.documentExpiryLeadDays ?? 30,
     };
+    if (input.maintenanceLeadDaysArray !== undefined) {
+      payload.maintenance_lead_days_array = input.maintenanceLeadDaysArray;
+    }
+    if (input.reminderBasis !== undefined) {
+      payload.reminder_basis = input.reminderBasis;
+    }
+    if (input.weeklySummaryEmail !== undefined) {
+      payload.weekly_summary_email = input.weeklySummaryEmail;
+    }
 
     const { error } = await client.database
       .from('alert_preferences')

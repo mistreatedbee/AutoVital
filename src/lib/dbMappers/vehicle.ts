@@ -24,6 +24,9 @@ export interface VehicleDbRow {
   license_plate?: string | null;
   fuel_type?: string | null;
   current_mileage?: number | string | null;
+  transmission?: string | null;
+  engine_type?: string | null;
+  color?: string | null;
   health_score?: number | string | null;
   hero_image_url?: string | null;
   created_at: string;
@@ -87,6 +90,9 @@ export function rowToVehicle(row: VehicleDbRow): Vehicle {
     fuelType: row.fuel_type ?? null,
     currentMileage:
       row.current_mileage != null ? Number(row.current_mileage) : null,
+    transmission: row.transmission ?? null,
+    engineType: row.engine_type ?? null,
+    color: row.color ?? null,
     healthScore: row.health_score != null ? Number(row.health_score) : null,
     heroImageUrl: row.hero_image_url ?? null,
     createdAt: row.created_at,

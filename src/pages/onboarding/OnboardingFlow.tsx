@@ -1,60 +1,388 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CarIcon,
   UserIcon,
   BellIcon,
+  WrenchIcon,
   CheckCircle2Icon,
   ArrowRightIcon,
-  ArrowLeftIcon } from
-'lucide-react';
+  ArrowLeftIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+} from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
-import { Toggle } from '../../components/ui/Toggle';
+import { useAuth } from '../../auth/AuthProvider';
+import { useAccount } from '../../account/AccountProvider';
+import { LoadingState } from '../../components/states/LoadingState';
+import { fetchCurrentProfile, updateProfile } from '../../services/profile';
+import { uploadAvatarFile } from '../../services/avatarUpload';
+import { upsertVehicle } from '../../services/vehicles';
+import { uploadVehicleImageFile } from '../../services/vehicleImageUpload';
+import { recomputeAndPersistVehicleHealth } from '../../services/vehicleHealth';
+import { upsertServicePreferences } from '../../services/servicePreferences';
+import { upsertAlertPreference } from '../../services/alerts';
+import {
+  fetchOnboardingProgress,
+  upsertOnboardingProgress,
+  completeOnboarding,
+} from '../../services/onboarding';
+
+const COMMON_MAKES = [
+  'Toyota', 'Ford', 'BMW', 'Mercedes-Benz', 'Volkswagen', 'Honda', 'Nissan',
+  'Hyundai', 'Kia', 'Mazda', 'Audi', 'Chevrolet', 'Renault', 'Peugeot',
+  'Isuzu', 'Suzuki', 'Datsun', 'Lexus', 'Volvo', 'Land Rover', 'Other',
+];
+
+const TIMEZONES = [
+  'Africa/Johannesburg',
+  'Africa/Cairo',
+  'Africa/Lagos',
+  'Africa/Nairobi',
+  'Europe/London',
+  'Europe/Paris',
+  'America/New_York',
+  'America/Los_Angeles',
+  'Asia/Dubai',
+  'Asia/Singapore',
+  'Australia/Sydney',
+];
+
+const LOCALES = [
+  { value: 'en', label: 'English' },
+  { value: 'af', label: 'Afrikaans' },
+  { value: 'zu', label: 'Zulu' },
+  { value: 'xh', label: 'Xhosa' },
+];
+
+const LEAD_DAY_OPTIONS = [
+  { value: 30, label: '30 days before' },
+  { value: 14, label: '14 days before' },
+  { value: 7, label: '7 days before' },
+  { value: 0, label: 'Due date' },
+];
+
+const STEPS = [
+  { id: 1, title: 'Profile', icon: UserIcon },
+  { id: 2, title: 'Vehicle', icon: CarIcon },
+  { id: 3, title: 'Service baseline', icon: WrenchIcon },
+  { id: 4, title: 'Reminders', icon: BellIcon },
+  { id: 5, title: 'Complete', icon: CheckCircle2Icon },
+];
+
 export function OnboardingFlow() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { accountId } = useAccount();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const handleNext = () => {
-    if (step < 4) setStep(step + 1);
+  const [initializing, setInitializing] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Profile state
+  const [displayName, setDisplayName] = useState('');
+  const [country, setCountry] = useState('ZA');
+  const [city, setCity] = useState('');
+  const [currency, setCurrency] = useState('ZAR');
+  const [mileageUnit, setMileageUnit] = useState('km');
+  const [fuelUnit, setFuelUnit] = useState('litres');
+  const [timezone, setTimezone] = useState('Africa/Johannesburg');
+  const [locale, setLocale] = useState('en');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+
+  // Vehicle state
+  const [vehicleSkipped, setVehicleSkipped] = useState(false);
+  const [nickname, setNickname] = useState('');
+  const [make, setMake] = useState('');
+  const [model, setModel] = useState('');
+  const [year, setYear] = useState('');
+  const [registration, setRegistration] = useState('');
+  const [vin, setVin] = useState('');
+  const [currentMileage, setCurrentMileage] = useState('');
+  const [fuelType, setFuelType] = useState('');
+  const [transmission, setTransmission] = useState('');
+  const [engineType, setEngineType] = useState('');
+  const [color, setColor] = useState('');
+  const [vehicleImageFile, setVehicleImageFile] = useState<File | null>(null);
+
+  // Service baseline state
+  const [lastServiceDate, setLastServiceDate] = useState('');
+  const [lastServiceMileage, setLastServiceMileage] = useState('');
+  const [serviceIntervalMonths, setServiceIntervalMonths] = useState('');
+  const [serviceIntervalMileage, setServiceIntervalMileage] = useState('');
+  const [expandedServiceDetails, setExpandedServiceDetails] = useState(false);
+  const [lastOilChangeDate, setLastOilChangeDate] = useState('');
+  const [lastOilChangeMileage, setLastOilChangeMileage] = useState('');
+  const [lastBrakeServiceDate, setLastBrakeServiceDate] = useState('');
+  const [lastBatteryDate, setLastBatteryDate] = useState('');
+  const [lastTireRotationDate, setLastTireRotationDate] = useState('');
+  const [knownIssues, setKnownIssues] = useState('');
+  const [workshopName, setWorkshopName] = useState('');
+
+  // Reminders state
+  const [emailReminders, setEmailReminders] = useState(true);
+  const [inAppReminders, setInAppReminders] = useState(true);
+  const [leadDays, setLeadDays] = useState<number[]>([14, 7, 0]);
+  const [reminderBasis, setReminderBasis] = useState<'time' | 'mileage' | 'both'>('both');
+  const [weeklySummary, setWeeklySummary] = useState(false);
+
+  const [vehicleId, setVehicleId] = useState<string | null>(null);
+
+  const loadInitialData = useCallback(async () => {
+    if (!user?.id) return;
+    setInitializing(true);
+    try {
+      const [progress, profile] = await Promise.all([
+        fetchOnboardingProgress(user.id),
+        fetchCurrentProfile(user.id),
+      ]);
+      if (progress) {
+        setStep(Math.min(progress.currentStep, 5));
+      }
+      if (profile) {
+        setDisplayName(profile.displayName ?? '');
+        setCountry(profile.country ?? 'ZA');
+        setCity(profile.city ?? '');
+        setCurrency(profile.currency ?? 'ZAR');
+        setMileageUnit(profile.mileageUnit ?? 'km');
+        setFuelUnit(profile.fuelUnit ?? 'litres');
+        setTimezone(profile.timezone ?? 'Africa/Johannesburg');
+        setLocale(profile.locale ?? 'en');
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to load onboarding data', err);
+    } finally {
+      setInitializing(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  const saveProfileStep = useCallback(async () => {
+    if (!user?.id) return false;
+    setError(null);
+    const ok = await updateProfile(user.id, {
+      displayName: displayName.trim() || null,
+      country: country || 'ZA',
+      city: city.trim() || null,
+      currency: currency || 'ZAR',
+      mileageUnit: mileageUnit || 'km',
+      fuelUnit: fuelUnit || 'litres',
+      timezone: timezone || 'Africa/Johannesburg',
+      locale: locale || 'en',
+    });
+    if (ok && avatarFile) {
+      await uploadAvatarFile(user.id, avatarFile);
+    }
+    return ok;
+  }, [user?.id, displayName, country, city, currency, mileageUnit, fuelUnit, timezone, locale, avatarFile]);
+
+  const saveVehicleStep = useCallback(async () => {
+    if (vehicleSkipped || !accountId || !user?.id) return true;
+    if (!make.trim() || !model.trim()) return false;
+    const yearNum = year ? Number(year) : null;
+    const mileageNum = currentMileage ? Number(currentMileage.replace(/,/g, '')) : null;
+    const vehicle = await upsertVehicle({
+      id: vehicleId ?? undefined,
+      accountId,
+      ownerUserId: user.id,
+      nickname: nickname.trim() || null,
+      make: make.trim(),
+      model: model.trim(),
+      year: yearNum,
+      vin: vin.trim() || null,
+      licensePlate: registration.trim() || null,
+      fuelType: fuelType || null,
+      currentMileage: mileageNum,
+      transmission: transmission.trim() || null,
+      engineType: engineType.trim() || null,
+      color: color.trim() || null,
+    });
+    if (!vehicle) return false;
+    const withHealth = await recomputeAndPersistVehicleHealth(vehicle, null);
+    if (vehicleImageFile && withHealth) {
+      await uploadVehicleImageFile({
+        accountId,
+        vehicleId: withHealth.id,
+        file: vehicleImageFile,
+      });
+    }
+    setVehicleId(withHealth.id);
+    return true;
+  }, [
+    vehicleSkipped, accountId, user?.id, vehicleId, nickname, make, model, year,
+    registration, vin, currentMileage, fuelType, transmission, engineType, color, vehicleImageFile,
+  ]);
+
+  const saveServiceStep = useCallback(async () => {
+    if (!accountId) return false;
+    const lastDate = lastServiceDate || null;
+    const lastMileage = lastServiceMileage ? Number(lastServiceMileage) : null;
+    const intervalMonths = serviceIntervalMonths ? Number(serviceIntervalMonths) : null;
+    const intervalMileage = serviceIntervalMileage ? Number(serviceIntervalMileage) : null;
+    const oilDate = lastOilChangeDate || null;
+    const oilMileage = lastOilChangeMileage ? Number(lastOilChangeMileage) : null;
+    const brakeDate = lastBrakeServiceDate || null;
+    const batteryDate = lastBatteryDate || null;
+    const tireDate = lastTireRotationDate || null;
+    await upsertServicePreferences({
+      accountId,
+      vehicleId: vehicleId ?? null,
+      lastServiceDate: lastDate,
+      lastServiceMileage: lastMileage,
+      serviceIntervalMonths: intervalMonths,
+      serviceIntervalMileage: intervalMileage,
+      lastOilChangeDate: oilDate,
+      lastOilChangeMileage: oilMileage,
+      lastBrakeServiceDate: brakeDate,
+      lastBatteryDate: batteryDate,
+      lastTireRotationDate: tireDate,
+      knownIssues: knownIssues.trim() || null,
+      workshopName: workshopName.trim() || null,
+    });
+    return true;
+  }, [
+    accountId, vehicleId, lastServiceDate, lastServiceMileage, serviceIntervalMonths,
+    serviceIntervalMileage, lastOilChangeDate, lastOilChangeMileage, lastBrakeServiceDate,
+    lastBatteryDate, lastTireRotationDate, knownIssues, workshopName,
+  ]);
+
+  const saveRemindersStep = useCallback(async () => {
+    if (!user?.id || !accountId) return false;
+    await upsertAlertPreference({
+      userId: user.id,
+      accountId,
+      channel: 'email',
+      enabled: emailReminders,
+      maintenanceLeadDaysArray: leadDays.length ? leadDays : [14, 7, 0],
+      reminderBasis: reminderBasis,
+      weeklySummaryEmail: weeklySummary,
+    });
+    await upsertAlertPreference({
+      userId: user.id,
+      accountId,
+      channel: 'in_app',
+      enabled: inAppReminders,
+      maintenanceLeadDaysArray: leadDays.length ? leadDays : [14, 7, 0],
+      reminderBasis: reminderBasis,
+      weeklySummaryEmail: weeklySummary,
+    });
+    return true;
+  }, [user?.id, accountId, emailReminders, inAppReminders, leadDays, reminderBasis, weeklySummary]);
+
+  const toggleLeadDay = (day: number) => {
+    setLeadDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort((a, b) => b - a),
+    );
   };
-  const handleBack = () => {
-    if (step > 1) setStep(step - 1);
-  };
-  const handleFinish = () => {
+
+  const handleNext = useCallback(async () => {
+    setError(null);
     setLoading(true);
-    setTimeout(() => {
+    try {
+      if (step === 1) {
+        const ok = await saveProfileStep();
+        if (!ok) {
+          setError('Failed to save profile.');
+          setLoading(false);
+          return;
+        }
+        await upsertOnboardingProgress(user!.id, {
+          currentStep: 2,
+          profileCompleted: true,
+        });
+      } else if (step === 2) {
+        if (!vehicleSkipped) {
+          const ok = await saveVehicleStep();
+          if (!ok) {
+            setError('Please enter make and model, or skip for now.');
+            setLoading(false);
+            return;
+          }
+        }
+        await upsertOnboardingProgress(user!.id, {
+          currentStep: 3,
+          vehicleAdded: !vehicleSkipped,
+        });
+      } else if (step === 3) {
+        await saveServiceStep();
+        await upsertOnboardingProgress(user!.id, {
+          currentStep: 4,
+          serviceBaselineCompleted: true,
+        });
+      } else if (step === 4) {
+        await saveRemindersStep();
+        await upsertOnboardingProgress(user!.id, {
+          currentStep: 5,
+          remindersCompleted: true,
+        });
+      }
+      if (step < 5) setStep(step + 1);
+    } catch (err) {
+      setError('Something went wrong. Please try again.');
+    } finally {
       setLoading(false);
-      navigate('/dashboard');
-    }, 1500);
-  };
-  const steps = [
-  {
-    id: 1,
-    title: 'Profile',
-    icon: <UserIcon className="w-5 h-5" />
-  },
-  {
-    id: 2,
-    title: 'Vehicle',
-    icon: <CarIcon className="w-5 h-5" />
-  },
-  {
-    id: 3,
-    title: 'Preferences',
-    icon: <BellIcon className="w-5 h-5" />
-  },
-  {
-    id: 4,
-    title: 'Complete',
-    icon: <CheckCircle2Icon className="w-5 h-5" />
-  }];
+    }
+  }, [
+    step, user, vehicleSkipped, saveProfileStep, saveVehicleStep, saveServiceStep, saveRemindersStep,
+  ]);
+
+  const handleBack = useCallback(() => {
+    if (step > 1) setStep(step - 1);
+  }, [step]);
+
+  const handleSkipVehicle = useCallback(async () => {
+    setVehicleSkipped(true);
+    setError(null);
+    setLoading(true);
+    try {
+      await upsertOnboardingProgress(user!.id, {
+        currentStep: 3,
+        vehicleAdded: false,
+      });
+      setStep(3);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  const handleFinish = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const ok = await completeOnboarding(user!.id);
+      if (ok) {
+        await queryClient.invalidateQueries({ queryKey: ['onboarding', user!.id] });
+        navigate('/dashboard', { replace: true });
+      } else {
+        setError('Failed to complete. Please try again.');
+      }
+    } catch (err) {
+      setError('Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, navigate, queryClient]);
+
+  if (!user) return null;
+  if (initializing || (step === 2 && !vehicleSkipped && !accountId)) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <LoadingState label="Loading…" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-body">
-      {/* Top Navigation Bar */}
       <header className="bg-white border-b border-slate-200 py-4 px-6">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="font-heading font-bold text-xl text-slate-900 flex items-center gap-2">
@@ -64,285 +392,504 @@ export function OnboardingFlow() {
             AutoVital
           </div>
           <div className="text-sm font-medium text-slate-500">
-            Step {step} of 4
+            Step {step} of 5
           </div>
         </div>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-2xl">
-          {/* Progress Stepper */}
           <div className="flex items-center justify-between mb-12 relative">
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-slate-200 -z-10 rounded-full">
               <motion.div
                 className="h-full bg-primary-500 rounded-full"
-                initial={{
-                  width: '0%'
-                }}
-                animate={{
-                  width: `${(step - 1) / 3 * 100}%`
-                }}
-                transition={{
-                  duration: 0.3
-                }} />
-
+                initial={{ width: '0%' }}
+                animate={{ width: `${((step - 1) / 4) * 100}%` }}
+                transition={{ duration: 0.3 }}
+              />
             </div>
-            {steps.map((s) =>
-            <div
-              key={s.id}
-              className="flex flex-col items-center gap-2 bg-slate-50 px-2">
-
+            {STEPS.map((s) => (
+              <div key={s.id} className="flex flex-col items-center gap-2 bg-slate-50 px-2">
                 <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors duration-300 ${step >= s.id ? 'bg-primary-500 border-primary-500 text-white' : 'bg-white border-slate-300 text-slate-400'}`}>
-
-                  {s.icon}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors duration-300 ${
+                    step >= s.id ? 'bg-primary-500 border-primary-500 text-white' : 'bg-white border-slate-300 text-slate-400'
+                  }`}
+                >
+                  <s.icon className="w-5 h-5" />
                 </div>
-                <span
-                className={`text-xs font-medium ${step >= s.id ? 'text-slate-900' : 'text-slate-500'}`}>
-
+                <span className={`text-xs font-medium ${step >= s.id ? 'text-slate-900' : 'text-slate-500'}`}>
                   {s.title}
                 </span>
               </div>
-            )}
+            ))}
           </div>
 
-          {/* Form Container */}
           <Card className="p-8 md:p-10 bg-white shadow-xl border-slate-100">
+            {error && (
+              <div className="mb-4 p-3 rounded-md bg-red-50 text-sm text-red-700 border border-red-200">
+                {error}
+              </div>
+            )}
+
             <AnimatePresence mode="wait">
-              {step === 1 &&
-              <motion.div
-                key="step1"
-                initial={{
-                  opacity: 0,
-                  x: 20
-                }}
-                animate={{
-                  opacity: 1,
-                  x: 0
-                }}
-                exit={{
-                  opacity: 0,
-                  x: -20
-                }}
-                className="space-y-6">
-
+              {step === 1 && (
+                <motion.div
+                  key="step1"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900 font-heading mb-2">
-                      Personal Details
-                    </h2>
-                    <p className="text-slate-500">
-                      Let's start with some basic information.
-                    </p>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input label="First Name" placeholder="John" />
-                      <Input label="Last Name" placeholder="Doe" />
-                    </div>
-                    <Input
-                    label="Phone Number (Optional)"
-                    type="tel"
-                    placeholder="+1 (555) 000-0000" />
-
-                    <div className="pt-4">
-                      <label className="text-sm font-medium text-slate-700 mb-2 block">
-                        Measurement System
-                      </label>
-                      <Toggle
-                      options={['Miles / Gallons', 'Kilometers / Liters']}
-                      value="Miles / Gallons"
-                      onChange={() => undefined} />
-
-                    </div>
-                  </div>
-                </motion.div>
-              }
-
-              {step === 2 &&
-              <motion.div
-                key="step2"
-                initial={{
-                  opacity: 0,
-                  x: 20
-                }}
-                animate={{
-                  opacity: 1,
-                  x: 0
-                }}
-                exit={{
-                  opacity: 0,
-                  x: -20
-                }}
-                className="space-y-6">
-
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-900 font-heading mb-2">
-                      Add Your First Vehicle
-                    </h2>
-                    <p className="text-slate-500">
-                      You can add more vehicles later from your dashboard.
-                    </p>
+                    <h2 className="text-2xl font-bold text-slate-900 font-heading mb-2">Profile</h2>
+                    <p className="text-slate-500">Tell us a bit about yourself.</p>
                   </div>
                   <div className="space-y-4">
                     <Input
-                    label="Vehicle Nickname"
-                    placeholder="e.g. Daily Driver, Weekend Toy" />
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input label="Make" placeholder="e.g. Toyota" />
-                      <Input label="Model" placeholder="e.g. Camry" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input label="Year" type="number" placeholder="2020" />
-                      <Input
-                      label="Current Mileage"
-                      type="number"
-                      placeholder="45000" />
-
-                    </div>
+                      label="Preferred display name"
+                      placeholder="e.g. John"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                    />
                     <Input
-                    label="VIN (Optional)"
-                    placeholder="17-character Vehicle Identification Number" />
-
-                  </div>
-                </motion.div>
-              }
-
-              {step === 3 &&
-              <motion.div
-                key="step3"
-                initial={{
-                  opacity: 0,
-                  x: 20
-                }}
-                animate={{
-                  opacity: 1,
-                  x: 0
-                }}
-                exit={{
-                  opacity: 0,
-                  x: -20
-                }}
-                className="space-y-6">
-
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-900 font-heading mb-2">
-                      Service Preferences
-                    </h2>
-                    <p className="text-slate-500">
-                      How would you like us to remind you about upcoming
-                      maintenance?
-                    </p>
-                  </div>
-                  <div className="space-y-4">
-                    <label className="flex items-start gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:border-primary-300 bg-slate-50">
-                      <input
-                      type="checkbox"
-                      className="mt-1 w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500"
-                      defaultChecked />
-
+                      label="Country"
+                      placeholder="South Africa"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                    />
+                    <Input
+                      label="City / Region"
+                      placeholder="e.g. Johannesburg"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                    />
+                    <Input
+                      label="Preferred currency"
+                      placeholder="ZAR"
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="font-medium text-slate-900">
-                          Email Reminders
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          Receive alerts directly in your inbox when service is
-                          due.
-                        </p>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Mileage unit</label>
+                        <select
+                          className="w-full rounded-md border border-slate-300 py-2 px-3 text-sm"
+                          value={mileageUnit}
+                          onChange={(e) => setMileageUnit(e.target.value)}
+                        >
+                          <option value="km">km</option>
+                          <option value="miles">miles</option>
+                        </select>
                       </div>
-                    </label>
-                    <label className="flex items-start gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:border-primary-300 bg-slate-50">
-                      <input
-                      type="checkbox"
-                      className="mt-1 w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500"
-                      defaultChecked />
-
                       <div>
-                        <p className="font-medium text-slate-900">
-                          In-App Notifications
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          See alerts on your dashboard when you log in.
-                        </p>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Fuel unit</label>
+                        <select
+                          className="w-full rounded-md border border-slate-300 py-2 px-3 text-sm"
+                          value={fuelUnit}
+                          onChange={(e) => setFuelUnit(e.target.value)}
+                        >
+                          <option value="litres">Litres</option>
+                          <option value="gallons">Gallons</option>
+                        </select>
                       </div>
-                    </label>
-                    <div className="pt-4">
-                      <label className="text-sm font-medium text-slate-700 mb-2 block">
-                        Alert me before service is due by:
-                      </label>
-                      <select className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500">
-                        <option>500 miles / 2 weeks</option>
-                        <option>1,000 miles / 1 month</option>
-                        <option>Just in time</option>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Timezone</label>
+                      <select
+                        className="w-full rounded-md border border-slate-300 py-2 px-3 text-sm"
+                        value={timezone}
+                        onChange={(e) => setTimezone(e.target.value)}
+                      >
+                        {TIMEZONES.map((tz) => (
+                          <option key={tz} value={tz}>{tz}</option>
+                        ))}
                       </select>
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Notification language</label>
+                      <select
+                        className="w-full rounded-md border border-slate-300 py-2 px-3 text-sm"
+                        value={locale}
+                        onChange={(e) => setLocale(e.target.value)}
+                      >
+                        {LOCALES.map((l) => (
+                          <option key={l.value} value={l.value}>{l.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Profile photo (optional)</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+                        className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-slate-200 file:bg-slate-50"
+                      />
+                    </div>
                   </div>
                 </motion.div>
-              }
+              )}
 
-              {step === 4 &&
-              <motion.div
-                key="step4"
-                initial={{
-                  opacity: 0,
-                  scale: 0.95
-                }}
-                animate={{
-                  opacity: 1,
-                  scale: 1
-                }}
-                className="text-center py-8">
+              {step === 2 && (
+                <motion.div
+                  key="step2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900 font-heading mb-2">Add your vehicle</h2>
+                    <p className="text-slate-500">You can add more vehicles later from your dashboard.</p>
+                  </div>
+                  <div className="space-y-4">
+                    <Input
+                      label="Nickname"
+                      placeholder="e.g. Daily Driver"
+                      value={nickname}
+                      onChange={(e) => setNickname(e.target.value)}
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Make</label>
+                      <select
+                        className="w-full rounded-md border border-slate-300 py-2 px-3 text-sm"
+                        value={make}
+                        onChange={(e) => setMake(e.target.value)}
+                      >
+                        <option value="">Select make</option>
+                        {COMMON_MAKES.map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <Input
+                      label="Model"
+                      placeholder="e.g. Corolla"
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input
+                        label="Year"
+                        type="number"
+                        placeholder="2020"
+                        value={year}
+                        onChange={(e) => setYear(e.target.value)}
+                      />
+                      <Input
+                        label="Registration"
+                        placeholder="ABC-1234"
+                        value={registration}
+                        onChange={(e) => setRegistration(e.target.value)}
+                      />
+                    </div>
+                    <Input
+                      label="VIN (optional)"
+                      placeholder="17-character ID"
+                      value={vin}
+                      onChange={(e) => setVin(e.target.value)}
+                    />
+                    <Input
+                      label="Current mileage"
+                      type="number"
+                      placeholder="45000"
+                      value={currentMileage}
+                      onChange={(e) => setCurrentMileage(e.target.value)}
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Fuel type</label>
+                      <select
+                        className="w-full rounded-md border border-slate-300 py-2 px-3 text-sm"
+                        value={fuelType}
+                        onChange={(e) => setFuelType(e.target.value)}
+                      >
+                        <option value="">Select</option>
+                        <option value="gasoline">Gasoline</option>
+                        <option value="diesel">Diesel</option>
+                        <option value="electric">Electric</option>
+                        <option value="hybrid">Hybrid</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Input
+                        label="Transmission"
+                        placeholder="Auto/Manual"
+                        value={transmission}
+                        onChange={(e) => setTransmission(e.target.value)}
+                      />
+                      <Input
+                        label="Engine type"
+                        placeholder="e.g. 2.0L"
+                        value={engineType}
+                        onChange={(e) => setEngineType(e.target.value)}
+                      />
+                      <Input
+                        label="Color"
+                        placeholder="e.g. White"
+                        value={color}
+                        onChange={(e) => setColor(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Vehicle photo (optional)</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setVehicleImageFile(e.target.files?.[0] ?? null)}
+                        className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-slate-200 file:bg-slate-50"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
 
+              {step === 3 && (
+                <motion.div
+                  key="step3"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900 font-heading mb-2">Service baseline</h2>
+                    <p className="text-slate-500">When was your vehicle last serviced?</p>
+                  </div>
+                  <div className="space-y-4">
+                    <Input
+                      label="Last service date"
+                      type="date"
+                      value={lastServiceDate}
+                      onChange={(e) => setLastServiceDate(e.target.value)}
+                    />
+                    <Input
+                      label="Mileage at last service"
+                      type="number"
+                      placeholder="45000"
+                      value={lastServiceMileage}
+                      onChange={(e) => setLastServiceMileage(e.target.value)}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input
+                        label="Service interval (months)"
+                        type="number"
+                        placeholder="12"
+                        value={serviceIntervalMonths}
+                        onChange={(e) => setServiceIntervalMonths(e.target.value)}
+                      />
+                      <Input
+                        label="Service interval (km)"
+                        type="number"
+                        placeholder="15000"
+                        value={serviceIntervalMileage}
+                        onChange={(e) => setServiceIntervalMileage(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-500"
+                      onClick={() => setExpandedServiceDetails(!expandedServiceDetails)}
+                    >
+                      {expandedServiceDetails ? (
+                        <ChevronUpIcon className="w-4 h-4" />
+                      ) : (
+                        <ChevronDownIcon className="w-4 h-4" />
+                      )}
+                      {expandedServiceDetails ? 'Hide' : 'Show'} optional details
+                    </button>
+                    {expandedServiceDetails && (
+                      <div className="space-y-4 pl-4 border-l-2 border-slate-200">
+                        <Input
+                          label="Last oil change date"
+                          type="date"
+                          value={lastOilChangeDate}
+                          onChange={(e) => setLastOilChangeDate(e.target.value)}
+                        />
+                        <Input
+                          label="Last oil change mileage"
+                          type="number"
+                          value={lastOilChangeMileage}
+                          onChange={(e) => setLastOilChangeMileage(e.target.value)}
+                        />
+                        <Input
+                          label="Last brake service date"
+                          type="date"
+                          value={lastBrakeServiceDate}
+                          onChange={(e) => setLastBrakeServiceDate(e.target.value)}
+                        />
+                        <Input
+                          label="Last battery date"
+                          type="date"
+                          value={lastBatteryDate}
+                          onChange={(e) => setLastBatteryDate(e.target.value)}
+                        />
+                        <Input
+                          label="Last tire rotation date"
+                          type="date"
+                          value={lastTireRotationDate}
+                          onChange={(e) => setLastTireRotationDate(e.target.value)}
+                        />
+                        <Input
+                          label="Known issues"
+                          placeholder="Optional"
+                          value={knownIssues}
+                          onChange={(e) => setKnownIssues(e.target.value)}
+                        />
+                        <Input
+                          label="Workshop name"
+                          placeholder="Optional"
+                          value={workshopName}
+                          onChange={(e) => setWorkshopName(e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {step === 4 && (
+                <motion.div
+                  key="step4"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900 font-heading mb-2">Reminders</h2>
+                    <p className="text-slate-500">How would you like to be notified?</p>
+                  </div>
+                  <div className="space-y-4">
+                    <label className="flex items-start gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:border-primary-300 bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={emailReminders}
+                        onChange={(e) => setEmailReminders(e.target.checked)}
+                        className="mt-1 w-4 h-4 text-primary-600 rounded border-slate-300"
+                      />
+                      <div>
+                        <p className="font-medium text-slate-900">Email reminders</p>
+                        <p className="text-sm text-slate-500">Receive alerts when service is due.</p>
+                      </div>
+                    </label>
+                    <label className="flex items-start gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:border-primary-300 bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={inAppReminders}
+                        onChange={(e) => setInAppReminders(e.target.checked)}
+                        className="mt-1 w-4 h-4 text-primary-600 rounded border-slate-300"
+                      />
+                      <div>
+                        <p className="font-medium text-slate-900">In-app reminders</p>
+                        <p className="text-sm text-slate-500">See alerts on your dashboard.</p>
+                      </div>
+                    </label>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Reminder timing (multi-select)
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {LEAD_DAY_OPTIONS.map((opt) => (
+                          <label key={opt.value} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={leadDays.includes(opt.value)}
+                              onChange={() => toggleLeadDay(opt.value)}
+                              className="rounded border-slate-300 text-primary-600"
+                            />
+                            <span className="text-sm">{opt.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Reminder basis</label>
+                      <select
+                        className="w-full rounded-md border border-slate-300 py-2 px-3 text-sm"
+                        value={reminderBasis}
+                        onChange={(e) => setReminderBasis(e.target.value as 'time' | 'mileage' | 'both')}
+                      >
+                        <option value="time">Time-based</option>
+                        <option value="mileage">Mileage-based</option>
+                        <option value="both">Both</option>
+                      </select>
+                    </div>
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={weeklySummary}
+                        onChange={(e) => setWeeklySummary(e.target.checked)}
+                        className="w-4 h-4 text-primary-600 rounded border-slate-300"
+                      />
+                      <span className="text-sm font-medium text-slate-900">Weekly summary email</span>
+                    </label>
+                  </div>
+                </motion.div>
+              )}
+
+              {step === 5 && (
+                <motion.div
+                  key="step5"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center py-8"
+                >
                   <div className="w-24 h-24 bg-accent-100 text-accent-500 rounded-full flex items-center justify-center mx-auto mb-6">
                     <CheckCircle2Icon className="w-12 h-12" />
                   </div>
                   <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
-                    You're All Set!
+                    You&apos;re all set!
                   </h2>
                   <p className="text-slate-500 max-w-md mx-auto mb-8">
-                    Your profile and vehicle have been successfully set up.
-                    We've generated your initial health score and maintenance
-                    timeline.
+                    Your profile and preferences have been saved. We&apos;ve set up your
+                    dashboard and you can start tracking your vehicle&apos;s health.
                   </p>
                 </motion.div>
-              }
+              )}
             </AnimatePresence>
 
-            {/* Navigation Buttons */}
             <div className="flex items-center justify-between mt-10 pt-6 border-t border-slate-100">
-              {
-              step > 1 && step < 4 ?
-              <Button
-                variant="ghost"
-                onClick={handleBack}
-                icon={<ArrowLeftIcon className="w-4 h-4" />}>
+              {step > 1 && step < 5 ? (
+                <Button
+                  variant="ghost"
+                  onClick={handleBack}
+                  icon={<ArrowLeftIcon className="w-4 h-4" />}
+                >
+                  Back
+                </Button>
+              ) : (
+                <div />
+              )}
 
-                    Back
-                  </Button> :
-
-              <div />
-              // Empty div to maintain flex spacing
-              }
-
-              {step < 4 ?
-              <Button variant="primary" onClick={handleNext}>
+              {step === 2 && !vehicleSkipped ? (
+                <div className="flex gap-2">
+                  <Button variant="ghost" onClick={handleSkipVehicle} disabled={loading}>
+                    Skip for now
+                  </Button>
+                  <Button variant="primary" onClick={handleNext} loading={loading}>
+                    Continue <ArrowRightIcon className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              ) : step < 5 ? (
+                <Button variant="primary" onClick={handleNext} loading={loading}>
                   Continue <ArrowRightIcon className="w-4 h-4 ml-2" />
-                </Button> :
-
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full"
-                onClick={handleFinish}
-                loading={loading}>
-
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="w-full"
+                  onClick={handleFinish}
+                  loading={loading}
+                >
                   Go to Dashboard
                 </Button>
-              }
+              )}
             </div>
           </Card>
         </div>
       </main>
-    </div>);
-
+    </div>
+  );
 }

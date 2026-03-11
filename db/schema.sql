@@ -23,6 +23,15 @@ CREATE TABLE IF NOT EXISTS profiles (
   default_account_id UUID REFERENCES accounts (id) ON DELETE SET NULL,
   phone_number TEXT,
   measurement_system TEXT NOT NULL DEFAULT 'imperial', -- 'imperial' | 'metric'
+  display_name TEXT,
+  country TEXT DEFAULT 'ZA',
+  city TEXT,
+  currency TEXT DEFAULT 'ZAR',
+  mileage_unit TEXT DEFAULT 'km',
+  fuel_unit TEXT DEFAULT 'litres',
+  timezone TEXT DEFAULT 'Africa/Johannesburg',
+  locale TEXT DEFAULT 'en',
+  avatar_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -91,6 +100,9 @@ CREATE TABLE IF NOT EXISTS vehicles (
   license_plate TEXT,
   fuel_type fuel_type,
   current_mileage NUMERIC,
+  transmission TEXT,
+  engine_type TEXT,
+  color TEXT,
   health_score NUMERIC,
   hero_image_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -237,7 +249,10 @@ CREATE TABLE IF NOT EXISTS alert_preferences (
   channel alert_channel NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
   maintenance_lead_days INTEGER DEFAULT 14,
+  maintenance_lead_days_array INTEGER[] DEFAULT ARRAY[14, 7],
   document_expiry_lead_days INTEGER DEFAULT 30,
+  reminder_basis TEXT DEFAULT 'both',
+  weekly_summary_email BOOLEAN DEFAULT FALSE,
   quiet_hours JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -282,6 +297,105 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs (actor_user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs (entity_type, entity_id);
+
+-- =========================
+--  Phase B: Onboarding & Service Preferences
+-- =========================
+
+-- Profiles: extend for onboarding (idempotent)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS display_name TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS country TEXT DEFAULT 'ZA';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'ZAR';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS mileage_unit TEXT DEFAULT 'km';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS fuel_unit TEXT DEFAULT 'litres';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Africa/Johannesburg';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS locale TEXT DEFAULT 'en';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+-- Vehicles: extend for onboarding
+ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS transmission TEXT;
+ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS engine_type TEXT;
+ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS color TEXT;
+
+-- Alert preferences: multi lead days, reminder basis, weekly summary
+ALTER TABLE alert_preferences ADD COLUMN IF NOT EXISTS maintenance_lead_days_array INTEGER[] DEFAULT ARRAY[14, 7];
+ALTER TABLE alert_preferences ADD COLUMN IF NOT EXISTS reminder_basis TEXT DEFAULT 'both';
+ALTER TABLE alert_preferences ADD COLUMN IF NOT EXISTS weekly_summary_email BOOLEAN DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS service_preferences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vehicle_id UUID REFERENCES vehicles (id) ON DELETE CASCADE,
+  account_id UUID NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+  last_service_date DATE,
+  last_service_mileage NUMERIC,
+  service_interval_months INTEGER,
+  service_interval_mileage INTEGER,
+  last_oil_change_date DATE,
+  last_oil_change_mileage NUMERIC,
+  last_brake_service_date DATE,
+  last_battery_date DATE,
+  last_tire_rotation_date DATE,
+  known_issues TEXT,
+  workshop_name TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS onboarding_progress (
+  user_id UUID PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
+  current_step INTEGER NOT NULL DEFAULT 1,
+  completed_at TIMESTAMPTZ,
+  profile_completed BOOLEAN DEFAULT FALSE,
+  vehicle_added BOOLEAN DEFAULT FALSE,
+  service_baseline_completed BOOLEAN DEFAULT FALSE,
+  reminders_completed BOOLEAN DEFAULT FALSE,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- service_preferences RLS
+ALTER TABLE service_preferences ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users_select_own_service_preferences" ON service_preferences FOR SELECT
+  TO authenticated USING (
+    EXISTS (
+      SELECT 1 FROM accounts
+      WHERE id = service_preferences.account_id
+        AND (owner_user_id = auth.uid() OR EXISTS (SELECT 1 FROM account_members WHERE account_id = service_preferences.account_id AND user_id = auth.uid()))
+    )
+  );
+CREATE POLICY "users_insert_own_service_preferences" ON service_preferences FOR INSERT
+  TO authenticated WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM accounts
+      WHERE id = service_preferences.account_id
+        AND (owner_user_id = auth.uid() OR EXISTS (SELECT 1 FROM account_members WHERE account_id = service_preferences.account_id AND user_id = auth.uid()))
+    )
+  );
+CREATE POLICY "users_update_own_service_preferences" ON service_preferences FOR UPDATE
+  TO authenticated USING (
+    EXISTS (
+      SELECT 1 FROM accounts
+      WHERE id = service_preferences.account_id
+        AND (owner_user_id = auth.uid() OR EXISTS (SELECT 1 FROM account_members WHERE account_id = service_preferences.account_id AND user_id = auth.uid()))
+    )
+  );
+CREATE POLICY "users_delete_own_service_preferences" ON service_preferences FOR DELETE
+  TO authenticated USING (
+    EXISTS (
+      SELECT 1 FROM accounts
+      WHERE id = service_preferences.account_id
+        AND (owner_user_id = auth.uid() OR EXISTS (SELECT 1 FROM account_members WHERE account_id = service_preferences.account_id AND user_id = auth.uid()))
+    )
+  );
+
+-- onboarding_progress RLS
+ALTER TABLE onboarding_progress ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users_select_own_onboarding" ON onboarding_progress FOR SELECT
+  TO authenticated USING (user_id = auth.uid());
+CREATE POLICY "users_insert_own_onboarding" ON onboarding_progress FOR INSERT
+  TO authenticated WITH CHECK (user_id = auth.uid());
+CREATE POLICY "users_update_own_onboarding" ON onboarding_progress FOR UPDATE
+  TO authenticated USING (user_id = auth.uid());
 
 -- =========================
 --  RLS Policies (Phase A: Bootstrap)

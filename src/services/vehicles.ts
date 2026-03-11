@@ -36,6 +36,9 @@ export interface UpsertVehicleInput {
   licensePlate: string | null;
   fuelType: string | null;
   currentMileage: number | null;
+  transmission?: string | null;
+  engineType?: string | null;
+  color?: string | null;
 }
 
 export async function fetchAccountVehicles(accountId: string | null): Promise<VehicleSummary[]> {
@@ -158,7 +161,7 @@ export async function fetchVehicleDetails(
 export async function upsertVehicle(input: UpsertVehicleInput): Promise<Vehicle | null> {
   const client = getInsforgeClient();
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     account_id: input.accountId,
     owner_user_id: input.ownerUserId,
     nickname: input.nickname,
@@ -170,6 +173,9 @@ export async function upsertVehicle(input: UpsertVehicleInput): Promise<Vehicle 
     fuel_type: input.fuelType,
     current_mileage: input.currentMileage,
   };
+  if (input.transmission !== undefined) payload.transmission = input.transmission;
+  if (input.engineType !== undefined) payload.engine_type = input.engineType;
+  if (input.color !== undefined) payload.color = input.color;
 
   try {
     let result;

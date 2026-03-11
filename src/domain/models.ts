@@ -25,6 +25,15 @@ export interface Profile {
   defaultAccountId: UUID | null;
   phoneNumber: string | null;
   measurementSystem: 'imperial' | 'metric';
+  displayName?: string | null;
+  country?: string | null;
+  city?: string | null;
+  currency?: string | null;
+  mileageUnit?: string | null;
+  fuelUnit?: string | null;
+  timezone?: string | null;
+  locale?: string | null;
+  avatarUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -85,6 +94,9 @@ export interface Vehicle {
   licensePlate: string | null;
   fuelType: FuelType | null;
   currentMileage: number | null;
+  transmission?: string | null;
+  engineType?: string | null;
+  color?: string | null;
   healthScore: number | null;
   heroImageUrl: string | null;
   createdAt: string;
@@ -217,5 +229,35 @@ export interface VehicleImage {
   provider: string | null;
   isPrimary: boolean;
   createdAt: string;
+}
+
+export interface OnboardingProgress {
+  userId: UUID;
+  currentStep: number;
+  completedAt: string | null;
+  profileCompleted: boolean;
+  vehicleAdded: boolean;
+  serviceBaselineCompleted: boolean;
+  remindersCompleted: boolean;
+  updatedAt: string;
+}
+
+export interface ServicePreferences {
+  id: UUID;
+  vehicleId: UUID | null;
+  accountId: UUID;
+  lastServiceDate: string | null;
+  lastServiceMileage: number | null;
+  serviceIntervalMonths: number | null;
+  serviceIntervalMileage: number | null;
+  lastOilChangeDate: string | null;
+  lastOilChangeMileage: number | null;
+  lastBrakeServiceDate: string | null;
+  lastBatteryDate: string | null;
+  lastTireRotationDate: string | null;
+  knownIssues: string | null;
+  workshopName: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
