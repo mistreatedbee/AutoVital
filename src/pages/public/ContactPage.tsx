@@ -5,16 +5,47 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Accordion } from '../../components/ui/Accordion';
+import { submitContactMessage } from '../../services/contact';
 export function ContactPage() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const handleSubmit = (e: React.FormEvent) => {
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const firstName = String(formData.get('firstName') ?? '').trim();
+    const lastName = String(formData.get('lastName') ?? '').trim();
+    const email = String(formData.get('email') ?? '').trim();
+    const subject = String(formData.get('subject') ?? '').trim();
+    const message = String(formData.get('message') ?? '').trim();
+
+    if (!firstName || !lastName || !email || !subject || !message) {
+      setError('Please fill out all required fields.');
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    setError(null);
+    try {
+      await submitContactMessage({
+        firstName,
+        lastName,
+        email,
+        subject,
+        message,
+      });
       setSent(true);
-    }, 1500);
+      e.currentTarget.reset();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Something went wrong while sending your message. Please try again.',
+      );
+    } finally {
+      setLoading(false);
+    }
   };
   return (
     <div className="w-full pt-32 pb-24">
@@ -90,16 +121,18 @@ export function ContactPage() {
               {!sent ?
               <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Input label="First Name" placeholder="John" required />
-                    <Input label="Last Name" placeholder="Doe" required />
+                    <Input name="firstName" label="First Name" placeholder="John" required />
+                    <Input name="lastName" label="Last Name" placeholder="Doe" required />
                   </div>
                   <Input
+                  name="email"
                   label="Email"
                   type="email"
                   placeholder="you@example.com"
                   required />
 
                   <Input
+                  name="subject"
                   label="Subject"
                   placeholder="How can we help?"
                   required />
@@ -110,11 +143,18 @@ export function ContactPage() {
                       Message
                     </label>
                     <textarea
+                    name="message"
                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 min-h-[150px] resize-y"
                     placeholder="Tell us more about your inquiry..."
                     required />
 
                   </div>
+
+                  {error &&
+                  <p className="text-sm text-red-600">
+                      {error}
+                    </p>
+                  }
 
                   <Button
                   type="submit"

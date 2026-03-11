@@ -1,91 +1,90 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SearchIcon, ArrowRightIcon } from 'lucide-react';
 import { SectionHeading } from '../../components/ui/SectionHeading';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
+import { fetchPublishedBlogPosts } from '../../services/blog';
+import { usePageSeo } from '../../hooks/usePageSeo';
 export function BlogPage() {
-  const categories = [
-  'All',
-  'Maintenance Tips',
-  'Industry News',
-  'Product Updates',
-  'Guides'];
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [search, setSearch] = useState<string>('');
+  const [page, setPage] = useState<number>(1);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [hasMore, setHasMore] = useState<boolean>(false);
 
-  const posts = [
-  {
-    id: 1,
-    title: 'The Ultimate Guide to Preventative Car Maintenance',
-    excerpt:
-    'Learn the essential maintenance tasks that can extend the life of your vehicle by years and save you thousands in repairs.',
-    category: 'Guides',
-    author: 'Alex Morgan',
-    date: 'Oct 12, 2023',
-    readTime: '8 min read',
-    image:
-    'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 2,
-    title: 'Why Your Check Engine Light is On (And What to Do)',
-    excerpt:
-    "Don't panic. Here are the 5 most common reasons your check engine light illuminates and how to diagnose them.",
-    category: 'Maintenance Tips',
-    author: 'Sarah Jenkins',
-    date: 'Oct 05, 2023',
-    readTime: '5 min read',
-    image:
-    'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 3,
-    title: 'Introducing AutoVital Fleet Dashboard',
-    excerpt:
-    'Manage multiple vehicles with ease using our new Fleet Dashboard, designed specifically for small businesses.',
-    category: 'Product Updates',
-    author: 'David Chen',
-    date: 'Sep 28, 2023',
-    readTime: '3 min read',
-    image:
-    'https://images.unsplash.com/photo-1560179707-f14e90ef3623?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 4,
-    title: 'EV vs ICE: Maintenance Cost Comparison',
-    excerpt:
-    'Are electric vehicles really cheaper to maintain? We break down the data from over 10,000 vehicles on our platform.',
-    category: 'Industry News',
-    author: 'Alex Morgan',
-    date: 'Sep 15, 2023',
-    readTime: '6 min read',
-    image:
-    'https://images.unsplash.com/photo-1593941707882-a5bba14938cb?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 5,
-    title: 'How to Prepare Your Car for Winter',
-    excerpt:
-    'Cold weather is brutal on vehicles. Follow this checklist to ensure your car is ready for freezing temperatures.',
-    category: 'Guides',
-    author: 'Sarah Jenkins',
-    date: 'Sep 02, 2023',
-    readTime: '7 min read',
-    image:
-    'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 6,
-    title: 'Understanding Synthetic vs Conventional Oil',
-    excerpt:
-    'Is synthetic oil worth the extra cost? We explain the differences and when you should make the switch.',
-    category: 'Maintenance Tips',
-    author: 'Mike Thompson',
-    date: 'Aug 20, 2023',
-    readTime: '4 min read',
-    image:
-    'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  }];
+  const categories = useMemo(() => {
+    const fromPosts = Array.from(
+      new Set(
+        posts
+          .map((p) => (p.category ?? '').trim())
+          .filter(Boolean),
+      ),
+    );
+    return ['All', ...fromPosts].slice(0, 12);
+  }, [posts]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setPage(1);
+    (async () => {
+      const res = await fetchPublishedBlogPosts({
+        query: search,
+        category: selectedCategory,
+        page: 1,
+        pageSize: 9,
+      });
+      if (cancelled) return;
+      setPosts(res.posts);
+      setHasMore(res.hasMore);
+      setLoading(false);
+    })().catch((e) => {
+      if (cancelled) return;
+      setError(e instanceof Error ? e.message : 'Failed to load blog posts.');
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [search, selectedCategory]);
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const next = page + 1;
+    try {
+      const res = await fetchPublishedBlogPosts({
+        query: search,
+        category: selectedCategory,
+        page: next,
+        pageSize: 9,
+      });
+      setPosts((prev) => [...prev, ...res.posts]);
+      setHasMore(res.hasMore);
+      setPage(next);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const formatDate = (iso: string | null) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  usePageSeo({
+    title: 'Blog',
+    description:
+      'AutoVital blog with maintenance tips, product updates, and guides to keep your vehicle healthy and costs under control.',
+  });
 
   return (
     <div className="w-full pt-32 pb-24">
@@ -101,18 +100,28 @@ export function BlogPage() {
         {/* Search & Filters */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
           <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-            {categories.map((cat, i) =>
+            {categories.map((cat, i) => {
+              const isActive = selectedCategory === cat;
+              return (
             <button
-              key={i}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${i === 0 ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}>
+              key={`${cat}-${i}`}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}>
 
                 {cat}
               </button>
-            )}
+              );
+            })}
           </div>
           <div className="w-full md:w-72">
             <Input
               placeholder="Search articles..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               icon={<SearchIcon className="w-4 h-4" />} />
 
           </div>
@@ -120,15 +129,30 @@ export function BlogPage() {
 
         {/* Blog Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {posts.map((post) =>
-          <Link key={post.id} to={`/blog/article-slug-${post.id}`}>
+          {loading && (
+            <div className="col-span-full text-center text-slate-500 py-16">
+              Loading articles…
+            </div>
+          )}
+          {!loading && error && (
+            <div className="col-span-full text-center text-slate-500 py-16">
+              {error}
+            </div>
+          )}
+          {!loading && !error && posts.length === 0 && (
+            <div className="col-span-full text-center text-slate-500 py-16">
+              No articles found. Try a different search or category.
+            </div>
+          )}
+          {!loading && !error && posts.map((post) =>
+          <Link key={post.id} to={`/blog/${post.slug}`}>
               <Card
               hover
               className="h-full flex flex-col bg-white border-slate-100 overflow-hidden group">
 
                 <div className="h-48 overflow-hidden relative">
                   <img
-                  src={post.image}
+                  src={post.cover_image_url ?? 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=1600&q=80'}
                   alt={post.title}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
 
@@ -146,22 +170,22 @@ export function BlogPage() {
                     {post.title}
                   </h3>
                   <p className="text-slate-600 mb-6 line-clamp-3 flex-1">
-                    {post.excerpt}
+                    {post.excerpt ?? ''}
                   </p>
                   <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs">
-                        {post.author.charAt(0)}
+                        {(post.author_name ?? 'A').charAt(0)}
                       </div>
                       <div className="text-xs">
                         <p className="font-medium text-slate-900">
-                          {post.author}
+                          {post.author_name ?? 'AutoVital'}
                         </p>
-                        <p className="text-slate-500">{post.date}</p>
+                        <p className="text-slate-500">{formatDate(post.published_at)}</p>
                       </div>
                     </div>
                     <span className="text-xs font-medium text-slate-400">
-                      {post.readTime}
+                      {post.reading_time_minutes ? `${post.reading_time_minutes} min read` : ''}
                     </span>
                   </div>
                 </div>
@@ -170,12 +194,17 @@ export function BlogPage() {
           )}
         </div>
 
-        {/* Pagination Placeholder */}
-        <div className="mt-16 flex justify-center">
-          <button className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-colors flex items-center gap-2">
-            Load More Articles <ArrowRightIcon className="w-4 h-4" />
-          </button>
-        </div>
+        {!loading && !error && hasMore && (
+          <div className="mt-16 flex justify-center">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {loadingMore ? 'Loading…' : 'Load more articles'} <ArrowRightIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     </div>);
 

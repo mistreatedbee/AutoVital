@@ -1,4 +1,4 @@
-import React, { cloneElement } from 'react';
+import React, { cloneElement, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -26,6 +26,9 @@ import { Badge } from '../../components/ui/Badge';
 import { SectionHeading } from '../../components/ui/SectionHeading';
 import { PricingCard } from '../../components/ui/PricingCard';
 import { Accordion } from '../../components/ui/Accordion';
+import type { BlogPost } from '../../services/blog';
+import { fetchPublishedBlogPosts } from '../../services/blog';
+import { usePageSeo } from '../../hooks/usePageSeo';
 
 export function LandingPage() {
   const containerVariants = {
@@ -49,6 +52,29 @@ export function LandingPage() {
       transition: { duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] },
     }),
   };
+
+  const [featuredPost, setFeaturedPost] = useState<BlogPost | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetchPublishedBlogPosts({ page: 1, pageSize: 1 });
+      if (!cancelled) {
+        setFeaturedPost(res.posts[0] ?? null);
+      }
+    })().catch(() => {
+      // ignore; homepage still functions without featured post
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  usePageSeo({
+    title: 'Vehicle Maintenance Tracking',
+    description:
+      "AutoVital helps you track vehicle maintenance, expenses, and documents so you can prevent breakdowns and keep your car's health in the green.",
+  });
 
   const stats = [
     { value: '10,432', label: 'Active Users' },
@@ -674,6 +700,87 @@ export function LandingPage() {
           />
         </div>
       </section>
+
+      {/* ─── FEATURED BLOG POST ────────────────────────────────────────── */}
+      {featuredPost && (
+        <section className="py-24 bg-background border-t border-slate-100/60">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8 mb-10">
+              <div>
+                <SectionHeading
+                  badge="From the blog"
+                  title="Latest from AutoVital"
+                  description="Deep dives, maintenance checklists, and product updates from the team."
+                  className="mb-0"
+                />
+              </div>
+              <Link to="/blog">
+                <Button variant="ghost" className="inline-flex items-center gap-1.5 text-sm">
+                  View all articles
+                  <ArrowRightIcon className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
+
+            <Card className="flex flex-col md:flex-row gap-8 overflow-hidden border border-slate-200 bg-white rounded-2xl">
+              <div className="md:w-1/2">
+                <Link to={`/blog/${featuredPost.slug}`}>
+                  <div className="h-64 md:h-full overflow-hidden">
+                    <img
+                      src={
+                        featuredPost.cover_image_url ??
+                        'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80'
+                      }
+                      alt={featuredPost.title}
+                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                    />
+                  </div>
+                </Link>
+              </div>
+              <div className="md:w-1/2 p-6 md:p-8 flex flex-col gap-4">
+                <div className="flex items-center gap-3 text-xs text-slate-500">
+                  {featuredPost.category && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-red-700 font-semibold">
+                      <SparklesIcon className="w-3 h-3" />
+                      {featuredPost.category}
+                    </span>
+                  )}
+                </div>
+                <Link to={`/blog/${featuredPost.slug}`}>
+                  <h3 className="text-2xl font-bold text-slate-900 font-heading hover:text-red-600 transition-colors">
+                    {featuredPost.title}
+                  </h3>
+                </Link>
+                <p className="text-slate-600 text-sm leading-relaxed line-clamp-3">
+                  {featuredPost.excerpt}
+                </p>
+                <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-100 text-xs text-slate-500">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-[10px] font-bold">
+                      {(featuredPost.author_name ?? 'A').charAt(0)}
+                    </div>
+                    <span>{featuredPost.author_name ?? 'AutoVital Team'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span>
+                      {featuredPost.reading_time_minutes
+                        ? `${featuredPost.reading_time_minutes} min read`
+                        : ''}
+                    </span>
+                    <Link
+                      to={`/blog/${featuredPost.slug}`}
+                      className="inline-flex items-center gap-1 text-red-600 hover:text-red-500 font-semibold"
+                    >
+                      Read article
+                      <ChevronRightIcon className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </section>
+      )}
 
       {/* ─── FINAL CTA ─────────────────────────────────────────────────── */}
       <section className="py-28 bg-sidebar relative overflow-hidden">
