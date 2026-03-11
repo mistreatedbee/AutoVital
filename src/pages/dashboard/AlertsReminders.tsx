@@ -13,15 +13,22 @@ import {
   updateAlertStatus,
   type UserAlert,
 } from '../../services/alerts';
+import { useAccount } from '../../account/AccountProvider';
+import { LoadingState } from '../../components/states/LoadingState';
 
 export function AlertsReminders() {
+  const { accountId, loading: accountLoading } = useAccount();
   const [alerts, setAlerts] = useState<UserAlert[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!accountId) {
+      return;
+    }
+
     let isMounted = true;
 
-    fetchUserAlerts()
+    fetchUserAlerts(accountId)
       .then((data) => {
         if (isMounted) {
           setAlerts(data);
@@ -36,7 +43,7 @@ export function AlertsReminders() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [accountId]);
 
   const openAlerts = alerts.filter((a) => a.status === 'open');
   const resolvedAlerts = alerts.filter((a) => a.status === 'resolved');
@@ -77,10 +84,12 @@ export function AlertsReminders() {
               </Badge>
             </div>
             <div className="divide-y divide-slate-100">
-              {loading && (
-                <div className="p-6 text-slate-500">Loading alerts...</div>
+              {accountLoading || loading && (
+                <div className="p-6">
+                  <LoadingState label="Loading alerts..." />
+                </div>
               )}
-              {!loading &&
+              {!accountLoading && !loading &&
                 openAlerts.map((alert) => (
                   <div
                     key={alert.id}

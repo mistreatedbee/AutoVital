@@ -54,12 +54,19 @@ const FALLBACK_FUEL_LOGS: FuelLogEntry[] = [
   },
 ];
 
-export async function fetchFuelEfficiency(): Promise<EfficiencyPoint[]> {
+export async function fetchFuelEfficiency(
+  accountId: string | null,
+): Promise<EfficiencyPoint[]> {
+  if (!accountId) {
+    return FALLBACK_EFFICIENCY;
+  }
+
   try {
     const client = getInsforgeClient();
     const { data, error } = await client.database
       .from('fuel_logs')
       .select('fill_date, volume, total_cost_cents, odometer')
+      .eq('account_id', accountId)
       .order('fill_date', { ascending: true });
 
     if (error || !data || data.length < 2) {
@@ -93,12 +100,19 @@ export async function fetchFuelEfficiency(): Promise<EfficiencyPoint[]> {
   }
 }
 
-export async function fetchFuelLogs(): Promise<FuelLogEntry[]> {
+export async function fetchFuelLogs(
+  accountId: string | null,
+): Promise<FuelLogEntry[]> {
+  if (!accountId) {
+    return FALLBACK_FUEL_LOGS;
+  }
+
   try {
     const client = getInsforgeClient();
     const { data, error } = await client.database
       .from('fuel_logs')
       .select('id, fill_date, odometer, volume, total_cost_cents, currency, vehicles(make, model)')
+      .eq('account_id', accountId)
       .order('fill_date', { ascending: false });
 
     if (error || !data) {

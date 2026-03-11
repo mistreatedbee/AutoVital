@@ -20,16 +20,23 @@ import {
   type EfficiencyPoint,
   type FuelLogEntry,
 } from '../../services/fuel';
+import { useAccount } from '../../account/AccountProvider';
+import { LoadingState } from '../../components/states/LoadingState';
 
 export function FuelTracker() {
+  const { accountId, loading: accountLoading } = useAccount();
   const [efficiencyData, setEfficiencyData] = useState<EfficiencyPoint[]>([]);
   const [fuelLogs, setFuelLogs] = useState<FuelLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!accountId) {
+      return;
+    }
+
     let isMounted = true;
 
-    Promise.all([fetchFuelEfficiency(), fetchFuelLogs()])
+    Promise.all([fetchFuelEfficiency(accountId), fetchFuelLogs(accountId)])
       .then(([eff, logs]) => {
         if (isMounted) {
           setEfficiencyData(eff);
@@ -45,7 +52,7 @@ export function FuelTracker() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [accountId]);
 
   const columns = [
   {
@@ -123,10 +130,8 @@ export function FuelTracker() {
           </select>
         </div>
         <div className="h-72 w-full">
-          {loading ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              Loading fuel data...
-            </div>
+          {accountLoading || loading ? (
+            <LoadingState label="Loading fuel data..." className="h-full" />
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
@@ -197,8 +202,10 @@ export function FuelTracker() {
             Recent Fill-ups
           </h2>
         </div>
-        {loading ? (
-          <div className="p-6 text-slate-500">Loading fuel history...</div>
+        {accountLoading || loading ? (
+          <div className="p-6">
+            <LoadingState label="Loading fuel history..." />
+          </div>
         ) : (
           <DataTable
             columns={columns}

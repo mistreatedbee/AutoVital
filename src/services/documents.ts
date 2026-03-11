@@ -44,12 +44,19 @@ const FALLBACK_DOCUMENTS: DocumentCard[] = [
   },
 ];
 
-export async function fetchAccountDocuments(): Promise<DocumentCard[]> {
+export async function fetchAccountDocuments(
+  accountId: string | null,
+): Promise<DocumentCard[]> {
+  if (!accountId) {
+    return FALLBACK_DOCUMENTS;
+  }
+
   try {
     const client = getInsforgeClient();
     const { data, error } = await client.database
       .from('documents')
       .select('id, name, type, size_bytes, created_at, vehicles(make, model)')
+      .eq('account_id', accountId)
       .order('created_at', { ascending: false });
 
     if (error || !data) {

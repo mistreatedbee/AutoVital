@@ -92,12 +92,19 @@ const FALLBACK_INAPP_TEMPLATES: InAppTemplate[] = [
   },
 ];
 
-export async function fetchUserAlerts(): Promise<UserAlert[]> {
+export async function fetchUserAlerts(
+  accountId: string | null,
+): Promise<UserAlert[]> {
+  if (!accountId) {
+    return FALLBACK_USER_ALERTS;
+  }
+
   try {
     const client = getInsforgeClient();
     const { data, error } = await client.database
       .from('alerts')
       .select('id, kind, status, title, message, vehicles(make, model)')
+      .eq('account_id', accountId)
       .order('created_at', { ascending: false });
 
     if (error || !data) {

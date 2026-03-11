@@ -7,15 +7,22 @@ import {
   fetchBillingOverview,
   type BillingOverview,
 } from '../../services/billing';
+import { useAccount } from '../../account/AccountProvider';
+import { LoadingState } from '../../components/states/LoadingState';
 
 export function BillingSubscription() {
+  const { accountId, loading: accountLoading } = useAccount();
   const [billing, setBilling] = useState<BillingOverview | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!accountId) {
+      return;
+    }
+
     let isMounted = true;
 
-    fetchBillingOverview()
+    fetchBillingOverview(accountId)
       .then((overview) => {
         if (isMounted) {
           setBilling(overview);
@@ -30,7 +37,7 @@ export function BillingSubscription() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [accountId]);
 
   const plan = billing?.plan;
 
@@ -131,8 +138,10 @@ export function BillingSubscription() {
             Billing History
           </h3>
         </div>
-        {loading || !billing ? (
-          <div className="p-6 text-slate-500">Loading billing history...</div>
+        {accountLoading || loading || !billing ? (
+          <div className="p-6">
+            <LoadingState label="Loading billing history..." />
+          </div>
         ) : (
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b border-slate-200">

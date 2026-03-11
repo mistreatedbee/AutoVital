@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CarIcon,
@@ -26,33 +26,55 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-const expenseData = [
-{
-  month: 'Jan',
-  amount: 120
-},
-{
-  month: 'Feb',
-  amount: 85
-},
-{
-  month: 'Mar',
-  amount: 450
-},
-{
-  month: 'Apr',
-  amount: 95
-},
-{
-  month: 'May',
-  amount: 110
-},
-{
-  month: 'Jun',
-  amount: 320
-}];
+import { useAuth } from '../../auth/AuthProvider';
+import { useAccount } from '../../account/AccountProvider';
+import { LoadingState } from '../../components/states/LoadingState';
+import { ErrorState } from '../../components/states/ErrorState';
+import {
+  fetchDashboardOverview,
+  type DashboardOverviewData,
+} from '../../services/dashboardOverview';
 
 export function DashboardHome() {
+  const { user } = useAuth();
+  const { accountId, loading: accountLoading, error: accountError } = useAccount();
+  const [overview, setOverview] = useState<DashboardOverviewData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!accountId) {
+      return;
+    }
+
+    let isMounted = true;
+    setLoading(true);
+    setError(null);
+
+    fetchDashboardOverview(accountId)
+      .then((data) => {
+        if (isMounted) {
+          setOverview(data);
+        }
+      })
+      .catch((err: any) => {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load dashboard overview', err);
+        if (isMounted) {
+          setError(err?.message ?? 'Unable to load dashboard overview');
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accountId]);
+
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'short',
@@ -62,6 +84,17 @@ export function DashboardHome() {
   const hour = new Date().getHours();
   const greeting =
   hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  const loadingState = accountLoading || loading;
+
+  const activeVehicles = overview?.stats.vehicleCount ?? 0;
+  const openAlerts = overview?.stats.openAlertCount ?? 0;
+  const monthlySpend = overview?.stats.monthlyCostTotal ?? 0;
+  const expenseData = overview?.expenseSeries ?? [];
+
+  const hasVehicles = (overview?.vehicles?.length ?? 0) > 0;
+  const hasActivity = (overview?.activity?.length ?? 0) > 0;
+
   return (
     <div className="space-y-10">
       {/* Header */}
@@ -69,7 +102,8 @@ export function DashboardHome() {
         <div>
           <p className="text-sm font-medium text-primary-600 mb-1">{today}</p>
           <h1 className="text-3xl font-bold text-slate-900 font-heading tracking-tight">
-            {greeting}, Alex
+            {greeting}
+            {user?.email ? `, ${user.email}` : ''}
           </h1>
           <p className="text-slate-500 mt-1">
             Here's what's happening with your garage today.
@@ -145,7 +179,7 @@ export function DashboardHome() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
             title="Active Vehicles"
-            value="3"
+            value={loadingState ? '—' : String(activeVehicles)}
             accentColor="primary"
             icon={<CarIcon className="w-6 h-6" />}
             sparklineData={[1, 1, 2, 2, 3, 3]}
@@ -153,8 +187,8 @@ export function DashboardHome() {
 
           <StatCard
             title="Next Service Due"
-            value="14 Days"
-            change="Oil Change"
+            value={openAlerts > 0 ? `${openAlerts} alerts` : 'All clear'}
+            change={openAlerts > 0 ? 'Action needed' : 'Nothing urgent'}
             trend="down"
             accentColor="warning"
             icon={<AlertTriangleIcon className="w-6 h-6" />}
@@ -162,8 +196,8 @@ export function DashboardHome() {
 
           <StatCard
             title="Monthly Spend"
-            value="$320"
-            change="+12% vs last month"
+            value={loadingState ? '—' : `$${monthlySpend.toFixed(0)}`}
+            change="Last 30 days • fuel, maintenance, billing"
             trend="up"
             accentColor="rose"
             icon={<DollarSignIcon className="w-6 h-6" />}
@@ -190,8 +224,10 @@ export function DashboardHome() {
               <h2 className="text-lg font-bold text-slate-900 font-heading">
                 Action Needed
               </h2>
-              <Badge variant="warning" className="animate-pulse">
-                2 Alerts
+              <Badge variant={openAlerts > 0 ? 'warning' : 'neutral'}>
+                {openAlerts}
+                {' '}
+                Alerts
               </Badge>
             </div>
 
@@ -213,44 +249,42 @@ export function DashboardHome() {
             </div>
 
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-200 flex gap-4 hover:shadow-md transition-shadow">
-                <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0">
-                  <WrenchIcon className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-amber-900">Oil Change Due</h4>
-                  <p className="text-sm text-amber-700/80 mt-1 font-medium">
-                    2018 Honda Civic • In 250 miles
-                  </p>
-                  <Button
-                    variant="white"
-                    size="sm"
-                    className="mt-3 text-amber-700 hover:bg-amber-100 shadow-sm border border-amber-200">
+              {loadingState && (
+                <LoadingState label="Loading alerts..." className="py-6" />
+              )}
 
-                    Schedule Now
-                  </Button>
-                </div>
-              </div>
-              <div className="p-4 rounded-xl bg-rose-50/50 border border-rose-200 flex gap-4 hover:shadow-md transition-shadow">
-                <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
-                  <AlertTriangleIcon className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-rose-900">
-                    Registration Expiring
-                  </h4>
-                  <p className="text-sm text-rose-700/80 mt-1 font-medium">
-                    2022 Tesla Model 3 • In 14 days
-                  </p>
-                  <Button
-                    variant="white"
-                    size="sm"
-                    className="mt-3 text-rose-700 hover:bg-rose-100 shadow-sm border border-rose-200">
+              {!loadingState && overview?.alerts.length === 0 && (
+                <p className="text-sm text-slate-500">
+                  No urgent alerts. You’re all caught up.
+                </p>
+              )}
 
-                    Renew Online
-                  </Button>
-                </div>
-              </div>
+              {!loadingState &&
+                overview?.alerts.slice(0, 3).map((alert) => (
+                  <div
+                    key={alert.id}
+                    className="p-4 rounded-xl bg-amber-50/50 border border-amber-200 flex gap-4 hover:shadow-md transition-shadow">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0">
+                      {alert.severity === 'critical' ? (
+                        <AlertTriangleIcon className="w-5 h-5" />
+                      ) : (
+                        <WrenchIcon className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-amber-900">{alert.title}</h4>
+                      <p className="text-sm text-amber-700/80 mt-1 font-medium">
+                        {alert.description}
+                      </p>
+                      <Button
+                        variant="white"
+                        size="sm"
+                        className="mt-3 text-amber-700 hover:bg-amber-100 shadow-sm border border-amber-200">
+                        View details
+                      </Button>
+                    </div>
+                  </div>
+                ))}
             </div>
           </Card>
 
@@ -267,60 +301,60 @@ export function DashboardHome() {
               </Link>
             </div>
             <div className="space-y-4">
-              {[
-              {
-                title: 'Refueled',
-                desc: 'Honda Civic • 12.4 gal • $45.20',
-                date: 'Yesterday',
-                icon: <FuelIcon className="w-4 h-4" />,
-                color: 'text-accent-600 bg-accent-100'
-              },
-              {
-                title: 'Tire Rotation',
-                desc: 'Tesla Model 3 • $60.00',
-                date: 'Oct 12',
-                icon: <WrenchIcon className="w-4 h-4" />,
-                color: 'text-primary-600 bg-primary-100'
-              },
-              {
-                title: 'Document Uploaded',
-                desc: 'Insurance Policy 2024',
-                date: 'Oct 05',
-                icon: <FileTextIcon className="w-4 h-4" />,
-                color: 'text-purple-600 bg-purple-100'
-              },
-              {
-                title: 'Resolved Alert',
-                desc: 'Brake Inspection Completed',
-                date: 'Sep 28',
-                icon: <CheckCircle2Icon className="w-4 h-4" />,
-                color: 'text-slate-600 bg-slate-200'
-              }].
-              map((item, i) =>
-              <div
-                key={i}
-                className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors">
-
-                  <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.color}`}>
-
-                    {item.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-baseline mb-1">
-                      <h4 className="font-bold text-slate-900 text-sm truncate">
-                        {item.title}
-                      </h4>
-                      <span className="text-xs font-medium text-slate-400 shrink-0 ml-2">
-                        {item.date}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-500 truncate">
-                      {item.desc}
-                    </p>
-                  </div>
-                </div>
+              {loadingState && (
+                <LoadingState label="Loading recent activity..." className="py-6" />
               )}
+
+              {!loadingState && !hasActivity && (
+                <p className="text-sm text-slate-500">
+                  No recent activity yet. Start by logging a service or fuel fill-up.
+                </p>
+              )}
+
+              {!loadingState &&
+                overview?.activity.map((item) => {
+                  const icon =
+                    item.kind === 'fuel'
+                      ? <FuelIcon className="w-4 h-4" />
+                      : item.kind === 'document'
+                        ? <FileTextIcon className="w-4 h-4" />
+                        : item.kind === 'alert'
+                          ? <AlertTriangleIcon className="w-4 h-4" />
+                          : <WrenchIcon className="w-4 h-4" />;
+
+                  const color =
+                    item.kind === 'fuel'
+                      ? 'text-accent-600 bg-accent-100'
+                      : item.kind === 'document'
+                        ? 'text-purple-600 bg-purple-100'
+                        : item.kind === 'alert'
+                          ? 'text-rose-600 bg-rose-100'
+                          : 'text-primary-600 bg-primary-100';
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${color}`}>
+                        {icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline mb-1">
+                          <h4 className="font-bold text-slate-900 text-sm truncate">
+                            {item.title}
+                          </h4>
+                          <span className="text-xs font-medium text-slate-400 shrink-0 ml-2">
+                            {item.date}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-500 truncate">
+                          {item.description}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </Card>
         </div>
@@ -335,10 +369,10 @@ export function DashboardHome() {
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-2xl font-bold text-slate-900">
-                    $1,180
+                    {loadingState ? '—' : `$${monthlySpend.toFixed(0)}`}
                   </span>
                   <Badge variant="success" className="text-[10px] px-2 py-0.5">
-                    -12% vs last period
+                    Last 6 months
                   </Badge>
                 </div>
               </div>
@@ -348,9 +382,12 @@ export function DashboardHome() {
               </select>
             </div>
             <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={expenseData}
+              {loadingState ? (
+                <LoadingState label="Loading expense trend..." className="h-full" />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={expenseData}
                   margin={{
                     top: 10,
                     right: 10,
@@ -358,70 +395,71 @@ export function DashboardHome() {
                     bottom: 0
                   }}>
 
-                  <defs>
-                    <linearGradient
-                      id="colorAmount"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1">
+                    <defs>
+                      <linearGradient
+                        id="colorAmount"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1">
 
-                      <stop offset="5%" stopColor="hsl(var(--primary) / 0.3)" stopOpacity={1} />
-                      <stop offset="95%" stopColor="hsl(var(--primary) / 0)" stopOpacity={1} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="hsl(var(--border))" />
+                        <stop offset="5%" stopColor="hsl(var(--primary) / 0.3)" stopOpacity={1} />
+                        <stop offset="95%" stopColor="hsl(var(--primary) / 0)" stopOpacity={1} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="hsl(var(--border))" />
 
-                  <XAxis
-                    dataKey="month"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{
-                      fill: 'hsl(var(--muted-foreground))',
-                      fontSize: 12,
-                      fontWeight: 500
-                    }}
-                    dy={10} />
+                    <XAxis
+                      dataKey="month"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{
+                        fill: 'hsl(var(--muted-foreground))',
+                        fontSize: 12,
+                        fontWeight: 500
+                      }}
+                      dy={10} />
 
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{
-                      fill: 'hsl(var(--muted-foreground))',
-                      fontSize: 12,
-                      fontWeight: 500
-                    }}
-                    tickFormatter={(value) => `$${value}`} />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{
+                        fill: 'hsl(var(--muted-foreground))',
+                        fontSize: 12,
+                        fontWeight: 500
+                      }}
+                      tickFormatter={(value) => `$${value}`} />
 
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: '12px',
-                      border: '1px solid hsl(var(--border))',
-                      boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                      fontWeight: 600
-                    }}
-                    formatter={(value: number) => [
-                    `$${value}`,
-                    'Total Expense']
-                    } />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: '12px',
+                        border: '1px solid hsl(var(--border))',
+                        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                        fontWeight: 600
+                      }}
+                      formatter={(value: number) => [
+                      `$${value}`,
+                      'Total Expense']
+                      } />
 
-                  <Area
-                    type="monotone"
-                    dataKey="amount"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={3}
-                    fillOpacity={1}
-                    fill="url(#colorAmount)"
-                    activeDot={{
-                      r: 6,
-                      strokeWidth: 0
-                    }} />
+                    <Area
+                      type="monotone"
+                      dataKey="amount"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#colorAmount)"
+                      activeDot={{
+                        r: 6,
+                        strokeWidth: 0
+                      }} />
 
-                </AreaChart>
-              </ResponsiveContainer>
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </Card>
 
@@ -437,126 +475,66 @@ export function DashboardHome() {
                 Manage Vehicles
               </Link>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Vehicle 1 */}
-              <Card
-                hover
-                className="overflow-hidden border border-slate-200 group">
-
-                <div className="h-40 bg-slate-200 relative overflow-hidden">
-                  <img
-                    src="https://images.unsplash.com/photo-1561580125-028ee3bd62eb?q=80&w=800&auto=format&fit=crop"
-                    alt="Tesla Model 3"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
-                  <div className="absolute top-3 right-3">
-                    <Badge
-                      variant="success"
-                      className="shadow-sm backdrop-blur-md bg-white/95 font-bold">
-
-                      98% Health
-                    </Badge>
-                  </div>
-                  <div className="absolute bottom-3 left-4">
-                    <h3 className="text-xl font-bold text-white font-heading tracking-tight">
-                      2022 Tesla Model 3
-                    </h3>
-                    <p className="text-sm text-slate-200 font-medium">
-                      24,500 mi • Electric
-                    </p>
-                  </div>
-                </div>
-                <div className="p-5 bg-white">
-                  <div className="space-y-3 mb-5">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500">Last Service</span>
-                      <span className="font-medium text-slate-900">
-                        Oct 12, 2023
-                      </span>
+            {loadingState && (
+              <LoadingState label="Loading vehicles..." />
+            )}
+            {!loadingState && !hasVehicles && (
+              <p className="text-sm text-slate-500">
+                No vehicles yet. Add your first vehicle to see it here.
+              </p>
+            )}
+            {!loadingState && hasVehicles && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {overview?.vehicles.slice(0, 2).map((vehicle) => (
+                  <Card
+                    key={vehicle.id}
+                    hover
+                    className="overflow-hidden border border-slate-200 group">
+                    <div className="h-40 bg-slate-200 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
+                      <div className="absolute bottom-3 left-4 right-4">
+                        <h3 className="text-xl font-bold text-white font-heading tracking-tight">
+                          {vehicle.name}
+                        </h3>
+                        <p className="text-sm text-slate-200 font-medium">
+                          Vehicle
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500">Next Due</span>
-                      <span className="font-bold text-slate-900">
-                        Tire Rotation
-                      </span>
+                    <div className="p-5 bg-white">
+                      <div className="space-y-3 mb-5">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-500">Status</span>
+                          <span className="font-medium text-slate-900">
+                            Tracked
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <Link to={`/dashboard/vehicles/${vehicle.id}`} className="flex-1">
+                          <Button variant="secondary" className="w-full">
+                            View Details
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500">Est. Cost</span>
-                      <span className="font-medium text-slate-900">$60.00</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <Link to="/dashboard/vehicles/1" className="flex-1">
-                      <Button variant="secondary" className="w-full">
-                        View Details
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Vehicle 2 */}
-              <Card
-                hover
-                className="overflow-hidden border border-slate-200 group">
-
-                <div className="h-40 bg-slate-200 relative overflow-hidden">
-                  <img
-                    src="https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=800&auto=format&fit=crop"
-                    alt="Honda Civic"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
-                  <div className="absolute top-3 right-3">
-                    <Badge
-                      variant="warning"
-                      className="shadow-sm backdrop-blur-md bg-white/95 font-bold">
-
-                      82% Health
-                    </Badge>
-                  </div>
-                  <div className="absolute bottom-3 left-4">
-                    <h3 className="text-xl font-bold text-white font-heading tracking-tight">
-                      2018 Honda Civic
-                    </h3>
-                    <p className="text-sm text-slate-200 font-medium">
-                      68,200 mi • Gasoline
-                    </p>
-                  </div>
-                </div>
-                <div className="p-5 bg-white">
-                  <div className="space-y-3 mb-5">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500">Last Service</span>
-                      <span className="font-medium text-slate-900">
-                        Sep 28, 2023
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500">Next Due</span>
-                      <span className="font-bold text-amber-600">
-                        Oil Change (Due)
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500">Est. Cost</span>
-                      <span className="font-medium text-slate-900">$85.00</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <Link to="/dashboard/vehicles/2" className="flex-1">
-                      <Button variant="secondary" className="w-full">
-                        View Details
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </Card>
-            </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
-    </div>);
-
+      {error && !loadingState && (
+        <div className="max-w-xl">
+          <ErrorState title="Dashboard data failed to load" description={error} />
+        </div>
+      )}
+      {accountError && (
+        <div className="max-w-xl">
+          <ErrorState title="Account not found" description={accountError} />
+        </div>
+      )}
+    </div>
+  );
 }

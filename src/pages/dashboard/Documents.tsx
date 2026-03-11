@@ -13,17 +13,24 @@ import {
   fetchAccountDocuments,
   type DocumentCard,
 } from '../../services/documents';
+import { useAccount } from '../../account/AccountProvider';
+import { LoadingState } from '../../components/states/LoadingState';
 
 export function Documents() {
+  const { accountId, loading: accountLoading } = useAccount();
   const [documents, setDocuments] = useState<DocumentCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('All');
 
   useEffect(() => {
+    if (!accountId) {
+      return;
+    }
+
     let isMounted = true;
 
-    fetchAccountDocuments()
+    fetchAccountDocuments(accountId)
       .then((docs) => {
         if (isMounted) {
           setDocuments(docs);
@@ -38,7 +45,7 @@ export function Documents() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [accountId]);
 
   const filtered = documents.filter((doc) => {
     const term = search.toLowerCase();
@@ -120,8 +127,8 @@ export function Documents() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="text-slate-500">Loading documents...</div>
+      {accountLoading || loading ? (
+        <LoadingState label="Loading documents..." />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {filtered.map((doc) =>

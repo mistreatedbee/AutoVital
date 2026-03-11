@@ -6,16 +6,23 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
 import { fetchAccountVehicles, type VehicleSummary } from '../../services/vehicles';
+import { useAccount } from '../../account/AccountProvider';
+import { LoadingState } from '../../components/states/LoadingState';
 
 export function MyVehicles() {
+  const { accountId, loading: accountLoading } = useAccount();
   const [vehicles, setVehicles] = useState<VehicleSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
+    if (!accountId) {
+      return;
+    }
+
     let isMounted = true;
 
-    fetchAccountVehicles()
+    fetchAccountVehicles(accountId)
       .then((data) => {
         if (isMounted) {
           setVehicles(data);
@@ -30,7 +37,7 @@ export function MyVehicles() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [accountId]);
 
   const filtered = vehicles.filter((vehicle) => {
     const term = search.toLowerCase();
@@ -71,8 +78,8 @@ export function MyVehicles() {
         </Button>
       </div>
 
-      {loading ? (
-        <p className="text-slate-500">Loading vehicles...</p>
+      {accountLoading || loading ? (
+        <LoadingState label="Loading vehicles..." />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filtered.map((vehicle) =>

@@ -64,7 +64,13 @@ const FALLBACK_LOGS: MaintenanceEntry[] = [
   },
 ];
 
-export async function fetchAccountMaintenanceLogs(): Promise<MaintenanceEntry[]> {
+export async function fetchAccountMaintenanceLogs(
+  accountId: string | null,
+): Promise<MaintenanceEntry[]> {
+  if (!accountId) {
+    return FALLBACK_LOGS;
+  }
+
   try {
     const client = getInsforgeClient();
     const { data, error } = await client.database
@@ -72,6 +78,7 @@ export async function fetchAccountMaintenanceLogs(): Promise<MaintenanceEntry[]>
       .select(
         'id, service_date, mileage, cost_cents, currency, vendor_name, type, vehicles(make, model)',
       )
+      .eq('account_id', accountId)
       .order('service_date', { ascending: false });
 
     if (error || !data) {

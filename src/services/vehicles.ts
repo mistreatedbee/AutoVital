@@ -54,12 +54,17 @@ const FALLBACK_VEHICLES: VehicleSummary[] = [
 
 export type { VehicleSummary };
 
-export async function fetchAccountVehicles(): Promise<VehicleSummary[]> {
+export async function fetchAccountVehicles(accountId: string | null): Promise<VehicleSummary[]> {
+  if (!accountId) {
+    return FALLBACK_VEHICLES;
+  }
+
   try {
     const client = getInsforgeClient();
     const { data, error } = await client.database
       .from('vehicles')
       .select('id, make, model, year, current_mileage, fuel_type, health_score')
+      .eq('account_id', accountId)
       .order('created_at', { ascending: false });
 
     if (error || !data) {

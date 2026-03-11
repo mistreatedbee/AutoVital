@@ -42,7 +42,13 @@ const FALLBACK_BILLING_OVERVIEW: BillingOverview = {
   ],
 };
 
-export async function fetchBillingOverview(): Promise<BillingOverview> {
+export async function fetchBillingOverview(
+  accountId: string | null,
+): Promise<BillingOverview> {
+  if (!accountId) {
+    return FALLBACK_BILLING_OVERVIEW;
+  }
+
   try {
     const client = getInsforgeClient();
 
@@ -52,11 +58,15 @@ export async function fetchBillingOverview(): Promise<BillingOverview> {
       .select(
         'status, current_period_end, plans(code, name, price_monthly_cents, vehicle_limit)',
       )
+      .eq('account_id', accountId)
       .maybeSingle();
 
     if (subscriptionError || !subscriptionData) {
       // eslint-disable-next-line no-console
-      console.warn('Failed to load subscription from backend, using fallback billing data.', subscriptionError);
+      console.warn(
+        'Failed to load subscription from backend, using fallback billing data.',
+        subscriptionError,
+      );
       return FALLBACK_BILLING_OVERVIEW;
     }
 
@@ -73,7 +83,8 @@ export async function fetchBillingOverview(): Promise<BillingOverview> {
     try {
       const { count } = await client.database
         .from('vehicles')
-        .select('id', { count: 'exact', head: true });
+        .select('id', { count: 'exact', head: true })
+        .eq('account_id', accountId);
       vehicleCountUsed = typeof count === 'number' ? count : null;
     } catch {
       vehicleCountUsed = null;
@@ -93,6 +104,7 @@ export async function fetchBillingOverview(): Promise<BillingOverview> {
     const { data: invoicesData, error: invoicesError } = await client.database
       .from('billing_invoices')
       .select('id, invoice_date, amount_cents, currency, status')
+      .eq('account_id', accountId)
       .order('invoice_date', { ascending: false });
 
     let invoices: BillingInvoice[];

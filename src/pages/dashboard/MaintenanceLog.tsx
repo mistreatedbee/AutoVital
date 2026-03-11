@@ -8,15 +8,22 @@ import {
   fetchAccountMaintenanceLogs,
   type MaintenanceEntry,
 } from '../../services/maintenance';
+import { useAccount } from '../../account/AccountProvider';
+import { LoadingState } from '../../components/states/LoadingState';
 
 export function MaintenanceLog() {
+  const { accountId, loading: accountLoading } = useAccount();
   const [logs, setLogs] = useState<MaintenanceEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!accountId) {
+      return;
+    }
+
     let isMounted = true;
 
-    fetchAccountMaintenanceLogs()
+    fetchAccountMaintenanceLogs(accountId)
       .then((data) => {
         if (isMounted) {
           setLogs(data);
@@ -31,7 +38,7 @@ export function MaintenanceLog() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [accountId]);
 
   const columns = [
   {
@@ -115,8 +122,8 @@ export function MaintenanceLog() {
             More Filters
           </Button>
         </div>
-        {loading ? (
-          <div className="p-6 text-slate-500">Loading maintenance history...</div>
+        {accountLoading || loading ? (
+          <LoadingState label="Loading maintenance history..." className="py-10" />
         ) : (
           <DataTable
             columns={columns}
