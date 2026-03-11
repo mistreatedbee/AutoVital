@@ -19,11 +19,14 @@ import { fetchVehicleDetails, type VehicleDetailsData, archiveVehicle } from '..
 import { fetchVehicleMaintenanceLogs, type MaintenanceEntry } from '../../services/maintenance';
 import { uploadVehicleImageFile } from '../../services/vehicleImageUpload';
 import { setPrimaryVehicleImage } from '../../services/vehicleImages';
+import { useAuth } from '../../auth/AuthProvider';
+import { fetchVehicleDocuments, uploadDocumentFile, type DocumentCard } from '../../services/documents';
 
 export function VehicleDetails() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { accountId } = useAccount();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +35,10 @@ export function VehicleDetails() {
   const [archiving, setArchiving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<DocumentCard[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentUploadError, setDocumentUploadError] = useState<string | null>(null);
+  const [documentUploading, setDocumentUploading] = useState(false);
 
   useEffect(() => {
     if (!accountId || !id) return;
@@ -39,8 +46,9 @@ export function VehicleDetails() {
 
     async function load() {
       try {
-        const [details] = await Promise.all([
+        const [details, vehicleDocs] = await Promise.all([
           fetchVehicleDetails(accountId, id),
+          fetchVehicleDocuments(accountId, id),
         ]);
         if (!isMounted) return;
         if (!details) {
@@ -51,6 +59,7 @@ export function VehicleDetails() {
         const history = await fetchVehicleMaintenanceLogs(accountId, details.vehicle.id);
         if (!isMounted) return;
         setServiceHistory(history);
+        setDocuments(vehicleDocs);
       } catch (err: any) {
         // eslint-disable-next-line no-console
         console.error('Failed to load vehicle details view', err);
@@ -376,6 +385,83 @@ export function VehicleDetails() {
           </div>
 
           <div className="space-y-6">
+            <Card className="p-6">
+              <h3 className="text-lg font-bold text-slate-900 font-heading mb-4">
+                Documents
+              </h3>
+              {documentUploadError && (
+                <p className="text-xs text-red-600 mb-2">{documentUploadError}</p>
+              )}
+              <div className="space-y-3">
+                {documentsLoading ? (
+                  <p className="text-sm text-slate-500">Loading documents…</p>
+                ) : documents.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    No documents linked to this vehicle yet.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {documents.map((doc) => (
+                      <li key={doc.id} className="flex items-center justify-between text-sm">
+                        <button
+                          type="button"
+                          className="text-left text-slate-800 hover:text-primary-600 truncate"
+                          onClick={() => {
+                            if (doc.url) {
+                              window.open(doc.url, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
+                        >
+                          <span className="font-medium">{doc.name}</span>
+                          <span className="ml-2 text-xs text-slate-500">{doc.type}</span>
+                        </button>
+                        <span className="text-xs text-slate-400">{doc.date}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="mt-4">
+                <label className="inline-flex items-center text-xs text-slate-600 cursor-pointer">
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                    className="hidden"
+                    onChange={async (e) => {
+                      if (!accountId || !user || !vehicleDetails) return;
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setDocumentUploadError(null);
+                      setDocumentUploading(true);
+                      try {
+                        await uploadDocumentFile({
+                          accountId,
+                          vehicleId: vehicleDetails.vehicle.id,
+                          userId: user.id,
+                          type: 'other',
+                          file,
+                        });
+                        const refreshed = await fetchVehicleDocuments(accountId, vehicleDetails.vehicle.id);
+                        setDocuments(refreshed);
+                      } catch (err: any) {
+                        // eslint-disable-next-line no-console
+                        console.error('Vehicle document upload failed', err);
+                        setDocumentUploadError(
+                          err?.message ?? 'Unable to upload document. Please try again.',
+                        );
+                      } finally {
+                        setDocumentUploading(false);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                  <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    <PlusIcon className="w-3 h-3" />
+                    {documentUploading ? 'Uploading…' : 'Add Document'}
+                  </span>
+                </label>
+              </div>
+            </Card>
             <Card className="p-6">
               <h3 className="text-lg font-bold text-slate-900 font-heading mb-4">
                 Upcoming Maintenance

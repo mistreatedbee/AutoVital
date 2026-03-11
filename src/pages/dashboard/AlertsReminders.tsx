@@ -11,15 +11,22 @@ import { Toggle } from '../../components/ui/Toggle';
 import {
   fetchUserAlerts,
   updateAlertStatus,
+  fetchAlertPreferences,
+  upsertAlertPreference,
   type UserAlert,
+  type AlertPreference,
 } from '../../services/alerts';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
+import { useAuth } from '../../auth/AuthProvider';
 
 export function AlertsReminders() {
   const { accountId, loading: accountLoading } = useAccount();
+  const { user } = useAuth();
   const [alerts, setAlerts] = useState<UserAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [preferences, setPreferences] = useState<AlertPreference[] | null>(null);
+  const [savingPrefs, setSavingPrefs] = useState(false);
 
   useEffect(() => {
     if (!accountId) {
@@ -28,11 +35,14 @@ export function AlertsReminders() {
 
     let isMounted = true;
 
-    fetchUserAlerts(accountId)
-      .then((data) => {
-        if (isMounted) {
-          setAlerts(data);
-        }
+    Promise.all([
+      fetchUserAlerts(accountId),
+      fetchAlertPreferences(user?.id ?? null, accountId),
+    ])
+      .then(([data, prefs]) => {
+        if (!isMounted) return;
+        setAlerts(data);
+        setPreferences(prefs);
       })
       .finally(() => {
         if (isMounted) {
@@ -55,6 +65,31 @@ export function AlertsReminders() {
       ),
     );
     void updateAlertStatus(alertId, 'dismissed');
+  };
+
+  const emailPrefEnabled =
+    preferences?.find((p) => p.channel === 'email')?.enabled ?? true;
+  const inAppPrefEnabled =
+    preferences?.find((p) => p.channel === 'in_app')?.enabled ?? true;
+
+  const handleToggleChannel = async (
+    channel: 'email' | 'in_app',
+    value: 'Off' | 'On',
+  ) => {
+    if (!accountId || !user) return;
+    setSavingPrefs(true);
+    try {
+      await upsertAlertPreference({
+        userId: user.id,
+        accountId,
+        channel,
+        enabled: value === 'On',
+      });
+      const updated = await fetchAlertPreferences(user.id, accountId);
+      setPreferences(updated);
+    } finally {
+      setSavingPrefs(false);
+    }
   };
 
   return (
@@ -182,8 +217,10 @@ export function AlertsReminders() {
                   </span>
                   <Toggle
                     options={['Off', 'On']}
-                    value="On"
-                    onChange={() => undefined} />
+                    value={emailPrefEnabled ? 'On' : 'Off'}
+                    onChange={(val) => handleToggleChannel('email', val as 'Off' | 'On')}
+                    disabled={savingPrefs}
+                  />
 
                 </div>
                 <p className="text-sm text-slate-500">
@@ -200,8 +237,10 @@ export function AlertsReminders() {
                   </span>
                   <Toggle
                     options={['Off', 'On']}
-                    value="On"
-                    onChange={() => undefined} />
+                    value={inAppPrefEnabled ? 'On' : 'Off'}
+                    onChange={(val) => handleToggleChannel('in_app', val as 'Off' | 'On')}
+                    disabled={savingPrefs}
+                  />
 
                 </div>
                 <p className="text-sm text-slate-500">

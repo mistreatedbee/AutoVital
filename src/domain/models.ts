@@ -163,6 +163,10 @@ export interface Document {
   publicUrl: string | null;
   sizeBytes: number | null;
   mimeType: string | null;
+  tags?: string[] | null;
+  metadata?: Record<string, unknown> | null;
+  deletedAt?: string | null;
+  deletedByUserId?: UUID | null;
   createdAt: string;
 }
 

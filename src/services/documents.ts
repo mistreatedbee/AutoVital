@@ -7,6 +7,8 @@ export interface DocumentCard {
   size: string;
   date: string;
   vehicle: string;
+  url: string | null;
+  mimeType: string | null;
 }
 
 const FALLBACK_DOCUMENTS: DocumentCard[] = [
@@ -55,8 +57,9 @@ export async function fetchAccountDocuments(
     const client = getInsforgeClient();
     const { data, error } = await client.database
       .from('documents')
-      .select('id, name, type, size_bytes, created_at, vehicles(make, model)')
+      .select('id, name, type, size_bytes, created_at, public_url, mime_type, vehicles(make, model)')
       .eq('account_id', accountId)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false });
 
     if (error || !data) {
@@ -83,6 +86,8 @@ export async function fetchAccountDocuments(
         size,
         date: row.created_at,
         vehicle: vehicleName,
+        url: row.public_url ?? null,
+        mimeType: row.mime_type ?? null,
       } as DocumentCard;
     });
   } catch (err) {
@@ -147,6 +152,96 @@ export async function uploadDocumentFile(params: UploadDocumentParams) {
     id: row.id as string,
     url: row.public_url as string | null,
   };
+}
+
+export async function fetchVehicleDocuments(
+  accountId: string | null,
+  vehicleId: string | null,
+): Promise<DocumentCard[]> {
+  if (!accountId || !vehicleId) {
+    return [];
+  }
+
+  try {
+    const client = getInsforgeClient();
+    const { data, error } = await client.database
+      .from('documents')
+      .select('id, name, type, size_bytes, created_at, public_url, mime_type')
+      .eq('account_id', accountId)
+      .eq('vehicle_id', vehicleId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+
+    if (error || !data) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to load vehicle documents from backend.', error);
+      return [];
+    }
+
+    return (data as any[]).map((row) => {
+      const size =
+        row.size_bytes != null
+          ? `${(Number(row.size_bytes) / (1024 * 1024)).toFixed(1)} MB`
+          : '—';
+
+      return {
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        size,
+        date: row.created_at,
+        vehicle: '',
+        url: row.public_url ?? null,
+        mimeType: row.mime_type ?? null,
+      } as DocumentCard;
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Vehicle documents service unavailable.', err);
+    return [];
+  }
+}
+
+export async function deleteDocument(
+  documentId: string | number,
+  storageBucket: string | null,
+  storageKey: string | null,
+  deletedByUserId: string | null,
+): Promise<boolean> {
+  try {
+    const client = getInsforgeClient();
+
+    const { error: updateError } = await client.database
+      .from('documents')
+      .update({
+        deleted_at: new Date().toISOString(),
+        deleted_by_user_id: deletedByUserId,
+      })
+      .eq('id', documentId);
+
+    if (updateError) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to soft-delete document.', updateError);
+      return false;
+    }
+
+    if (storageBucket && storageKey) {
+      const { error: removeError } = await client.storage
+        .from(storageBucket)
+        .remove(storageKey);
+
+      if (removeError) {
+        // eslint-disable-next-line no-console
+        console.warn('Failed to delete document file from storage.', removeError);
+      }
+    }
+
+    return true;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Document delete failed.', err);
+    return false;
+  }
 }
 
 

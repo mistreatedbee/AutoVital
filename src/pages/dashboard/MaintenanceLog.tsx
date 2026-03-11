@@ -5,7 +5,6 @@ import { Card } from '../../components/ui/Card';
 import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
 import {
@@ -286,35 +285,47 @@ export function MaintenanceLog() {
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Select
-                label="Vehicle"
-                value={formState.vehicleId}
-                onChange={(e) =>
-                  setFormState((prev) => ({ ...prev, vehicleId: e.target.value }))
-                }
-                required
-              >
-                <option value="">Select vehicle</option>
-                {vehicleOptions.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.label}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                label="Service Type"
-                value={formState.type}
-                onChange={(e) => setFormState((prev) => ({ ...prev, type: e.target.value }))}
-                required
-              >
-                <option value="oil_change">Oil Change</option>
-                <option value="tire_rotation">Tire Rotation</option>
-                <option value="inspection">Inspection</option>
-                <option value="brake_service">Brake Service</option>
-                <option value="battery">Battery</option>
-                <option value="registration">Registration</option>
-                <option value="other">Other</option>
-              </Select>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Vehicle
+                </label>
+                <select
+                  className="w-full bg-white border border-slate-300 text-slate-900 text-sm rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 px-3 py-2"
+                  value={formState.vehicleId}
+                  onChange={(e) =>
+                    setFormState((prev) => ({ ...prev, vehicleId: e.target.value }))
+                  }
+                  required
+                >
+                  <option value="">Select vehicle</option>
+                  {vehicleOptions.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Service Type
+                </label>
+                <select
+                  className="w-full bg-white border border-slate-300 text-slate-900 text-sm rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 px-3 py-2"
+                  value={formState.type}
+                  onChange={(e) =>
+                    setFormState((prev) => ({ ...prev, type: e.target.value }))
+                  }
+                  required
+                >
+                  <option value="oil_change">Oil Change</option>
+                  <option value="tire_rotation">Tire Rotation</option>
+                  <option value="inspection">Inspection</option>
+                  <option value="brake_service">Brake Service</option>
+                  <option value="battery">Battery</option>
+                  <option value="registration">Registration</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
               <Input
                 label="Service Date"
                 type="date"

@@ -191,6 +191,10 @@ CREATE TABLE IF NOT EXISTS documents (
   public_url TEXT,
   size_bytes BIGINT,
   mime_type TEXT,
+  tags TEXT[],
+  metadata JSONB,
+  deleted_at TIMESTAMPTZ,
+  deleted_by_user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -224,6 +228,20 @@ CREATE TABLE IF NOT EXISTS alerts (
   sent_at TIMESTAMPTZ,
   resolved_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS alert_preferences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  account_id UUID NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+  channel alert_channel NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  maintenance_lead_days INTEGER DEFAULT 14,
+  document_expiry_lead_days INTEGER DEFAULT 30,
+  quiet_hours JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, account_id, channel)
 );
 
 CREATE TABLE IF NOT EXISTS vehicle_health_snapshots (

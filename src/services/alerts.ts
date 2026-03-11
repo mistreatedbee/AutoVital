@@ -1,4 +1,5 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
+import type { AlertChannel, AlertKind } from '../domain/models';
 
 export interface UserAlert {
   id: string | number;
@@ -8,6 +9,17 @@ export interface UserAlert {
   severity: 'info' | 'warning' | 'critical';
   status: 'open' | 'resolved';
   meta: string;
+}
+
+export interface AlertPreference {
+  id: string;
+  userId: string;
+  accountId: string;
+  channel: AlertChannel;
+  enabled: boolean;
+  maintenanceLeadDays: number;
+  documentExpiryLeadDays: number;
+  quietHours: unknown | null;
 }
 
 export interface EmailTemplate {
@@ -144,6 +156,89 @@ export async function fetchUserAlerts(
     console.warn('Alerts service unavailable, using fallback alerts.', err);
     return FALLBACK_USER_ALERTS;
   }
+}
+
+export async function fetchAlertPreferences(
+  userId: string | null,
+  accountId: string | null,
+): Promise<AlertPreference[] | null> {
+  if (!userId || !accountId) {
+    return null;
+  }
+
+  try {
+    const client = getInsforgeClient();
+    const { data, error } = await client.database
+      .from('alert_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('account_id', accountId);
+
+    if (error || !data) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to load alert preferences.', error);
+      return null;
+    }
+
+    return (data as any[]).map((row) => ({
+      id: row.id as string,
+      userId: row.user_id as string,
+      accountId: row.account_id as string,
+      channel: row.channel as AlertChannel,
+      enabled: Boolean(row.enabled),
+      maintenanceLeadDays: row.maintenance_lead_days ?? 14,
+      documentExpiryLeadDays: row.document_expiry_lead_days ?? 30,
+      quietHours: row.quiet_hours ?? null,
+    }));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Alert preferences service unavailable.', err);
+    return null;
+  }
+}
+
+export async function upsertAlertPreference(input: {
+  userId: string;
+  accountId: string;
+  channel: AlertChannel;
+  enabled: boolean;
+  maintenanceLeadDays?: number;
+  documentExpiryLeadDays?: number;
+}): Promise<boolean> {
+  try {
+    const client = getInsforgeClient();
+    const payload = {
+      user_id: input.userId,
+      account_id: input.accountId,
+      channel: input.channel,
+      enabled: input.enabled,
+      maintenance_lead_days: input.maintenanceLeadDays ?? 14,
+      document_expiry_lead_days: input.documentExpiryLeadDays ?? 30,
+    };
+
+    const { error } = await client.database
+      .from('alert_preferences')
+      .upsert(payload, {
+        onConflict: 'user_id,account_id,channel',
+      });
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to upsert alert preference.', error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Alert preference upsert failed.', err);
+    return false;
+  }
+}
+
+export interface DerivedAlert extends UserAlert {
+  kind: AlertKind;
+  source: 'derived';
 }
 
 export async function updateAlertStatus(
