@@ -11,6 +11,8 @@ import {
 export function AuditLogsPage() {
   const [rows, setRows] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [actorFilter, setActorFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [entityTypeFilter, setEntityTypeFilter] = useState('');
@@ -22,13 +24,16 @@ export function AuditLogsPage() {
     async function load() {
       setLoading(true);
       try {
-        const data = await fetchAuditLogs({
+        const result = await fetchAuditLogs({
+          page,
+          pageSize: 50,
           actorEmail: actorFilter.trim() || undefined,
           action: actionFilter.trim() || undefined,
           entityType: entityTypeFilter.trim() || undefined,
         });
         if (!cancelled) {
-          setRows(data);
+          setRows(result.items);
+          setHasMore(result.hasMore);
         }
       } finally {
         if (!cancelled) {
@@ -42,7 +47,7 @@ export function AuditLogsPage() {
     return () => {
       cancelled = true;
     };
-  }, [actorFilter, actionFilter, entityTypeFilter]);
+  }, [page, actorFilter, actionFilter, entityTypeFilter]);
 
   const entityTypes = useMemo(
     () => Array.from(new Set(rows.map((r) => r.entityType))).sort(),
@@ -176,7 +181,30 @@ export function AuditLogsPage() {
             appear here once the audit_logs table exists and actions are logged.
           </div>
         ) : (
-          <DataTable columns={columns} data={rows} />
+          <>
+            <DataTable columns={columns} data={rows} />
+            {(page > 1 || hasMore) && (
+              <div className="px-6 py-4 border-t border-slate-100 flex justify-between text-sm text-slate-600">
+                <span>Page {page}</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={!hasMore}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 

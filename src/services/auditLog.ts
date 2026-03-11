@@ -1,4 +1,10 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
+import {
+  type PaginatedParams,
+  type PaginatedResult,
+  toLimitOffset,
+  DEFAULT_PAGE_SIZE,
+} from '../lib/pagination';
 
 export interface AuditLogEntry {
   id: string;
@@ -53,9 +59,12 @@ export async function createAuditLogEntry(params: {
   }
 }
 
+export interface AuditLogListParams extends AuditLogFilters, PaginatedParams {}
+
 export async function fetchAuditLogs(
-  filters: AuditLogFilters = {},
-): Promise<AuditLogEntry[]> {
+  filters: AuditLogListParams = {},
+): Promise<PaginatedResult<AuditLogEntry>> {
+  const { limit, offset, page, pageSize } = toLimitOffset(filters);
   try {
     const client = getInsforgeClient();
     let query = client.database
@@ -79,15 +88,16 @@ export async function fetchAuditLogs(
       query = query.eq('entity_type', filters.entityType.trim());
     }
 
-    const { data, error } = await query.limit(200);
+    const aq = query as { range?: (a: number, b: number) => typeof query };
+    const { data, error } = await (aq.range ? aq.range(offset, offset + limit - 1) : query.limit(limit));
 
     if (error || !data) {
       // eslint-disable-next-line no-console
       console.warn('Failed to load audit logs.', error);
-      return [];
+      return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
     }
 
-    return (data as any[]).map((row) => ({
+    const items = (data as any[]).map((row) => ({
       id: row.id,
       createdAt: row.created_at,
       actorUserId: row.actor_user_id ?? null,
@@ -97,9 +107,12 @@ export async function fetchAuditLogs(
       entityId: row.entity_id ?? null,
       metadata: (row.metadata ?? {}) as Record<string, unknown>,
     }));
+
+    const hasMore = items.length === limit;
+    return { items, page, pageSize, hasMore };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Audit log fetch failed.', err);
-    return [];
+    return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
   }
 }

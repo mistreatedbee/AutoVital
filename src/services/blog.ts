@@ -34,7 +34,8 @@ export interface BlogListResult {
   hasMore: boolean;
 }
 
-const FALLBACK_POSTS: BlogPost[] = [
+// Removed fallback - return empty arrays on error
+const _UNUSED_FALLBACK_POSTS: BlogPost[] = [
   {
     id: 'fallback-1',
     slug: 'welcome-to-autovital',
@@ -94,7 +95,7 @@ export async function fetchPublishedBlogPosts(
     if (error || !data) {
       // eslint-disable-next-line no-console
       console.warn('Failed to load blog posts from backend, using fallback.', error);
-      return { posts: FALLBACK_POSTS.slice(0, pageSize), page: 1, pageSize, hasMore: false };
+      return { posts: [], page: 1, pageSize, hasMore: false };
     }
 
     const posts = data as BlogPost[];
@@ -103,7 +104,7 @@ export async function fetchPublishedBlogPosts(
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Blog service unavailable, using fallback.', err);
-    return { posts: FALLBACK_POSTS.slice(0, pageSize), page: 1, pageSize, hasMore: false };
+    return { posts: [], page: 1, pageSize, hasMore: false };
   }
 }
 
@@ -135,8 +136,7 @@ export async function fetchPublishedBlogPostBySlug(
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Blog service unavailable for slug.', err);
-    const fallback = FALLBACK_POSTS.find((p) => p.slug === clean);
-    return fallback ?? null;
+    return null;
   }
 }
 

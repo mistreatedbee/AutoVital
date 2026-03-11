@@ -11,6 +11,8 @@ import {
 export function FuelManagement() {
   const [rows, setRows] = useState<AdminFuelRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [search, setSearch] = useState('');
   const [accountFilter, setAccountFilter] = useState<string>('all');
 
@@ -20,9 +22,14 @@ export function FuelManagement() {
     async function load() {
       setLoading(true);
       try {
-        const data = await fetchAdminFuelLogs();
+        const result = await fetchAdminFuelLogs({
+          page,
+          pageSize: 20,
+          accountId: accountFilter !== 'all' ? accountFilter : undefined,
+        });
         if (!cancelled) {
-          setRows(data);
+          setRows(result.items);
+          setHasMore(result.hasMore);
         }
       } finally {
         if (!cancelled) {
@@ -36,7 +43,7 @@ export function FuelManagement() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [page, accountFilter]);
 
   const accounts = useMemo(
     () => Array.from(new Set(rows.map((r) => r.accountName))).sort(),
@@ -173,7 +180,10 @@ export function FuelManagement() {
           <select
             className="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-rose-500 focus:border-rose-500 block p-3 shadow-sm"
             value={accountFilter}
-            onChange={(e) => setAccountFilter(e.target.value)}
+            onChange={(e) => {
+              setAccountFilter(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="all">All Accounts</option>
             {accounts.map((name) => (
@@ -195,7 +205,30 @@ export function FuelManagement() {
             No fuel records match the current filters.
           </div>
         ) : (
-          <DataTable columns={columns} data={filteredRows} />
+          <>
+            <DataTable columns={columns} data={filteredRows} />
+            {(page > 1 || hasMore) && (
+              <div className="px-6 py-4 border-t border-slate-100 flex justify-between text-sm text-slate-600">
+                <span>Page {page}</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={!hasMore}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

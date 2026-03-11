@@ -17,15 +17,23 @@ export function VehicleManagement() {
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const [healthFilter, setHealthFilter] = useState<string>('all');
 
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       setLoading(true);
       try {
-        const data = await fetchAdminVehicles();
+        const result = await fetchAdminVehicles({
+          page,
+          pageSize: 20,
+          accountId: accountFilter !== 'all' ? accountFilter : undefined,
+        });
         if (!cancelled) {
-          setVehicles(data);
+          setVehicles(result.items);
+          setHasMore(result.hasMore);
         }
       } finally {
         if (!cancelled) {
@@ -39,7 +47,7 @@ export function VehicleManagement() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [page, accountFilter]);
 
   const accounts = useMemo(
     () => Array.from(new Set(vehicles.map((v) => v.accountName))).sort(),
@@ -98,6 +106,8 @@ export function VehicleManagement() {
   }, [filteredVehicles]);
 
   const totalCount = filteredVehicles.length;
+
+  const showPagination = vehicles.length > 0 && (page > 1 || hasMore);
 
   const columns = useMemo(
     () => [
@@ -223,7 +233,10 @@ export function VehicleManagement() {
           <select
             className="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-rose-500 focus:border-rose-500 block p-3 shadow-sm"
             value={accountFilter}
-            onChange={(e) => setAccountFilter(e.target.value)}
+            onChange={(e) => {
+              setAccountFilter(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="all">All accounts</option>
             {accounts.map((name) => (
@@ -258,7 +271,32 @@ export function VehicleManagement() {
             No vehicles match the current filters.
           </div>
         ) : (
-          <DataTable columns={columns} data={filteredVehicles} />
+          <>
+            <DataTable columns={columns} data={filteredVehicles} />
+            {showPagination && (
+              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-sm text-slate-600">
+                <span>
+                  Page {page} • Showing {filteredVehicles.length} vehicles
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={!hasMore}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

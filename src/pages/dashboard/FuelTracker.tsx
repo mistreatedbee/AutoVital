@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { PlusIcon, DropletIcon } from 'lucide-react';
 import {
   LineChart,
@@ -9,40 +9,46 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable } from '../../components/ui/DataTable';
 import { StatCard } from '../../components/ui/StatCard';
 import { chartColors, cssVarHsl } from '../../lib/tokens';
 import {
-  fetchFuelEfficiency,
-  fetchFuelLogs,
-  type EfficiencyPoint,
-  type FuelLogEntry,
+  useFuelLogs,
+  useFuelEfficiency,
+  useCreateFuelLog,
+} from '../../hooks/queries';
+import { useVehicles } from '../../hooks/queries';
+import type { EfficiencyPoint } from '../../services/fuel';
+import {
+  calculateFuelEfficiencyWithUnits,
+  type CreateFuelLogInput,
 } from '../../services/fuel';
+import { fetchCurrentProfile } from '../../services/profile';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
 import { useAuth } from '../../auth/AuthProvider';
-import { fetchCurrentProfile } from '../../services/profile';
-import { fetchAccountVehicles, type VehicleSummary } from '../../services/vehicles';
-import {
-  calculateFuelEfficiencyWithUnits,
-  createFuelLogWithMileage,
-  type CreateFuelLogInput,
-} from '../../services/fuel';
 import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
 
 export function FuelTracker() {
   const { accountId, loading: accountLoading } = useAccount();
   const { user } = useAuth();
-  const [efficiencyData, setEfficiencyData] = useState<EfficiencyPoint[]>([]);
-  const [fuelLogs, setFuelLogs] = useState<FuelLogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [measurementSystem, setMeasurementSystem] = useState<'imperial' | 'metric'>('imperial');
-  const [vehicles, setVehicles] = useState<VehicleSummary[]>([]);
+  const { data: efficiencyData = [], isLoading: efficiencyLoading } =
+    useFuelEfficiency(accountId);
+  const { data: fuelLogs = [], isLoading: fuelLogsLoading } =
+    useFuelLogs(accountId);
+  const { data: vehicles = [], isLoading: vehiclesLoading } =
+    useVehicles(accountId);
+  const createMutation = useCreateFuelLog(accountId);
+  const { data: profile } = useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: () => fetchCurrentProfile(user!.id),
+    enabled: !!user?.id,
+  });
+  const measurementSystem = profile?.measurementSystem ?? 'imperial';
   const [formOpen, setFormOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [vehicleId, setVehicleId] = useState('');
@@ -52,40 +58,6 @@ export function FuelTracker() {
   const [totalCost, setTotalCost] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [notes, setNotes] = useState('');
-
-  useEffect(() => {
-    if (!accountId || !user) {
-      return;
-    }
-
-    let isMounted = true;
-
-    Promise.all([
-      fetchFuelEfficiency(accountId),
-      fetchFuelLogs(accountId),
-      fetchCurrentProfile(user.id),
-      fetchAccountVehicles(accountId),
-    ])
-      .then(([eff, logs, profile, vehs]) => {
-        if (isMounted) {
-          setEfficiencyData(eff);
-          setFuelLogs(logs);
-          if (profile?.measurementSystem) {
-            setMeasurementSystem(profile.measurementSystem);
-          }
-          setVehicles(vehs);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [accountId]);
 
   const columns = [
     {
@@ -207,7 +179,6 @@ export function FuelTracker() {
       return;
     }
 
-    setSaving(true);
     setError(null);
 
     try {
@@ -223,14 +194,7 @@ export function FuelTracker() {
         notes: notes || null,
       };
 
-      await createFuelLogWithMileage(payload);
-
-      const [eff, logs] = await Promise.all([
-        fetchFuelEfficiency(accountId),
-        fetchFuelLogs(accountId),
-      ]);
-      setEfficiencyData(eff);
-      setFuelLogs(logs);
+      await createMutation.mutateAsync(payload);
 
       setFormOpen(false);
       setVehicleId('');
@@ -240,12 +204,12 @@ export function FuelTracker() {
       setTotalCost('');
       setCurrency('USD');
       setNotes('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       // eslint-disable-next-line no-console
       console.error('Failed to save fuel log', err);
-      setError(err?.message ?? 'Unable to save fuel record.');
-    } finally {
-      setSaving(false);
+      setError(
+        err instanceof Error ? err.message : 'Unable to save fuel record.',
+      );
     }
   };
 
@@ -284,19 +248,24 @@ export function FuelTracker() {
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Select
-                label="Vehicle"
-                value={vehicleId}
-                onChange={(e) => setVehicleId(e.target.value)}
-                required
-              >
-                <option value="">Select vehicle</option>
-                {vehicleOptions.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.label}
-                  </option>
-                ))}
-              </Select>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Vehicle
+                </label>
+                <select
+                  className="w-full bg-white border border-slate-300 text-slate-900 text-sm rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 px-3 py-2"
+                  value={vehicleId}
+                  onChange={(e) => setVehicleId(e.target.value)}
+                  required
+                >
+                  <option value="">Select vehicle</option>
+                  {vehicleOptions.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <Input
                 label="Fill Date"
                 type="date"
@@ -349,7 +318,7 @@ export function FuelTracker() {
               >
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" loading={saving}>
+              <Button type="submit" variant="primary" loading={createMutation.isPending}>
                 Save Fuel Record
               </Button>
             </div>
@@ -391,7 +360,7 @@ export function FuelTracker() {
           </select>
         </div>
         <div className="h-72 w-full">
-          {accountLoading || loading ? (
+          {accountLoading || efficiencyLoading || fuelLogsLoading || vehiclesLoading ? (
             <LoadingState label="Loading fuel data..." className="h-full" />
           ) : (
             <ResponsiveContainer width="100%" height="100%">
@@ -477,7 +446,7 @@ export function FuelTracker() {
             Recent Fill-ups
           </h2>
         </div>
-        {accountLoading || loading ? (
+        {accountLoading || efficiencyLoading || fuelLogsLoading || vehiclesLoading ? (
           <div className="p-6">
             <LoadingState label="Loading fuel history..." />
           </div>

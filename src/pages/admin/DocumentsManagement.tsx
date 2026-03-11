@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { SearchIcon, MoreVerticalIcon, FileTextIcon, FilterIcon } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
@@ -11,6 +12,8 @@ import {
 export function DocumentsManagement() {
   const [rows, setRows] = useState<AdminDocumentRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [search, setSearch] = useState('');
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -21,9 +24,15 @@ export function DocumentsManagement() {
     async function load() {
       setLoading(true);
       try {
-        const data = await fetchAdminDocuments();
+        const result = await fetchAdminDocuments({
+          page,
+          pageSize: 20,
+          accountId: accountFilter !== 'all' ? accountFilter : undefined,
+          type: typeFilter !== 'all' ? typeFilter : undefined,
+        });
         if (!cancelled) {
-          setRows(data);
+          setRows(result.items);
+          setHasMore(result.hasMore);
         }
       } finally {
         if (!cancelled) {
@@ -37,7 +46,7 @@ export function DocumentsManagement() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [page, accountFilter, typeFilter]);
 
   const accounts = useMemo(
     () => Array.from(new Set(rows.map((r) => r.accountName))).sort(),
@@ -95,7 +104,10 @@ export function DocumentsManagement() {
           <select
             className="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-rose-500 focus:border-rose-500 block p-3 shadow-sm"
             value={accountFilter}
-            onChange={(e) => setAccountFilter(e.target.value)}
+            onChange={(e) => {
+              setAccountFilter(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="all">All Accounts</option>
             {accounts.map((name) => (
@@ -107,7 +119,10 @@ export function DocumentsManagement() {
           <select
             className="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-rose-500 focus:border-rose-500 block p-3 shadow-sm"
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
+            onChange={(e) => {
+              setTypeFilter(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="all">All Types</option>
             {types.map((t) => (
@@ -161,7 +176,8 @@ export function DocumentsManagement() {
             No documents match the current filters.
           </div>
         ) : (
-          filteredRows.map((doc) => (
+          <>
+          {filteredRows.map((doc) => (
             <Card
               key={doc.id}
               hover
@@ -206,7 +222,29 @@ export function DocumentsManagement() {
                 <span>{doc.vehicleName}</span>
               </div>
             </Card>
-          ))
+          ))}
+          {(page > 1 || hasMore) && (
+            <div className="col-span-full px-6 py-4 border-t border-slate-100 flex justify-between text-sm text-slate-600">
+              <span>Page {page}</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={!hasMore}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
     </div>

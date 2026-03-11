@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
   DollarSignIcon,
@@ -15,12 +16,16 @@ import { Badge } from '../../components/ui/Badge';
 import { DataTable } from '../../components/ui/DataTable';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
-import { fetchVehicleDetails, type VehicleDetailsData, archiveVehicle } from '../../services/vehicles';
-import { fetchVehicleMaintenanceLogs, type MaintenanceEntry } from '../../services/maintenance';
+import {
+  useVehicleDetails,
+  useArchiveVehicle,
+  useVehicleMaintenanceLogs,
+  useVehicleDocuments,
+  useUploadDocument,
+} from '../../hooks/queries';
 import { uploadVehicleImageFile } from '../../services/vehicleImageUpload';
 import { setPrimaryVehicleImage } from '../../services/vehicleImages';
 import { useAuth } from '../../auth/AuthProvider';
-import { fetchVehicleDocuments, uploadDocumentFile, type DocumentCard } from '../../services/documents';
 
 export function VehicleDetails() {
   const navigate = useNavigate();
@@ -28,57 +33,19 @@ export function VehicleDetails() {
   const { accountId } = useAccount();
   const { user } = useAuth();
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [vehicleDetails, setVehicleDetails] = useState<VehicleDetailsData | null>(null);
-  const [serviceHistory, setServiceHistory] = useState<MaintenanceEntry[]>([]);
-  const [archiving, setArchiving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const { data: vehicleDetails, isLoading, error } = useVehicleDetails(accountId, id);
+  const { data: serviceHistory = [] } = useVehicleMaintenanceLogs(accountId, id);
+  const { data: documents = [], isLoading: documentsLoading } = useVehicleDocuments(
+    accountId,
+    id,
+  );
+  const queryClient = useQueryClient();
+  const archiveMutation = useArchiveVehicle(accountId);
+  const uploadDocMutation = useUploadDocument(accountId);
+
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [documents, setDocuments] = useState<DocumentCard[]>([]);
-  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const [documentUploadError, setDocumentUploadError] = useState<string | null>(null);
-  const [documentUploading, setDocumentUploading] = useState(false);
-
-  useEffect(() => {
-    if (!accountId || !id) return;
-    let isMounted = true;
-
-    async function load() {
-      try {
-        const [details, vehicleDocs] = await Promise.all([
-          fetchVehicleDetails(accountId, id),
-          fetchVehicleDocuments(accountId, id),
-        ]);
-        if (!isMounted) return;
-        if (!details) {
-          setError('Vehicle not found.');
-          return;
-        }
-        setVehicleDetails(details);
-        const history = await fetchVehicleMaintenanceLogs(accountId, details.vehicle.id);
-        if (!isMounted) return;
-        setServiceHistory(history);
-        setDocuments(vehicleDocs);
-      } catch (err: any) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to load vehicle details view', err);
-        if (isMounted) {
-          setError('Unable to load vehicle details.');
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [accountId, id]);
 
   const columns = [
     {
@@ -107,14 +74,16 @@ export function VehicleDetails() {
     return <LoadingState label="Loading account..." />;
   }
 
-  if (loading) {
+  if (isLoading) {
     return <LoadingState label="Loading vehicle details..." />;
   }
 
   if (error || !vehicleDetails) {
     return (
       <div className="space-y-4">
-        <p className="text-red-600 text-sm">{error ?? 'Vehicle not found.'}</p>
+        <p className="text-red-600 text-sm">
+          {error instanceof Error ? error.message : 'Vehicle not found.'}
+        </p>
         <Button variant="secondary" onClick={() => navigate('/dashboard/vehicles')}>
           Back to My Vehicles
         </Button>
@@ -161,21 +130,18 @@ export function VehicleDetails() {
           <Button
             variant="ghost"
             className="text-red-600"
-            disabled={archiving}
+            disabled={archiveMutation.isPending}
             onClick={async () => {
               if (!accountId) return;
               const confirmed = window.confirm(
                 'Archive this vehicle? It will be hidden from your garage but not permanently deleted.',
               );
               if (!confirmed) return;
-              setArchiving(true);
-              const success = await archiveVehicle(accountId, vehicle.id);
-              setArchiving(false);
-              if (success) {
-                navigate('/dashboard/vehicles');
-              }
+              archiveMutation.mutate(vehicle.id, {
+                onSuccess: () => navigate('/dashboard/vehicles'),
+              });
             }}>
-            {archiving ? 'Archiving…' : 'Archive'}
+            {archiveMutation.isPending ? 'Archiving…' : 'Archive'}
           </Button>
         </div>
       </div>
@@ -236,30 +202,29 @@ export function VehicleDetails() {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       setUploadError(null);
-                      setUploading(true);
+                      setImageUploading(true);
                       try {
                         await uploadVehicleImageFile({
                           accountId,
                           vehicleId: vehicle.id,
                           file,
                         });
-                        const refreshed = await fetchVehicleDetails(accountId, id);
-                        if (refreshed) {
-                          setVehicleDetails(refreshed);
-                        }
-                      } catch (err: any) {
+                        queryClient.invalidateQueries({
+                          queryKey: ['vehicles', 'detail', id],
+                        });
+                      } catch (err: unknown) {
                         // eslint-disable-next-line no-console
                         console.error('Vehicle photo upload failed', err);
                         setUploadError('Unable to upload photo. Please try again.');
                       } finally {
-                        setUploading(false);
+                        setImageUploading(false);
                         e.target.value = '';
                       }
                     }}
                   />
                   <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50">
                     <PlusIcon className="w-3 h-3" />
-                    {uploading ? 'Uploading…' : 'Add Photo'}
+                    {imageUploading ? 'Uploading…' : 'Add Photo'}
                   </span>
                 </label>
               </div>
@@ -279,11 +244,10 @@ export function VehicleDetails() {
                       if (img.isPrimary) return;
                       try {
                         await setPrimaryVehicleImage(accountId, vehicle.id, img.id);
-                        const refreshed = await fetchVehicleDetails(accountId, vehicle.id);
-                        if (refreshed) {
-                          setVehicleDetails(refreshed);
-                        }
-                      } catch (err: any) {
+                        queryClient.invalidateQueries({
+                          queryKey: ['vehicles', 'detail', id],
+                        });
+                      } catch (err: unknown) {
                         // eslint-disable-next-line no-console
                         console.error('Failed to set primary vehicle image', err);
                       }
@@ -432,32 +396,30 @@ export function VehicleDetails() {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       setDocumentUploadError(null);
-                      setDocumentUploading(true);
                       try {
-                        await uploadDocumentFile({
+                        await uploadDocMutation.mutateAsync({
                           accountId,
                           vehicleId: vehicleDetails.vehicle.id,
                           userId: user.id,
                           type: 'other',
                           file,
                         });
-                        const refreshed = await fetchVehicleDocuments(accountId, vehicleDetails.vehicle.id);
-                        setDocuments(refreshed);
-                      } catch (err: any) {
+                        e.target.value = '';
+                      } catch (err: unknown) {
                         // eslint-disable-next-line no-console
                         console.error('Vehicle document upload failed', err);
                         setDocumentUploadError(
-                          err?.message ?? 'Unable to upload document. Please try again.',
+                          err instanceof Error
+                            ? err.message
+                            : 'Unable to upload document. Please try again.',
                         );
-                      } finally {
-                        setDocumentUploading(false);
                         e.target.value = '';
                       }
                     }}
                   />
                   <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50">
                     <PlusIcon className="w-3 h-3" />
-                    {documentUploading ? 'Uploading…' : 'Add Document'}
+                    {uploadDocMutation.isPending ? 'Uploading…' : 'Add Document'}
                   </span>
                 </label>
               </div>

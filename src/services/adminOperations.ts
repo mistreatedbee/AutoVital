@@ -1,4 +1,10 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
+import {
+  type PaginatedParams,
+  type PaginatedResult,
+  toLimitOffset,
+  DEFAULT_PAGE_SIZE,
+} from '../lib/pagination';
 
 export interface AdminVehicleRow {
   id: string;
@@ -45,28 +51,41 @@ export interface AdminDocumentRow {
   url: string | null;
 }
 
-const FALLBACK_ADMIN_VEHICLES: AdminVehicleRow[] = [];
-const FALLBACK_ADMIN_MAINTENANCE: AdminMaintenanceRow[] = [];
-const FALLBACK_ADMIN_FUEL: AdminFuelRow[] = [];
-const FALLBACK_ADMIN_DOCUMENTS: AdminDocumentRow[] = [];
+export interface AdminVehicleFilters extends PaginatedParams {
+  accountId?: string;
+  includeArchived?: boolean;
+}
 
-export async function fetchAdminVehicles(): Promise<AdminVehicleRow[]> {
+export async function fetchAdminVehicles(
+  params: AdminVehicleFilters = {},
+): Promise<PaginatedResult<AdminVehicleRow>> {
+  const { limit, offset, page, pageSize } = toLimitOffset(params);
   try {
     const client = getInsforgeClient();
-    const { data, error } = await client.database
+    let query = client.database
       .from('vehicles')
       .select(
         'id, make, model, year, vin, current_mileage, health_score, created_at, accounts(name)',
       )
       .order('created_at', { ascending: false });
 
-    if (error || !data) {
-      // eslint-disable-next-line no-console
-      console.warn('Failed to load admin vehicles; using fallback data.', error);
-      return FALLBACK_ADMIN_VEHICLES;
+    if (params.accountId) {
+      query = query.eq('account_id', params.accountId);
+    }
+    if (!params.includeArchived) {
+      query = query.is('archived_at', null);
     }
 
-    return (data as any[]).map((row) => {
+    const q = query as { range?: (a: number, b: number) => typeof query };
+    const { data, error } = await (q.range ? q.range(offset, offset + limit - 1) : query);
+
+    if (error || !data) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to load admin vehicles.', error);
+      return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
+    }
+
+    const items = (data as any[]).map((row) => {
       const mileage =
         row.current_mileage != null ? Number(row.current_mileage).toLocaleString() : null;
       const health = row.health_score != null ? Number(row.health_score) : null;
@@ -83,30 +102,49 @@ export async function fetchAdminVehicles(): Promise<AdminVehicleRow[]> {
         createdAt: row.created_at,
       } as AdminVehicleRow;
     });
+
+    const hasMore = items.length === limit;
+    return { items, page, pageSize, hasMore };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Admin vehicles service failed.', err);
-    return FALLBACK_ADMIN_VEHICLES;
+    return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
   }
 }
 
-export async function fetchAdminMaintenanceLogs(): Promise<AdminMaintenanceRow[]> {
+export interface AdminMaintenanceFilters extends PaginatedParams {
+  accountId?: string;
+  vehicleId?: string;
+  type?: string;
+}
+
+export async function fetchAdminMaintenanceLogs(
+  params: AdminMaintenanceFilters = {},
+): Promise<PaginatedResult<AdminMaintenanceRow>> {
+  const { limit, offset, page, pageSize } = toLimitOffset(params);
   try {
     const client = getInsforgeClient();
-    const { data, error } = await client.database
+    let query = client.database
       .from('maintenance_logs')
       .select(
         'id, service_date, mileage, cost_cents, currency, vendor_name, type, accounts(name), vehicles(make, model)',
       )
       .order('service_date', { ascending: false });
 
+    if (params.accountId) query = query.eq('account_id', params.accountId);
+    if (params.vehicleId) query = query.eq('vehicle_id', params.vehicleId);
+    if (params.type) query = query.eq('type', params.type);
+
+    const mq = query as { range?: (a: number, b: number) => typeof query };
+    const { data, error } = await (mq.range ? mq.range(offset, offset + limit - 1) : query);
+
     if (error || !data) {
       // eslint-disable-next-line no-console
-      console.warn('Failed to load admin maintenance logs; using fallback data.', error);
-      return FALLBACK_ADMIN_MAINTENANCE;
+      console.warn('Failed to load admin maintenance logs.', error);
+      return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
     }
 
-    return (data as any[]).map((row) => {
+    const items = (data as any[]).map((row) => {
       const accountName = row.accounts?.name ?? 'Account';
       const vehicleName =
         row.vehicles?.make && row.vehicles?.model
@@ -133,30 +171,47 @@ export async function fetchAdminMaintenanceLogs(): Promise<AdminMaintenanceRow[]
         vendorName: row.vendor_name ?? null,
       } as AdminMaintenanceRow;
     });
+
+    const hasMore = items.length === limit;
+    return { items, page, pageSize, hasMore };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Admin maintenance service failed.', err);
-    return FALLBACK_ADMIN_MAINTENANCE;
+    return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
   }
 }
 
-export async function fetchAdminFuelLogs(): Promise<AdminFuelRow[]> {
+export interface AdminFuelFilters extends PaginatedParams {
+  accountId?: string;
+  vehicleId?: string;
+}
+
+export async function fetchAdminFuelLogs(
+  params: AdminFuelFilters = {},
+): Promise<PaginatedResult<AdminFuelRow>> {
+  const { limit, offset, page, pageSize } = toLimitOffset(params);
   try {
     const client = getInsforgeClient();
-    const { data, error } = await client.database
+    let query = client.database
       .from('fuel_logs')
       .select(
         'id, fill_date, odometer, volume, total_cost_cents, currency, accounts(name), vehicles(make, model)',
       )
       .order('fill_date', { ascending: false });
 
+    if (params.accountId) query = query.eq('account_id', params.accountId);
+    if (params.vehicleId) query = query.eq('vehicle_id', params.vehicleId);
+
+    const fq = query as { range?: (a: number, b: number) => typeof query };
+    const { data, error } = await (fq.range ? fq.range(offset, offset + limit - 1) : query);
+
     if (error || !data) {
       // eslint-disable-next-line no-console
-      console.warn('Failed to load admin fuel logs; using fallback data.', error);
-      return FALLBACK_ADMIN_FUEL;
+      console.warn('Failed to load admin fuel logs.', error);
+      return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
     }
 
-    return (data as any[]).map((row) => {
+    const items = (data as any[]).map((row) => {
       const accountName = row.accounts?.name ?? 'Account';
       const vehicleName =
         row.vehicles?.make && row.vehicles?.model
@@ -191,17 +246,29 @@ export async function fetchAdminFuelLogs(): Promise<AdminFuelRow[]> {
         odometer,
       } as AdminFuelRow;
     });
+
+    const hasMore = items.length === limit;
+    return { items, page, pageSize, hasMore };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Admin fuel service failed.', err);
-    return FALLBACK_ADMIN_FUEL;
+    return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
   }
 }
 
-export async function fetchAdminDocuments(): Promise<AdminDocumentRow[]> {
+export interface AdminDocumentFilters extends PaginatedParams {
+  accountId?: string;
+  vehicleId?: string;
+  type?: string;
+}
+
+export async function fetchAdminDocuments(
+  params: AdminDocumentFilters = {},
+): Promise<PaginatedResult<AdminDocumentRow>> {
+  const { limit, offset, page, pageSize } = toLimitOffset(params);
   try {
     const client = getInsforgeClient();
-    const { data, error } = await client.database
+    let query = client.database
       .from('documents')
       .select(
         'id, name, type, size_bytes, created_at, public_url, accounts(name), vehicles(make, model)',
@@ -209,13 +276,20 @@ export async function fetchAdminDocuments(): Promise<AdminDocumentRow[]> {
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
 
+    if (params.accountId) query = query.eq('account_id', params.accountId);
+    if (params.vehicleId) query = query.eq('vehicle_id', params.vehicleId);
+    if (params.type) query = query.eq('type', params.type);
+
+    const dq = query as { range?: (a: number, b: number) => typeof query };
+    const { data, error } = await (dq.range ? dq.range(offset, offset + limit - 1) : query);
+
     if (error || !data) {
       // eslint-disable-next-line no-console
-      console.warn('Failed to load admin documents; using fallback data.', error);
-      return FALLBACK_ADMIN_DOCUMENTS;
+      console.warn('Failed to load admin documents.', error);
+      return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
     }
 
-    return (data as any[]).map((row) => {
+    const items = (data as any[]).map((row) => {
       const accountName = row.accounts?.name ?? 'Account';
       const vehicleName =
         row.vehicles?.make && row.vehicles?.model
@@ -237,10 +311,12 @@ export async function fetchAdminDocuments(): Promise<AdminDocumentRow[]> {
         url: row.public_url ?? null,
       } as AdminDocumentRow;
     });
+
+    const hasMore = items.length === limit;
+    return { items, page, pageSize, hasMore };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Admin documents service failed.', err);
-    return FALLBACK_ADMIN_DOCUMENTS;
+    return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
   }
 }
-

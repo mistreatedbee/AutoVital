@@ -113,6 +113,7 @@ export interface MaintenanceLog {
   costCents: number | null;
   currency: string;
   vendorName: string | null;
+  documentId: UUID | null;
   createdAt: string;
 }
 

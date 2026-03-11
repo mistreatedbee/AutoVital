@@ -1,71 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PlusIcon, SearchIcon, FilterIcon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
-import {
-  fetchAccountVehicles,
-  type VehicleSummary,
-  archiveVehicle,
-} from '../../services/vehicles';
+import { useVehicles, useArchiveVehicle } from '../../hooks/queries';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
 
 export function MyVehicles() {
   const { accountId, loading: accountLoading } = useAccount();
   const navigate = useNavigate();
-  const [vehicles, setVehicles] = useState<VehicleSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [archivingId, setArchivingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!accountId) {
-      return;
-    }
-
-    let isMounted = true;
-
-    const load = () => {
-      setLoading(true);
-      fetchAccountVehicles(accountId)
-        .then((data) => {
-          if (isMounted) {
-            setVehicles(data);
-          }
-        })
-        .finally(() => {
-          if (isMounted) {
-            setLoading(false);
-          }
-        });
-    };
-
-    load();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [accountId]);
+  const { data: vehicles = [], isLoading } = useVehicles(accountId);
+  const archiveMutation = useArchiveVehicle(accountId);
 
   const handleArchive = async (vehicleId: string) => {
-    if (!accountId) return;
     const confirmed = window.confirm(
       'Archive this vehicle? It will be hidden from your garage but not permanently deleted.',
     );
     if (!confirmed) return;
 
-    setArchivingId(vehicleId);
-    try {
-      const success = await archiveVehicle(accountId, vehicleId);
-      if (success) {
-        setVehicles((current) => current.filter((v) => v.id !== vehicleId));
-      }
-    } finally {
-      setArchivingId(null);
-    }
+    archiveMutation.mutate(vehicleId);
   };
 
   const filtered = vehicles.filter((vehicle) => {
@@ -110,7 +68,7 @@ export function MyVehicles() {
         </Button>
       </div>
 
-      {accountLoading || loading ? (
+      {accountLoading || isLoading ? (
         <LoadingState label="Loading vehicles..." />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -202,9 +160,11 @@ export function MyVehicles() {
                 <Button
                   variant="ghost"
                   className="px-4 text-red-600"
-                  disabled={archivingId === vehicle.id}
+                  disabled={archiveMutation.isPending && archiveMutation.variables === vehicle.id}
                   onClick={() => handleArchive(vehicle.id)}>
-                  {archivingId === vehicle.id ? 'Archiving…' : 'Archive'}
+                  {archiveMutation.isPending && archiveMutation.variables === vehicle.id
+                    ? 'Archiving…'
+                    : 'Archive'}
                 </Button>
               </div>
             </div>

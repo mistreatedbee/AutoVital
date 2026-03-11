@@ -1,60 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   UploadCloudIcon,
   FileTextIcon,
   SearchIcon,
-  MoreVerticalIcon } from
-'lucide-react';
+  MoreVerticalIcon,
+} from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
-import {
-  fetchAccountDocuments,
-  type DocumentCard,
-  uploadDocumentFile,
-} from '../../services/documents';
+import { useDocuments, useUploadDocument } from '../../hooks/queries';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
 import { useAuth } from '../../auth/AuthProvider';
-import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '../../components/ui/Modal';
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalFooter,
+  ModalTrigger,
+} from '../../components/ui/Modal';
 
 export function Documents() {
   const { accountId, loading: accountLoading } = useAccount();
   const { user } = useAuth();
-  const [documents, setDocuments] = useState<DocumentCard[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: documents = [], isLoading } = useDocuments(accountId);
+  const uploadMutation = useUploadDocument(accountId);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('All');
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedType, setSelectedType] = useState<string>('insurance');
-
-  useEffect(() => {
-    if (!accountId) {
-      return;
-    }
-
-    let isMounted = true;
-
-    fetchAccountDocuments(accountId)
-      .then((docs) => {
-        if (isMounted) {
-          setDocuments(docs);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [accountId]);
 
   const filtered = documents.filter((doc) => {
     const term = search.toLowerCase();
@@ -68,32 +46,35 @@ export function Documents() {
 
   async function handleUploadSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!accountId || !user || !selectedFile) {
-      return;
-    }
+    if (!accountId || !user || !selectedFile) return;
 
     setUploadError(null);
-    setUploading(true);
 
     try {
-      await uploadDocumentFile({
+      await uploadMutation.mutateAsync({
         accountId,
         vehicleId: null,
         userId: user.id,
-        type: selectedType as any,
+        type: selectedType as
+          | 'insurance'
+          | 'registration'
+          | 'inspection'
+          | 'receipt'
+          | 'warranty'
+          | 'other',
         file: selectedFile,
       });
 
-      const refreshed = await fetchAccountDocuments(accountId);
-      setDocuments(refreshed);
       setSelectedFile(null);
       setUploadOpen(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // eslint-disable-next-line no-console
       console.error('Document upload failed', err);
-      setUploadError(err?.message ?? 'Unable to upload document. Please try again.');
-    } finally {
-      setUploading(false);
+      setUploadError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to upload document. Please try again.',
+      );
     }
   }
 
@@ -160,7 +141,7 @@ export function Documents() {
                   type="button"
                   variant="ghost"
                   onClick={() => {
-                    if (uploading) return;
+                    if (uploadMutation.isPending) return;
                     setUploadOpen(false);
                   }}
                 >
@@ -169,9 +150,9 @@ export function Documents() {
                 <Button
                   type="submit"
                   variant="primary"
-                  disabled={!selectedFile || uploading}
+                  disabled={!selectedFile || uploadMutation.isPending}
                 >
-                  {uploading ? 'Uploading…' : 'Upload'}
+                  {uploadMutation.isPending ? 'Uploading…' : 'Upload'}
                 </Button>
               </ModalFooter>
             </form>
@@ -230,7 +211,7 @@ export function Documents() {
         </div>
       </div>
 
-      {accountLoading || loading ? (
+      {accountLoading || isLoading ? (
         <LoadingState label="Loading documents..." />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

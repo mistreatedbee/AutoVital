@@ -37,79 +37,10 @@ export interface InAppTemplate {
   type: 'Warning' | 'Alert';
 }
 
-const FALLBACK_USER_ALERTS: UserAlert[] = [
-  {
-    id: 1,
-    title: 'Oil Change Overdue',
-    description: 'Honda Civic • Was due at 68,000 miles (Currently 68,200)',
-    vehicle: 'Honda Civic',
-    severity: 'critical',
-    status: 'open',
-    meta: 'High Priority',
-  },
-  {
-    id: 2,
-    title: 'Tire Rotation Upcoming',
-    description: 'Tesla Model 3 • Recommended every 6,000 miles',
-    vehicle: 'Tesla Model 3',
-    severity: 'warning',
-    status: 'open',
-    meta: 'In 500 miles',
-  },
-];
-
-const FALLBACK_EMAIL_TEMPLATES: EmailTemplate[] = [
-  {
-    id: 1,
-    name: 'Service Due Reminder',
-    subject: 'Your {{vehicle_name}} needs service soon',
-    status: 'active',
-    lastEdited: '2 days ago',
-  },
-  {
-    id: 2,
-    name: 'Health Score Drop Alert',
-    subject: 'Alert: {{vehicle_name}} health score decreased',
-    status: 'active',
-    lastEdited: '1 week ago',
-  },
-  {
-    id: 3,
-    name: 'Welcome Email',
-    subject: 'Welcome to AutoVital!',
-    status: 'active',
-    lastEdited: '1 month ago',
-  },
-  {
-    id: 4,
-    name: 'Subscription Renewal',
-    subject: 'Your AutoVital subscription is renewing',
-    status: 'draft',
-    lastEdited: '3 days ago',
-  },
-];
-
-const FALLBACK_INAPP_TEMPLATES: InAppTemplate[] = [
-  {
-    id: 5,
-    name: 'Upcoming Service',
-    message: 'Service due for {{vehicle_name}} in {{days}} days.',
-    type: 'Warning',
-  },
-  {
-    id: 6,
-    name: 'Document Expiring',
-    message: 'Your {{doc_type}} is expiring soon.',
-    type: 'Alert',
-  },
-];
-
 export async function fetchUserAlerts(
   accountId: string | null,
 ): Promise<UserAlert[]> {
-  if (!accountId) {
-    return FALLBACK_USER_ALERTS;
-  }
+  if (!accountId) return [];
 
   try {
     const client = getInsforgeClient();
@@ -121,8 +52,8 @@ export async function fetchUserAlerts(
 
     if (error || !data) {
       // eslint-disable-next-line no-console
-      console.warn('Failed to load alerts from backend, using fallback alerts.', error);
-      return FALLBACK_USER_ALERTS;
+      console.warn('Failed to load alerts from backend.', error);
+      return [];
     }
 
     return (data as any[]).map((row) => {
@@ -154,7 +85,7 @@ export async function fetchUserAlerts(
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Alerts service unavailable, using fallback alerts.', err);
-    return FALLBACK_USER_ALERTS;
+    return [];
   }
 }
 
@@ -273,7 +204,7 @@ export async function fetchEmailTemplates(): Promise<EmailTemplate[]> {
     if (error || !data) {
       // eslint-disable-next-line no-console
       console.warn('Failed to load email templates from backend, using fallback.', error);
-      return FALLBACK_EMAIL_TEMPLATES;
+      return [];
     }
 
     return (data as any[]).map((row) => ({
@@ -286,7 +217,7 @@ export async function fetchEmailTemplates(): Promise<EmailTemplate[]> {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Email templates service unavailable, using fallback.', err);
-    return FALLBACK_EMAIL_TEMPLATES;
+    return [];
   }
 }
 
@@ -301,7 +232,7 @@ export async function fetchInAppTemplates(): Promise<InAppTemplate[]> {
     if (error || !data) {
       // eslint-disable-next-line no-console
       console.warn('Failed to load in-app templates from backend, using fallback.', error);
-      return FALLBACK_INAPP_TEMPLATES;
+      return [];
     }
 
     return (data as any[]).map((row) => ({
@@ -313,7 +244,7 @@ export async function fetchInAppTemplates(): Promise<InAppTemplate[]> {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('In-app templates service unavailable, using fallback.', err);
-    return FALLBACK_INAPP_TEMPLATES;
+    return [];
   }
 }
 

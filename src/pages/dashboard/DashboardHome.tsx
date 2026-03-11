@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   CarIcon,
@@ -11,8 +11,8 @@ import {
   FileTextIcon,
   UploadCloudIcon,
   BarChart3Icon,
-  CheckCircle2Icon } from
-'lucide-react';
+  CheckCircle2Icon,
+} from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -20,8 +20,8 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer } from
-'recharts';
+  ResponsiveContainer,
+} from 'recharts';
 import { StatCard } from '../../components/ui/StatCard';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -30,50 +30,12 @@ import { useAuth } from '../../auth/AuthProvider';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
 import { ErrorState } from '../../components/states/ErrorState';
-import {
-  fetchDashboardOverview,
-  type DashboardOverviewData,
-} from '../../services/dashboardOverview';
+import { useDashboardOverview } from '../../hooks/queries';
 
 export function DashboardHome() {
   const { user } = useAuth();
   const { accountId, loading: accountLoading, error: accountError } = useAccount();
-  const [overview, setOverview] = useState<DashboardOverviewData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!accountId) {
-      return;
-    }
-
-    let isMounted = true;
-    setLoading(true);
-    setError(null);
-
-    fetchDashboardOverview(accountId)
-      .then((data) => {
-        if (isMounted) {
-          setOverview(data);
-        }
-      })
-      .catch((err: any) => {
-        // eslint-disable-next-line no-console
-        console.error('Failed to load dashboard overview', err);
-        if (isMounted) {
-          setError(err?.message ?? 'Unable to load dashboard overview');
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [accountId]);
+  const { data: overview, isLoading, error } = useDashboardOverview(accountId);
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -85,7 +47,7 @@ export function DashboardHome() {
   const greeting =
   hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-  const loadingState = accountLoading || loading;
+  const loadingState = accountLoading || isLoading;
 
   const activeVehicles = overview?.stats.vehicleCount ?? 0;
   const openAlerts = overview?.stats.openAlertCount ?? 0;
@@ -527,7 +489,10 @@ export function DashboardHome() {
       </div>
       {error && !loadingState && (
         <div className="max-w-xl">
-          <ErrorState title="Dashboard data failed to load" description={error} />
+          <ErrorState
+            title="Dashboard data failed to load"
+            description={error instanceof Error ? error.message : 'Unknown error'}
+          />
         </div>
       )}
       {accountError && (

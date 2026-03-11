@@ -1,80 +1,17 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
 import type { Vehicle } from '../domain/models';
+import { rowToVehicle } from '../lib/dbMappers';
+import type { VehicleDbRow } from '../lib/dbMappers';
+import { rowToMaintenanceEntry, type MaintenanceEntry, type MaintenanceLogDbRow } from '../lib/dbMappers';
 import { recomputeAndPersistVehicleHealth } from './vehicleHealth';
 import { createMileageLog, updateVehicleCurrentMileageIfHigher } from './mileage';
 
-export interface MaintenanceEntry {
-  id: string | number;
-  vehicleId: string | null;
-  date: string;
-  vehicle: string;
-  service: string;
-  mileage: string | null;
-  cost: string | null;
-  shop: string | null;
-  status: string;
-  documentId?: string | null;
-}
-
-const FALLBACK_LOGS: MaintenanceEntry[] = [
-  {
-    id: 1,
-    date: '2023-10-12',
-    vehicle: 'Tesla Model 3',
-    service: 'Tire Rotation',
-    mileage: '24,000',
-    cost: '$60.00',
-    shop: 'Tesla Service Center',
-    status: 'Completed',
-  },
-  {
-    id: 2,
-    date: '2023-09-28',
-    vehicle: 'Honda Civic',
-    service: 'Oil Change (Synthetic)',
-    mileage: '65,100',
-    cost: '$85.00',
-    shop: 'Jiffy Lube',
-    status: 'Completed',
-  },
-  {
-    id: 3,
-    date: '2023-08-15',
-    vehicle: 'Ford F-150',
-    service: 'Brake Pad Replacement',
-    mileage: '42,500',
-    cost: '$350.00',
-    shop: 'Local Mechanic',
-    status: 'Completed',
-  },
-  {
-    id: 4,
-    date: '2023-04-05',
-    vehicle: 'Tesla Model 3',
-    service: 'Cabin Air Filter',
-    mileage: '18,500',
-    cost: '$45.00',
-    shop: 'DIY',
-    status: 'Completed',
-  },
-  {
-    id: 5,
-    date: '2023-02-10',
-    vehicle: 'Honda Civic',
-    service: 'Transmission Fluid',
-    mileage: '60,000',
-    cost: '$120.00',
-    shop: 'Honda Dealership',
-    status: 'Completed',
-  },
-];
+export type { MaintenanceEntry };
 
 export async function fetchAccountMaintenanceLogs(
   accountId: string | null,
 ): Promise<MaintenanceEntry[]> {
-  if (!accountId) {
-    return FALLBACK_LOGS;
-  }
+  if (!accountId) return [];
 
   try {
     const client = getInsforgeClient();
@@ -88,42 +25,15 @@ export async function fetchAccountMaintenanceLogs(
 
     if (error || !data) {
       // eslint-disable-next-line no-console
-      console.warn('Failed to load maintenance logs from backend, using fallback data.', error);
-      return FALLBACK_LOGS;
+      console.warn('Failed to load maintenance logs from backend.', error);
+      return [];
     }
 
-    return (data as any[]).map((row) => {
-      const vehicleName =
-        row.vehicles?.make && row.vehicles?.model
-          ? `${row.vehicles.make} ${row.vehicles.model}`
-          : 'Vehicle';
-      const mileage =
-        row.mileage != null ? Number(row.mileage).toLocaleString() : null;
-      const cost =
-        row.cost_cents != null
-          ? new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: row.currency ?? 'USD',
-          }).format(row.cost_cents / 100)
-          : null;
-
-      return {
-        id: row.id,
-        vehicleId: row.vehicle_id ?? null,
-        date: row.service_date,
-        vehicle: vehicleName,
-        service: row.type,
-        mileage,
-        cost,
-        shop: row.vendor_name ?? null,
-        status: 'Completed',
-        documentId: row.document_id ?? null,
-      } as MaintenanceEntry;
-    });
+    return (data as MaintenanceLogDbRow[]).map(rowToMaintenanceEntry);
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.warn('Maintenance service unavailable, using fallback data.', err);
-    return FALLBACK_LOGS;
+    console.warn('Maintenance service unavailable.', err);
+    return [];
   }
 }
 
@@ -181,25 +91,7 @@ export async function createMaintenanceLogWithHealthUpdate(
     return;
   }
 
-  const row = vehicleRows[0] as any;
-  const vehicle: Vehicle = {
-    id: row.id,
-    accountId: row.account_id,
-    ownerUserId: row.owner_user_id,
-    nickname: row.nickname,
-    make: row.make,
-    model: row.model,
-    year: row.year,
-    vin: row.vin,
-    licensePlate: row.license_plate,
-    fuelType: row.fuel_type,
-    currentMileage: row.current_mileage != null ? Number(row.current_mileage) : null,
-    healthScore: row.health_score != null ? Number(row.health_score) : null,
-    heroImageUrl: row.hero_image_url ?? null,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    archivedAt: row.archived_at,
-  };
+  const vehicle = rowToVehicle(vehicleRows[0] as VehicleDbRow);
 
   await recomputeAndPersistVehicleHealth(vehicle, input.serviceDate);
 

@@ -1,17 +1,18 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
 import type { Vehicle, VehicleImage, VehicleHealthSnapshot } from '../domain/models';
+import {
+  rowToVehicle,
+  rowToVehicleSummary,
+  rowToVehicleImage,
+  rowToVehicleHealthSnapshot,
+  type VehicleSummary,
+  type VehicleDbRow,
+  type VehicleListDbRow,
+  type VehicleImageDbRow,
+  type VehicleHealthSnapshotDbRow,
+} from '../lib/dbMappers';
 
-interface VehicleSummary {
-  id: string;
-  name: string;
-  year: number | null;
-  mileage: string | null;
-  type: string | null;
-  health: number | null;
-  nextService: string | null;
-  imageUrl: string | null;
-  status: 'optimal' | 'warning' | 'unknown';
-}
+export type { VehicleSummary };
 
 export interface VehicleDetailsData {
   vehicle: Vehicle;
@@ -37,58 +38,8 @@ export interface UpsertVehicleInput {
   currentMileage: number | null;
 }
 
-const FALLBACK_VEHICLES: VehicleSummary[] = [
-  {
-    id: '1',
-    name: 'Tesla Model 3',
-    year: 2022,
-    mileage: '24,500',
-    type: 'Electric',
-    health: 98,
-    nextService: 'Tire Rotation (in 500 mi)',
-    imageUrl:
-      'https://images.unsplash.com/photo-1561580125-028ee3bd62eb?q=80&w=800&auto=format&fit=crop',
-    status: 'optimal',
-  },
-  {
-    id: '2',
-    name: 'Honda Civic',
-    year: 2018,
-    mileage: '68,200',
-    type: 'Gasoline',
-    health: 82,
-    nextService: 'Oil Change (Due Now)',
-    imageUrl:
-      'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=800&auto=format&fit=crop',
-    status: 'warning',
-  },
-  {
-    id: '3',
-    name: 'Ford F-150',
-    year: 2020,
-    mileage: '45,100',
-    type: 'Gasoline',
-    health: 95,
-    nextService: 'Brake Inspection (in 2,000 mi)',
-    imageUrl:
-      'https://images.unsplash.com/photo-1559416523-140ddc3d238c?q=80&w=800&auto=format&fit=crop',
-    status: 'optimal',
-  },
-];
-
-export type { VehicleSummary };
-
-function deriveHealthStatus(score: number | null): 'optimal' | 'warning' | 'unknown' {
-  if (score == null) return 'unknown';
-  if (score >= 90) return 'optimal';
-  if (score >= 80) return 'warning';
-  return 'unknown';
-}
-
 export async function fetchAccountVehicles(accountId: string | null): Promise<VehicleSummary[]> {
-  if (!accountId) {
-    return FALLBACK_VEHICLES;
-  }
+  if (!accountId) return [];
 
   try {
     const client = getInsforgeClient();
@@ -101,32 +52,15 @@ export async function fetchAccountVehicles(accountId: string | null): Promise<Ve
 
     if (error || !data) {
       // eslint-disable-next-line no-console
-      console.warn('Failed to load vehicles from backend, using fallback data.', error);
-      return FALLBACK_VEHICLES;
+      console.warn('Failed to load vehicles from backend.', error);
+      return [];
     }
 
-    return (data as any[]).map((v) => {
-      const mileageNumber =
-        v.current_mileage != null ? Number(v.current_mileage) : null;
-      const mileage = mileageNumber != null ? mileageNumber.toLocaleString() : null;
-      const health = v.health_score != null ? Number(v.health_score) : null;
-
-      return {
-        id: v.id,
-        name: `${v.year ?? ''} ${v.make} ${v.model}`.trim(),
-        year: v.year ?? null,
-        mileage,
-        type: v.fuel_type ?? null,
-        health,
-        nextService: null,
-        imageUrl: v.hero_image_url ?? null,
-        status: deriveHealthStatus(health),
-      };
-    });
+    return (data as VehicleListDbRow[]).map(rowToVehicleSummary);
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.warn('Vehicles service unavailable, using fallback data.', err);
-    return FALLBACK_VEHICLES;
+    console.warn('Vehicles service unavailable.', err);
+    return [];
   }
 }
 
@@ -154,7 +88,7 @@ export async function fetchVehicleDetails(
       return null;
     }
 
-    const vehicleRow = vehicleRows[0] as any;
+    const vehicleRow = vehicleRows[0] as VehicleDbRow;
 
     const { data: imageRows, error: imageError } = await client.database
       .from('vehicle_images')
@@ -183,14 +117,7 @@ export async function fetchVehicleDetails(
 
     const healthSnapshot: VehicleHealthSnapshot | undefined =
       healthRows && healthRows[0]
-        ? {
-            id: healthRows[0].id,
-            vehicleId: healthRows[0].vehicle_id,
-            accountId: healthRows[0].account_id,
-            score: Number(healthRows[0].score),
-            snapshotDate: healthRows[0].snapshot_date,
-            createdAt: healthRows[0].created_at,
-          }
+        ? rowToVehicleHealthSnapshot(healthRows[0] as VehicleHealthSnapshotDbRow)
         : undefined;
     const score: number | null =
       vehicleRow.health_score != null
@@ -207,40 +134,10 @@ export async function fetchVehicleDetails(
       return 'poor';
     })();
 
-    const vehicle: Vehicle = {
-      id: vehicleRow.id,
-      accountId: vehicleRow.account_id,
-      ownerUserId: vehicleRow.owner_user_id,
-      nickname: vehicleRow.nickname,
-      make: vehicleRow.make,
-      model: vehicleRow.model,
-      year: vehicleRow.year,
-      vin: vehicleRow.vin,
-      licensePlate: vehicleRow.license_plate,
-      fuelType: vehicleRow.fuel_type,
-      currentMileage:
-        vehicleRow.current_mileage != null
-          ? Number(vehicleRow.current_mileage)
-          : null,
-      healthScore:
-        vehicleRow.health_score != null ? Number(vehicleRow.health_score) : null,
-      heroImageUrl: vehicleRow.hero_image_url ?? null,
-      createdAt: vehicleRow.created_at,
-      updatedAt: vehicleRow.updated_at,
-      archivedAt: vehicleRow.archived_at,
-    };
-
-    const images: VehicleImage[] = (imageRows ?? []).map((row: any) => ({
-      id: row.id,
-      vehicleId: row.vehicle_id,
-      accountId: row.account_id,
-      url: row.url,
-      storageBucket: row.storage_bucket ?? null,
-      storageKey: row.storage_key ?? null,
-      provider: row.provider ?? null,
-      isPrimary: row.is_primary ?? false,
-      createdAt: row.created_at,
-    }));
+    const vehicle = rowToVehicle(vehicleRow);
+    const images: VehicleImage[] = (imageRows ?? []).map((row) =>
+      rowToVehicleImage(row as VehicleImageDbRow),
+    );
 
     return {
       vehicle,
@@ -296,26 +193,7 @@ export async function upsertVehicle(input: UpsertVehicleInput): Promise<Vehicle 
       return null;
     }
 
-    const row = data[0] as any;
-
-    return {
-      id: row.id,
-      accountId: row.account_id,
-      ownerUserId: row.owner_user_id,
-      nickname: row.nickname,
-      make: row.make,
-      model: row.model,
-      year: row.year,
-      vin: row.vin,
-      licensePlate: row.license_plate,
-      fuelType: row.fuel_type,
-      currentMileage: row.current_mileage != null ? Number(row.current_mileage) : null,
-      healthScore: row.health_score != null ? Number(row.health_score) : null,
-      heroImageUrl: row.hero_image_url ?? null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      archivedAt: row.archived_at,
-    };
+    return rowToVehicle(data[0] as VehicleDbRow);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Vehicle upsert failed.', err);

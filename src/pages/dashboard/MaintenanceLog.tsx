@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { PlusIcon, FilterIcon, DownloadIcon, ExternalLinkIcon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -8,13 +8,13 @@ import { Input } from '../../components/ui/Input';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
 import {
-  fetchAccountMaintenanceLogs,
-  type MaintenanceEntry,
-  createMaintenanceLogWithHealthUpdate,
-  type CreateMaintenanceLogInput,
-  updateMaintenanceLog,
-} from '../../services/maintenance';
-import { fetchAccountVehicles, type VehicleSummary } from '../../services/vehicles';
+  useMaintenanceLogs,
+  useCreateMaintenanceLog,
+  useUpdateMaintenanceLog,
+} from '../../hooks/queries';
+import { useVehicles } from '../../hooks/queries';
+import type { MaintenanceEntry } from '../../services/maintenance';
+import type { CreateMaintenanceLogInput } from '../../services/maintenance';
 import { uploadDocumentFile } from '../../services/documents';
 import { useAuth } from '../../auth/AuthProvider';
 
@@ -48,40 +48,15 @@ const EMPTY_FORM: MaintenanceFormState = {
 export function MaintenanceLog() {
   const { accountId, loading: accountLoading } = useAccount();
   const { user } = useAuth();
-  const [logs, setLogs] = useState<MaintenanceEntry[]>([]);
-  const [vehicles, setVehicles] = useState<VehicleSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const { data: logs = [], isLoading } = useMaintenanceLogs(accountId);
+  const { data: vehicles = [] } = useVehicles(accountId);
+  const createMutation = useCreateMaintenanceLog(accountId);
+  const updateMutation = useUpdateMaintenanceLog(accountId);
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<FormMode>('create');
   const [formState, setFormState] = useState<MaintenanceFormState>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [vehicleFilter, setVehicleFilter] = useState<string>('all');
-
-  useEffect(() => {
-    if (!accountId) {
-      return;
-    }
-
-    let isMounted = true;
-    setLoading(true);
-
-    Promise.all([fetchAccountMaintenanceLogs(accountId), fetchAccountVehicles(accountId)])
-      .then(([logRows, vehicleRows]) => {
-        if (!isMounted) return;
-        setLogs(logRows);
-        setVehicles(vehicleRows);
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [accountId]);
 
   const vehicleOptions = useMemo(
     () =>
@@ -193,7 +168,6 @@ export function MaintenanceLog() {
       return;
     }
 
-    setSaving(true);
     setError(null);
 
     try {
@@ -225,30 +199,31 @@ export function MaintenanceLog() {
           documentId,
         };
 
-        await createMaintenanceLogWithHealthUpdate(payload);
+        await createMutation.mutateAsync(payload);
       } else if (formMode === 'edit' && typeof formState.id === 'string') {
-        await updateMaintenanceLog(accountId, formState.id, {
-          type: formState.type,
-          description: formState.description || null,
-          mileage: mileageNumber,
-          serviceDate: formState.serviceDate,
-          costCents: costNumber,
-          currency: formState.currency || 'USD',
-          vendorName: formState.vendorName || null,
-          documentId,
+        await updateMutation.mutateAsync({
+          logId: formState.id,
+          input: {
+            type: formState.type,
+            description: formState.description || null,
+            mileage: mileageNumber,
+            serviceDate: formState.serviceDate,
+            costCents: costNumber,
+            currency: formState.currency || 'USD',
+            vendorName: formState.vendorName || null,
+            documentId,
+          },
         });
       }
 
-      const refreshed = await fetchAccountMaintenanceLogs(accountId);
-      setLogs(refreshed);
       setFormOpen(false);
       setFormState(EMPTY_FORM);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // eslint-disable-next-line no-console
       console.error('Failed to save maintenance log', err);
-      setError(err?.message ?? 'Unable to save maintenance log.');
-    } finally {
-      setSaving(false);
+      setError(
+        err instanceof Error ? err.message : 'Unable to save maintenance log.',
+      );
     }
   };
 
@@ -402,7 +377,10 @@ export function MaintenanceLog() {
               >
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" loading={saving}>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={createMutation.isPending || updateMutation.isPending}>
                 {formMode === 'create' ? 'Save Service' : 'Save Changes'}
               </Button>
             </div>
@@ -436,7 +414,7 @@ export function MaintenanceLog() {
             More Filters
           </Button>
         </div>
-        {accountLoading || loading ? (
+        {accountLoading || isLoading ? (
           <LoadingState label="Loading maintenance history..." className="py-10" />
         ) : (
           <DataTable

@@ -14,7 +14,6 @@ import { StatCard } from '../../components/ui/StatCard';
 import { DataTable } from '../../components/ui/DataTable';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
 import { useAccount } from '../../account/AccountProvider';
 import { useAuth } from '../../auth/AuthProvider';
 import { LoadingState } from '../../components/states/LoadingState';
@@ -209,17 +208,22 @@ export function MileageTracker() {
             Track odometer history and daily driving for each vehicle.
           </p>
         </div>
-        <Select
-          label="Vehicle"
-          value={selectedVehicleId}
-          onChange={(e) => setSelectedVehicleId(e.target.value)}
-        >
-          {vehicleOptions.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.label}
-            </option>
-          ))}
-        </Select>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Vehicle
+          </label>
+          <select
+            className="w-full bg-white border border-slate-300 text-slate-900 text-sm rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 px-3 py-2"
+            value={selectedVehicleId}
+            onChange={(e) => setSelectedVehicleId(e.target.value)}
+          >
+            {vehicleOptions.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

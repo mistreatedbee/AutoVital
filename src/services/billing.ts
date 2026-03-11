@@ -24,30 +24,26 @@ export interface BillingOverview {
   paymentMethodSummary: string;
 }
 
-const FALLBACK_BILLING_OVERVIEW: BillingOverview = {
-  plan: {
-    planCode: 'pro',
-    planName: 'Pro Plan',
-    priceMonthly: '$9.00',
-    status: 'active',
-    nextBillingDate: 'Nov 15, 2023',
-    vehicleLimit: 5,
-    vehicleCountUsed: 3,
-  },
-  paymentMethodSummary: 'Visa ending in 4242 • Expires 12/2025',
-  invoices: [
-    { id: 1, date: 'Oct 15, 2023', amount: '$9.00', status: 'paid' },
-    { id: 2, date: 'Sep 15, 2023', amount: '$9.00', status: 'paid' },
-    { id: 3, date: 'Aug 15, 2023', amount: '$9.00', status: 'paid' },
-  ],
-};
+function emptyBillingOverview(): BillingOverview {
+  return {
+    plan: {
+      planCode: 'starter',
+      planName: '—',
+      priceMonthly: '—',
+      status: 'incomplete',
+      nextBillingDate: null,
+      vehicleLimit: null,
+      vehicleCountUsed: null,
+    },
+    invoices: [],
+    paymentMethodSummary: '—',
+  };
+}
 
 export async function fetchBillingOverview(
   accountId: string | null,
 ): Promise<BillingOverview> {
-  if (!accountId) {
-    return FALLBACK_BILLING_OVERVIEW;
-  }
+  if (!accountId) return emptyBillingOverview();
 
   try {
     const client = getInsforgeClient();
@@ -63,11 +59,8 @@ export async function fetchBillingOverview(
 
     if (subscriptionError || !subscriptionData) {
       // eslint-disable-next-line no-console
-      console.warn(
-        'Failed to load subscription from backend, using fallback billing data.',
-        subscriptionError,
-      );
-      return FALLBACK_BILLING_OVERVIEW;
+      console.warn('Failed to load subscription from backend.', subscriptionError);
+      return emptyBillingOverview();
     }
 
     const planRow = subscriptionData.plans;
@@ -119,18 +112,18 @@ export async function fetchBillingOverview(
         status: row.status ?? 'paid',
       }));
     } else {
-      invoices = FALLBACK_BILLING_OVERVIEW.invoices;
+      invoices = [];
     }
 
     return {
       plan,
       invoices,
-      paymentMethodSummary: FALLBACK_BILLING_OVERVIEW.paymentMethodSummary,
+      paymentMethodSummary: '—',
     };
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.warn('Billing service unavailable, using fallback billing overview.', err);
-    return FALLBACK_BILLING_OVERVIEW;
+    console.warn('Billing service unavailable.', err);
+    return emptyBillingOverview();
   }
 }
 
