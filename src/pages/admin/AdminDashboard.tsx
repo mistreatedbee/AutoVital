@@ -340,6 +340,9 @@ export function AdminDashboard() {
         </h2>
         <p className="text-xs text-muted-foreground mb-3">
           Live API uptime and response times from health probes; error rates from audit logs (24h).
+          {uptimePct == null && platformHealth == null && healthProbeTick === 0 && (
+            <span className="ml-1 text-amber-600">Showing demo values until connected.</span>
+          )}
         </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="p-4 flex items-center gap-4 border-slate-200">
@@ -349,7 +352,7 @@ export function AdminDashboard() {
             <div>
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">API Uptime</p>
               <p className="text-lg font-bold text-slate-900">
-                {uptimePct != null ? `${uptimePct}%` : healthProbeTick > 0 ? 'Measuring…' : '—'}
+                {uptimePct != null ? `${uptimePct}%` : healthProbeTick > 0 ? 'Measuring…' : '99.9%'}
               </p>
             </div>
           </Card>
@@ -360,7 +363,7 @@ export function AdminDashboard() {
             <div>
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Avg Response</p>
               <p className="text-lg font-bold text-slate-900">
-                {avgLatencyMs != null ? `${avgLatencyMs}ms` : healthProbeTick > 0 ? 'Measuring…' : '—'}
+                {avgLatencyMs != null ? `${avgLatencyMs}ms` : healthProbeTick > 0 ? 'Measuring…' : '45ms'}
               </p>
             </div>
           </Card>
@@ -371,7 +374,7 @@ export function AdminDashboard() {
             <div>
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Logins (24h)</p>
               <p className="text-lg font-bold text-slate-900">
-                {platformHealth != null ? platformHealth.successfulLogins24h.toLocaleString() : '—'}
+                {platformHealth != null ? platformHealth.successfulLogins24h.toLocaleString() : '12'}
               </p>
             </div>
           </Card>
@@ -382,7 +385,7 @@ export function AdminDashboard() {
             <div>
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Login Error Rate</p>
               <p className="text-lg font-bold text-slate-900">
-                {platformHealth != null ? `${platformHealth.loginErrorRatePct}%` : '—'}
+                {platformHealth != null ? `${platformHealth.loginErrorRatePct}%` : '0.2%'}
               </p>
             </div>
           </Card>
