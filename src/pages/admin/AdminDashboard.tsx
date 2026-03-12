@@ -38,6 +38,13 @@ import {
   type RevenueByMonthPoint,
   type SignupsByDayPoint,
 } from '../../services/adminMetrics';
+import {
+  fetchPlatformHealth,
+  runHealthProbe,
+  getUptimeFromProbes,
+  getAvgLatencyFromProbes,
+  type PlatformHealthMetrics,
+} from '../../services/platformHealth';
 import { fetchAuditLogs, type AuditLogEntry } from '../../services/auditLog';
 import { generateAdminReport } from '../../services/adminReports';
 import { useAuth } from '../../auth/AuthProvider';
@@ -88,6 +95,8 @@ export function AdminDashboard() {
   const [signupLoading, setSignupLoading] = useState(true);
   const [activityFeed, setActivityFeed] = useState<AuditLogEntry[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
+  const [platformHealth, setPlatformHealth] = useState<PlatformHealthMetrics | null>(null);
+  const [healthProbeTick, setHealthProbeTick] = useState(0);
 
   const loadMetrics = useCallback(async () => {
     setMetricsLoading(true);
@@ -137,6 +146,11 @@ export function AdminDashboard() {
     }
   }, []);
 
+  const loadPlatformHealth = useCallback(async () => {
+    const metrics = await fetchPlatformHealth();
+    setPlatformHealth(metrics);
+  }, []);
+
   useEffect(() => {
     void loadMetrics();
   }, [loadMetrics]);
@@ -148,6 +162,22 @@ export function AdminDashboard() {
   useEffect(() => {
     void loadActivity();
   }, [loadActivity]);
+
+  useEffect(() => {
+    void loadPlatformHealth();
+    const interval = setInterval(() => void loadPlatformHealth(), 60_000);
+    return () => clearInterval(interval);
+  }, [loadPlatformHealth]);
+
+  useEffect(() => {
+    const runProbe = async () => {
+      await runHealthProbe();
+      setHealthProbeTick((t) => t + 1);
+    };
+    void runProbe();
+    const interval = setInterval(runProbe, 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const revenueChartData = revenueData.map((r) => ({
     month: r.monthLabel,
@@ -166,6 +196,9 @@ export function AdminDashboard() {
         signupData.reduce((sum, s) => sum + s.signupCount, 0) / signupData.length,
       )
     : 0;
+
+  const uptimePct = getUptimeFromProbes();
+  const avgLatencyMs = getAvgLatencyFromProbes();
 
   const handleGenerateReport = useCallback(async () => {
     setReportLoading(true);
@@ -313,7 +346,7 @@ export function AdminDashboard() {
           Platform Health
         </h2>
         <p className="text-xs text-muted-foreground mb-3">
-          Connect your monitoring stack to view live API uptime, response times, and error rates.
+          Live API uptime and response times from health probes; error rates from audit logs (24h).
         </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="p-4 flex items-center gap-4 border-slate-200">
@@ -322,7 +355,9 @@ export function AdminDashboard() {
             </div>
             <div>
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">API Uptime</p>
-              <p className="text-lg font-bold text-slate-400">—</p>
+              <p className="text-lg font-bold text-slate-900">
+                {uptimePct != null ? `${uptimePct}%` : healthProbeTick > 0 ? 'Measuring…' : '—'}
+              </p>
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-4 border-slate-200">
@@ -331,7 +366,9 @@ export function AdminDashboard() {
             </div>
             <div>
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Avg Response</p>
-              <p className="text-lg font-bold text-slate-400">—</p>
+              <p className="text-lg font-bold text-slate-900">
+                {avgLatencyMs != null ? `${avgLatencyMs}ms` : healthProbeTick > 0 ? 'Measuring…' : '—'}
+              </p>
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-4 border-slate-200">
@@ -339,8 +376,10 @@ export function AdminDashboard() {
               <DatabaseIcon className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Active Sessions</p>
-              <p className="text-lg font-bold text-slate-400">—</p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Logins (24h)</p>
+              <p className="text-lg font-bold text-slate-900">
+                {platformHealth != null ? platformHealth.successfulLogins24h.toLocaleString() : '—'}
+              </p>
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-4 border-slate-200">
@@ -348,8 +387,10 @@ export function AdminDashboard() {
               <AlertCircleIcon className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Error Rate</p>
-              <p className="text-lg font-bold text-slate-400">—</p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Login Error Rate</p>
+              <p className="text-lg font-bold text-slate-900">
+                {platformHealth != null ? `${platformHealth.loginErrorRatePct}%` : '—'}
+              </p>
             </div>
           </Card>
         </div>
