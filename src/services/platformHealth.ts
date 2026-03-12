@@ -56,6 +56,16 @@ export async function fetchPlatformHealth(): Promise<PlatformHealthMetrics | nul
 export async function runHealthProbe(): Promise<HealthProbeResult> {
   const start = performance.now();
   try {
+    if (import.meta.env.VITE_ENABLE_ADMIN_DASHBOARD_EDGE !== 'true') {
+      const client = getInsforgeClient();
+      const { error } = await client.database.rpc('admin_platform_health');
+      const latencyMs = Math.round(performance.now() - start);
+      const result: HealthProbeResult = { ok: !error, latencyMs, timestamp: Date.now() };
+      probeHistory.push(result);
+      if (probeHistory.length > PROBE_HISTORY_SIZE) probeHistory.shift();
+      return result;
+    }
+
     const client = getInsforgeClient();
     const { data: session } = await client.auth.getCurrentSession();
     const token = session?.session?.accessToken ?? session?.accessToken;

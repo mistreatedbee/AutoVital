@@ -27,6 +27,12 @@ export interface AdminDashboardMetrics {
  */
 export async function fetchAdminDashboardData(): Promise<AdminDashboardData | null> {
   try {
+    // Edge function deployment may be unavailable on some CLI/provider setups.
+    // Keep RPC-based dashboard as the default path unless explicitly enabled.
+    if (import.meta.env.VITE_ENABLE_ADMIN_DASHBOARD_EDGE !== 'true') {
+      return null;
+    }
+
     const client = getInsforgeClient();
     const { data: session } = await client.auth.getCurrentSession();
     const token = session?.session?.accessToken ?? session?.accessToken;
