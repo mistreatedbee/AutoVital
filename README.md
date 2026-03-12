@@ -10,6 +10,7 @@ Vehicle management platform — track maintenance, fuel, documents, and more for
 4. Run the dev server: `npm run dev`
 5. Build for production: `npm run build`
 6. Preview production build: `npm run preview`
+7. Deploy to Vercel or your preferred hosting provider.
 
 ## Environment
 
