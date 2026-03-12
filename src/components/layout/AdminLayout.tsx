@@ -259,9 +259,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <span className="w-2 h-2 rounded-full bg-amber-500 mr-2 animate-pulse" />
               Admin Mode
             </Badge>
-            <button className="relative p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors">
+            <button
+              type="button"
+              onClick={() => navigate('/admin/alerts')}
+              className="relative p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors"
+              aria-label="Open admin alerts">
               <BellIcon className="w-6 h-6" />
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
             </button>
           </div>
         </header>

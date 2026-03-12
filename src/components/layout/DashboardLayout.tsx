@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../auth/AuthProvider';
 import { useAccount } from '../../account/AccountProvider';
+import { fetchUserAlerts } from '../../services/alerts';
 import {
   HomeIcon,
   CarIcon,
@@ -24,6 +25,7 @@ interface DashboardLayoutProps {
 }
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadAlertCount, setUnreadAlertCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -32,6 +34,27 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadAlerts = async () => {
+      if (!accountId) {
+        if (active) setUnreadAlertCount(0);
+        return;
+      }
+      const alerts = await fetchUserAlerts(accountId);
+      if (!active) return;
+      setUnreadAlertCount(alerts.filter((a) => a.status === 'open').length);
+    };
+
+    void loadAlerts();
+    const interval = setInterval(() => void loadAlerts(), 60_000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [accountId]);
   const navLinks = [
     {
       name: 'Dashboard',
@@ -91,6 +114,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     } finally {
       navigate('/login');
     }
+  };
+
+  const handleNotificationsClick = () => {
+    navigate('/dashboard/alerts');
   };
   const SidebarContent = () =>
   <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
@@ -241,10 +268,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="flex items-center gap-4">
             <button
               type="button"
+              onClick={handleNotificationsClick}
               className="relative p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors"
               aria-label="View notifications">
               <BellIcon className="w-6 h-6" aria-hidden />
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
+              {unreadAlertCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] leading-[18px] text-center rounded-full border border-white">
+                  {unreadAlertCount > 99 ? '99+' : unreadAlertCount}
+                </span>
+              )}
             </button>
             <Link to="/dashboard/settings" className="hidden sm:block">
               <img
