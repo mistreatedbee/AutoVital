@@ -64,29 +64,33 @@ This document explains how to create and configure **System Admin** and **Compan
 
 ### Edge Function Secrets
 
-Edge functions need these secrets (set via `insforge secrets add`):
+Edge functions need these secrets (set via `insforge secrets add`). **Without them, blog-posts-public and admin-dashboard-data return 502.**
 
 | Secret | Description |
 |--------|-------------|
-| `INSFORGE_URL` | Same as `VITE_INSFORGE_URL` |
+| `INSFORGE_URL` | Same as `VITE_INSFORGE_URL` (e.g. `https://4bta783b.us-east.insforge.app`) |
 | `INSFORGE_ANON_KEY` | Same as `VITE_INSFORGE_ANON_KEY` |
-| `INSFORGE_SERVICE_ROLE_KEY` | Admin API key; **never** expose in frontend |
+| `INSFORGE_SERVICE_ROLE_KEY` | Service role key; **never** expose in frontend. Get from InsForge dashboard or `insforge metadata --json` |
 | `SENDGRID_API_KEY` | For send-welcome-email (optional) |
 
-### Admin Dashboard Edge Function
+### Fix 502 / 403 on Production
 
-The admin dashboard (metrics, revenue, signups, platform health) uses the `admin-dashboard-data` edge function when direct RPCs return 403. Deploy and configure:
+Run these in order:
 
 ```bash
-insforge functions deploy admin-dashboard-data
+# 1. Add all three required secrets (use your actual values)
+insforge secrets add INSFORGE_URL <your-VITE_INSFORGE_URL-value>
+insforge secrets add INSFORGE_ANON_KEY <your-VITE_INSFORGE_ANON_KEY-value>
 insforge secrets add INSFORGE_SERVICE_ROLE_KEY <your-service-role-key>
-```
 
-Run migrations so the service key can call admin RPCs:
-
-```bash
+# 2. Apply migrations (fixes 403 on admin RPCs)
 insforge db query --file db/migrations/2026-03-12-admin-allow-project-admin.sql
 insforge db query --file db/migrations/2026-03-12-admin-rpcs-grant-authenticated.sql
+insforge db query --file db/migrations/2026-03-12-admin-dashboard-metrics-security-definer.sql
+
+# 3. Deploy edge functions
+insforge functions deploy blog-posts-public
+insforge functions deploy admin-dashboard-data
 ```
 
 ---
