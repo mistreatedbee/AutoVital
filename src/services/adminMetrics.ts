@@ -23,21 +23,33 @@ export interface AdminDashboardMetrics {
 
 /**
  * Fetches all admin dashboard data via edge function (uses service key internally).
- * Use this when direct RPCs return 403. Requires INSFORGE_SERVICE_ROLE_KEY on the function.
+ * Uses fetch with main API URL to avoid CORS on functions subdomain.
  */
 export async function fetchAdminDashboardData(): Promise<AdminDashboardData | null> {
   try {
     const client = getInsforgeClient();
-    const { data, error } = await client.functions.invoke('admin-dashboard-data', {
-      method: 'GET',
-    });
-
-    if (error || !data) {
+    const { data: session } = await client.auth.getCurrentSession();
+    const token = session?.session?.accessToken ?? session?.accessToken;
+    if (!token) {
       // eslint-disable-next-line no-console
-      console.warn('Admin dashboard edge function failed.', error);
+      console.warn('No session for admin dashboard.');
       return null;
     }
 
+    const baseUrl = (import.meta.env.VITE_INSFORGE_URL as string)?.replace(/\/+$/, '') ?? '';
+    if (!baseUrl) return null;
+
+    const res = await fetch(`${baseUrl}/functions/admin-dashboard-data`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      // eslint-disable-next-line no-console
+      console.warn('Admin dashboard edge function failed.', res.status, await res.text().catch(() => ''));
+      return null;
+    }
+
+    const data = await res.json();
     const raw = data as {
       metrics?: Record<string, unknown> | null;
       revenue?: { month_key: string; revenue_cents: number }[];

@@ -51,29 +51,40 @@ export async function fetchPlatformHealth(): Promise<PlatformHealthMetrics | nul
 
 /**
  * Runs a health probe via the admin-dashboard-data edge function.
- * Uses the edge function when direct RPCs return 403.
+ * Uses fetch with main API URL to avoid CORS on functions subdomain.
  */
 export async function runHealthProbe(): Promise<HealthProbeResult> {
   const start = performance.now();
   try {
     const client = getInsforgeClient();
-    const { error } = await client.functions.invoke('admin-dashboard-data', { method: 'GET' });
+    const { data: session } = await client.auth.getCurrentSession();
+    const token = session?.session?.accessToken ?? session?.accessToken;
+    const baseUrl = (import.meta.env.VITE_INSFORGE_URL as string)?.replace(/\/+$/, '') ?? '';
+
+    if (!token || !baseUrl) {
+      const latencyMs = Math.round(performance.now() - start);
+      const result: HealthProbeResult = { ok: false, latencyMs, timestamp: Date.now() };
+      probeHistory.push(result);
+      if (probeHistory.length > PROBE_HISTORY_SIZE) probeHistory.shift();
+      return result;
+    }
+
+    const res = await fetch(`${baseUrl}/functions/admin-dashboard-data`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
     const latencyMs = Math.round(performance.now() - start);
-    const ok = !error;
+    const ok = res.ok;
 
     const result: HealthProbeResult = { ok, latencyMs, timestamp: Date.now() };
     probeHistory.push(result);
-    if (probeHistory.length > PROBE_HISTORY_SIZE) {
-      probeHistory.shift();
-    }
+    if (probeHistory.length > PROBE_HISTORY_SIZE) probeHistory.shift();
     return result;
   } catch {
     const latencyMs = Math.round(performance.now() - start);
     const result: HealthProbeResult = { ok: false, latencyMs, timestamp: Date.now() };
     probeHistory.push(result);
-    if (probeHistory.length > PROBE_HISTORY_SIZE) {
-      probeHistory.shift();
-    }
+    if (probeHistory.length > PROBE_HISTORY_SIZE) probeHistory.shift();
     return result;
   }
 }
