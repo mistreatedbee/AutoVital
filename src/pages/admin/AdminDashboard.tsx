@@ -32,6 +32,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { chartColors, cssVarHsl } from '../../lib/tokens';
 import { fetchAdminDashboardMetrics, type AdminDashboardMetrics } from '../../services/adminMetrics';
+import { EmptyState } from '../../components/ui/EmptyState';
 const revenueData = [
 {
   month: 'Jan',
@@ -226,6 +227,9 @@ export function AdminDashboard() {
         <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
           Platform Health
         </h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          Sample placeholders only – wire to your observability stack before trusting these numbers.
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="p-4 flex items-center gap-4 border-slate-200">
             <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
@@ -235,7 +239,10 @@ export function AdminDashboard() {
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
                 API Uptime
               </p>
-              <p className="text-lg font-bold text-slate-900">99.99%</p>
+              <p className="text-lg font-bold text-slate-900">
+                99.99%
+                <span className="ml-1 text-xs font-medium text-slate-400">(sample)</span>
+              </p>
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-4 border-slate-200">
@@ -246,7 +253,10 @@ export function AdminDashboard() {
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
                 Avg Response
               </p>
-              <p className="text-lg font-bold text-slate-900">45ms</p>
+              <p className="text-lg font-bold text-slate-900">
+                45ms
+                <span className="ml-1 text-xs font-medium text-slate-400">(sample)</span>
+              </p>
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-4 border-slate-200">
@@ -257,7 +267,10 @@ export function AdminDashboard() {
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
                 Active Sessions
               </p>
-              <p className="text-lg font-bold text-slate-900">1,240</p>
+              <p className="text-lg font-bold text-slate-900">
+                1,240
+                <span className="ml-1 text-xs font-medium text-slate-400">(sample)</span>
+              </p>
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-4 border-slate-200">
@@ -268,7 +281,10 @@ export function AdminDashboard() {
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
                 Error Rate
               </p>
-              <p className="text-lg font-bold text-slate-900">0.02%</p>
+              <p className="text-lg font-bold text-slate-900">
+                0.02%
+                <span className="ml-1 text-xs font-medium text-slate-400">(sample)</span>
+              </p>
             </div>
           </Card>
         </div>
@@ -282,7 +298,9 @@ export function AdminDashboard() {
               <h2 className="text-lg font-bold text-slate-900 font-heading">
                 Revenue Growth
               </h2>
-              <p className="text-sm text-slate-500">Last 6 months MRR</p>
+              <p className="text-sm text-slate-500">
+                Sample revenue trend (placeholder) – not live billing data.
+              </p>
             </div>
             <div className="text-right">
               <p className="text-3xl font-bold text-rose-600 font-heading tracking-tight">
@@ -371,13 +389,15 @@ export function AdminDashboard() {
               <h2 className="text-lg font-bold text-slate-900 font-heading">
                 User Signups
               </h2>
-              <p className="text-sm text-slate-500">Last 7 days</p>
+              <p className="text-sm text-slate-500">
+                Sample signup volume (placeholder) – real analytics to follow.
+              </p>
             </div>
             <Badge
               variant="primary"
               className="bg-blue-50 text-blue-700 border-blue-200">
 
-              Avg: 181/day
+              Sample avg: 181/day
             </Badge>
           </div>
           <div className="h-64 w-full">
@@ -445,81 +465,26 @@ export function AdminDashboard() {
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-bold text-slate-900 font-heading">
-              Live Activity Feed
+              Admin Activity Feed
             </h2>
-            <Badge variant="warning" className="animate-pulse shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5" />
-              Live
+            <Badge variant="secondary" className="shadow-sm">
+              Sample / coming soon
             </Badge>
           </div>
           <Button
             variant="ghost"
             size="sm"
-            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50">
-
+            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+            disabled
+          >
             View All
           </Button>
         </div>
-        <div className="divide-y divide-slate-50 bg-slate-50/30">
-          {[
-          {
-            user: 'Sarah Jenkins',
-            action: 'upgraded to Pro Plan',
-            time: 'Just now',
-            icon: <ArrowUpRightIcon className="w-4 h-4 text-emerald-600" />,
-            bg: 'bg-emerald-100 border-emerald-200'
-          },
-          {
-            user: 'Michael Chen',
-            action: 'created a new account',
-            time: '2 mins ago',
-            icon: <UsersIcon className="w-4 h-4 text-blue-600" />,
-            bg: 'bg-blue-100 border-blue-200'
-          },
-          {
-            user: 'FleetWorks Inc.',
-            action: 'added 5 new vehicles',
-            time: '15 mins ago',
-            icon: <CarIcon className="w-4 h-4 text-indigo-600" />,
-            bg: 'bg-indigo-100 border-indigo-200'
-          },
-          {
-            user: 'System',
-            action: 'processed 1,240 service reminders',
-            time: '1 hour ago',
-            icon: <BellIcon className="w-4 h-4 text-amber-600" />,
-            bg: 'bg-amber-100 border-amber-200'
-          }].
-          map((item, i) =>
-          <div
-            key={i}
-            className="flex items-center justify-between p-5 hover:bg-white transition-colors group cursor-pointer">
-
-              <div className="flex items-center gap-4">
-                <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center border shadow-sm ${item.bg}`}>
-
-                  {item.icon}
-                </div>
-                <div>
-                  <p className="text-sm text-slate-900">
-                    <span className="font-bold">{item.user}</span>{' '}
-                    <span className="text-slate-600">{item.action}</span>
-                  </p>
-                  <p className="text-xs font-medium text-slate-400 mt-0.5">
-                    {item.time}
-                  </p>
-                </div>
-              </div>
-              <Button
-              variant="ghost"
-              size="sm"
-              className="opacity-0 group-hover:opacity-100 transition-opacity">
-
-                Details
-              </Button>
-            </div>
-          )}
+        <div className="p-10 bg-slate-50/40 flex items-center justify-center">
+          <EmptyState
+            title="Admin activity feed coming soon"
+            description="We’ll surface a unified stream of onboarding, maintenance, alert, and document events here once the central audit feed is connected."
+          />
         </div>
       </Card>
     </div>);

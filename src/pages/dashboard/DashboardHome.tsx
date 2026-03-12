@@ -25,6 +25,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { useAuth } from '../../auth/AuthProvider';
 import { useAccount } from '../../account/AccountProvider';
 import { ErrorState } from '../../components/states/ErrorState';
@@ -53,6 +54,15 @@ export function DashboardHome() {
   const openAlerts = overview?.stats.openAlertCount ?? 0;
   const monthlySpendCents = overview?.stats.monthlyCostTotal ?? 0;
   const expenseData = overview?.expenseSeries ?? [];
+  const hasExpenseData = expenseData.some((point) => point.amount > 0);
+  const expenseSparkline = expenseData.map((point) => point.amount);
+  const hasExpenseTrend = expenseSparkline.length > 1;
+  const monthlySpendTrend =
+    hasExpenseTrend && expenseSparkline[expenseSparkline.length - 1] > expenseSparkline[expenseSparkline.length - 2]
+      ? 'up'
+      : hasExpenseTrend && expenseSparkline[expenseSparkline.length - 1] < expenseSparkline[expenseSparkline.length - 2]
+        ? 'down'
+        : 'neutral';
 
   const hasVehicles = (overview?.vehicles?.length ?? 0) > 0;
   const hasActivity = (overview?.activity?.length ?? 0) > 0;
@@ -179,36 +189,38 @@ export function DashboardHome() {
             title="Active Vehicles"
             value={String(activeVehicles)}
             accentColor="primary"
-            icon={<CarIcon className="w-6 h-6" />}
-            sparklineData={[1, 1, 2, 2, 3, 3]}
-            trend="up" />
+            icon={<CarIcon className="w-6 h-6" />} />
 
           <StatCard
             title="Next Service Due"
             value={openAlerts > 0 ? `${openAlerts} alerts` : 'All clear'}
             change={openAlerts > 0 ? 'Action needed' : 'Nothing urgent'}
-            trend="down"
             accentColor="warning"
             icon={<AlertTriangleIcon className="w-6 h-6" />}
-            sparklineData={[30, 25, 20, 18, 15, 14]} />
+          />
 
           <StatCard
             title="Monthly Spend"
             value={formatCurrencyZAR(monthlySpendCents)}
             change="Last 30 days • fuel, maintenance, billing"
-            trend="up"
+            trend={monthlySpendTrend}
             accentColor="rose"
             icon={<DollarSignIcon className="w-6 h-6" />}
-            sparklineData={[120, 85, 450, 95, 110, 320]} />
+            sparklineData={expenseSparkline} />
 
           <StatCard
             title="Avg Health Score"
             value={overview?.stats.avgHealthScore != null ? `${Math.round(overview.stats.avgHealthScore)}%` : '—'}
             change={overview?.stats.avgHealthScore != null ? (overview.stats.avgHealthScore >= 80 ? 'Optimal' : 'Needs attention') : 'Add vehicles'}
-            trend="up"
+            trend={
+              overview?.stats.avgHealthScore != null
+                ? overview.stats.avgHealthScore >= 80
+                  ? 'up'
+                  : 'down'
+                : 'neutral'
+            }
             accentColor="accent"
-            icon={<ActivityIcon className="w-6 h-6" />}
-            sparklineData={overview?.stats.avgHealthScore != null ? [85, 88, 87, 90, 91, Math.round(overview.stats.avgHealthScore)] : []} />
+            icon={<ActivityIcon className="w-6 h-6" />} />
 
         </div>
       </div>
@@ -229,28 +241,19 @@ export function DashboardHome() {
               </Badge>
             </div>
 
-            <div className="mb-6">
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-slate-500 font-medium">
-                  Resolved this month
-                </span>
-                <span className="text-slate-900 font-bold">3 of 5</span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2">
-                <div
-                  className="bg-amber-500 h-2 rounded-full"
-                  style={{
-                    width: '60%'
-                  }}>
-                </div>
-              </div>
-            </div>
-
             <div className="space-y-4">
               {overview?.alerts.length === 0 && (
-                <p className="text-sm text-slate-500">
-                  No urgent alerts. You’re all caught up.
-                </p>
+                <EmptyState
+                  title="No urgent alerts"
+                  description="Once alerts are configured, we’ll flag upcoming services, expiring documents, and critical issues here."
+                  action={(
+                    <Link to="/dashboard/alerts">
+                      <Button variant="secondary">
+                        Configure alerts
+                      </Button>
+                    </Link>
+                  )}
+                />
               )}
 
               {overview?.alerts.slice(0, 3).map((alert) => (
@@ -295,9 +298,24 @@ export function DashboardHome() {
             </div>
             <div className="space-y-4">
               {!hasActivity && (
-                <p className="text-sm text-slate-500">
-                  No recent activity yet. Start by logging a service or fuel fill-up.
-                </p>
+                <EmptyState
+                  title="No recent activity yet"
+                  description="Log a service, add a fuel fill-up, or upload a document to see your latest garage activity here."
+                  action={(
+                    <div className="flex flex-wrap gap-3 justify-center">
+                      <Link to="/dashboard/maintenance">
+                        <Button variant="primary" size="sm">
+                          Log a service
+                        </Button>
+                      </Link>
+                      <Link to="/dashboard/fuel">
+                        <Button variant="secondary" size="sm">
+                          Add fuel entry
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                />
               )}
 
               {overview?.activity.map((item) => {
@@ -370,24 +388,25 @@ export function DashboardHome() {
               </select>
             </div>
             <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              {hasExpenseData ? (
+                <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={expenseData}
-                  margin={{
-                    top: 10,
-                    right: 10,
-                    left: -20,
-                    bottom: 0
-                  }}>
-
+                    margin={{
+                      top: 10,
+                      right: 10,
+                      left: -20,
+                      bottom: 0,
+                    }}
+                  >
                     <defs>
                       <linearGradient
                         id="colorAmount"
                         x1="0"
                         y1="0"
                         x2="0"
-                        y2="1">
-
+                        y2="1"
+                      >
                         <stop offset="5%" stopColor="hsl(var(--primary) / 0.3)" stopOpacity={1} />
                         <stop offset="95%" stopColor="hsl(var(--primary) / 0)" stopOpacity={1} />
                       </linearGradient>
@@ -395,8 +414,8 @@ export function DashboardHome() {
                     <CartesianGrid
                       strokeDasharray="3 3"
                       vertical={false}
-                      stroke="hsl(var(--border))" />
-
+                      stroke="hsl(var(--border))"
+                    />
                     <XAxis
                       dataKey="month"
                       axisLine={false}
@@ -404,32 +423,32 @@ export function DashboardHome() {
                       tick={{
                         fill: 'hsl(var(--muted-foreground))',
                         fontSize: 12,
-                        fontWeight: 500
+                        fontWeight: 500,
                       }}
-                      dy={10} />
-
+                      dy={10}
+                    />
                     <YAxis
                       axisLine={false}
                       tickLine={false}
                       tick={{
                         fill: 'hsl(var(--muted-foreground))',
                         fontSize: 12,
-                        fontWeight: 500
+                        fontWeight: 500,
                       }}
-                      tickFormatter={(value) => formatCurrencyZAR(value)} />
-
+                      tickFormatter={(value) => formatCurrencyZAR(value)}
+                    />
                     <Tooltip
                       contentStyle={{
                         borderRadius: '12px',
                         border: '1px solid hsl(var(--border))',
                         boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                        fontWeight: 600
+                        fontWeight: 600,
                       }}
                       formatter={(value: number) => [
                         formatCurrencyZAR(value),
                         'Total Expense',
-                      ]} />
-
+                      ]}
+                    />
                     <Area
                       type="monotone"
                       dataKey="amount"
@@ -439,11 +458,33 @@ export function DashboardHome() {
                       fill="url(#colorAmount)"
                       activeDot={{
                         r: 6,
-                        strokeWidth: 0
-                      }} />
-
+                        strokeWidth: 0,
+                      }}
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <EmptyState
+                    title="No spend history yet"
+                    description="Log a service and add fuel entries to see your monthly spend trend over time."
+                    action={(
+                      <div className="flex flex-wrap gap-3 justify-center">
+                        <Link to="/dashboard/maintenance">
+                          <Button variant="primary" size="sm">
+                            Log a service
+                          </Button>
+                        </Link>
+                        <Link to="/dashboard/fuel">
+                          <Button variant="secondary" size="sm">
+                            Add fuel entry
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                  />
+                </div>
+              )}
             </div>
           </Card>
 
@@ -460,9 +501,18 @@ export function DashboardHome() {
               </Link>
             </div>
             {!hasVehicles && (
-              <p className="text-sm text-slate-500">
-                No vehicles yet. Add your first vehicle to see it here.
-              </p>
+              <EmptyState
+                title="No vehicles yet"
+                description="Add your first vehicle to start tracking health, services, alerts, and spend in one place."
+                action={(
+                  <Link to="/dashboard/vehicles/new">
+                    <Button variant="primary">
+                      Add your first vehicle
+                    </Button>
+                  </Link>
+                )}
+                className="py-10"
+              />
             )}
             {hasVehicles && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
