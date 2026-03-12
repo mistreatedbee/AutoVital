@@ -38,15 +38,21 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const serviceKey = Deno.env.get('INSFORGE_SERVICE_ROLE_KEY');
-  if (!serviceKey) {
+  const baseUrl = (Deno.env.get('INSFORGE_URL') ?? '').replace(/\/+$/, '');
+  const anonKey = Deno.env.get('INSFORGE_ANON_KEY') ?? '';
+
+  if (!serviceKey || !baseUrl || !anonKey) {
+    const missing = [
+      !serviceKey && 'INSFORGE_SERVICE_ROLE_KEY',
+      !baseUrl && 'INSFORGE_URL',
+      !anonKey && 'INSFORGE_ANON_KEY',
+    ].filter(Boolean);
+    console.error('admin-dashboard-data: missing env', { missing });
     return new Response(
-      JSON.stringify({ error: 'INSFORGE_SERVICE_ROLE_KEY not configured' }),
+      JSON.stringify({ error: 'Server configuration incomplete', code: 'MISSING_ENV' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     );
   }
-
-  const baseUrl = (Deno.env.get('INSFORGE_URL') ?? '').replace(/\/+$/, '');
-  const anonKey = Deno.env.get('INSFORGE_ANON_KEY') ?? '';
 
   try {
     const userClient = createClient({
@@ -90,6 +96,27 @@ export default async function handler(req: Request): Promise<Response> {
       adminClient.database.rpc('admin_platform_health'),
     ]);
 
+    if (metricsRes.error) {
+      console.error('admin-dashboard-data: admin_dashboard_metrics failed', {
+        message: (metricsRes.error as { message?: string })?.message,
+      });
+    }
+    if (revenueRes.error) {
+      console.error('admin-dashboard-data: admin_revenue_by_month failed', {
+        message: (revenueRes.error as { message?: string })?.message,
+      });
+    }
+    if (signupsRes.error) {
+      console.error('admin-dashboard-data: admin_signups_by_day failed', {
+        message: (signupsRes.error as { message?: string })?.message,
+      });
+    }
+    if (healthRes.error) {
+      console.error('admin-dashboard-data: admin_platform_health failed', {
+        message: (healthRes.error as { message?: string })?.message,
+      });
+    }
+
     const metrics = metricsRes.error ? null : (metricsRes.data as Record<string, unknown>);
     const revenue = revenueRes.error ? [] : (revenueRes.data as { month_key: string; revenue_cents: number }[]);
     const signups = signupsRes.error ? [] : (signupsRes.data as { day_key: string; signup_count: number }[]);
@@ -108,9 +135,13 @@ export default async function handler(req: Request): Promise<Response> {
       },
     );
   } catch (err) {
-    console.error('admin-dashboard-data error:', err);
+    const msg = err instanceof Error ? err.message : 'Internal error';
+    console.error('admin-dashboard-data error:', {
+      message: msg,
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     return new Response(
-      JSON.stringify({ error: (err as Error).message ?? 'Internal error' }),
+      JSON.stringify({ error: msg, code: 'INTERNAL_ERROR' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     );
   }

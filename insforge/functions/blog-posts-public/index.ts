@@ -13,18 +13,28 @@ const COLS =
   'id, slug, title, excerpt, content_markdown, cover_image_url, category, author_name, reading_time_minutes, status, seo_title, seo_description, published_at, created_at, updated_at';
 
 export default async function handler(req: Request): Promise<Response> {
+  const CORS_HEADERS = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' as const };
   if (req.method !== 'GET') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: CORS_HEADERS,
     });
   }
 
   const serviceKey = Deno.env.get('INSFORGE_SERVICE_ROLE_KEY');
-  if (!serviceKey) {
+  const baseUrl = (Deno.env.get('INSFORGE_URL') ?? '').replace(/\/+$/, '');
+  const anonKey = Deno.env.get('INSFORGE_ANON_KEY') ?? '';
+
+  if (!serviceKey || !baseUrl || !anonKey) {
+    const missing = [
+      !serviceKey && 'INSFORGE_SERVICE_ROLE_KEY',
+      !baseUrl && 'INSFORGE_URL',
+      !anonKey && 'INSFORGE_ANON_KEY',
+    ].filter(Boolean);
+    console.error('blog-posts-public: missing env', { missing });
     return new Response(
-      JSON.stringify({ error: 'INSFORGE_SERVICE_ROLE_KEY not configured' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },
+      JSON.stringify({ error: 'Server configuration incomplete', code: 'MISSING_ENV' }),
+      { status: 500, headers: CORS_HEADERS },
     );
   }
 
@@ -37,8 +47,8 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     const client = createClient({
-      baseUrl: Deno.env.get('INSFORGE_URL') ?? '',
-      anonKey: Deno.env.get('INSFORGE_ANON_KEY') ?? '',
+      baseUrl,
+      anonKey,
       accessToken: serviceKey,
     });
 
@@ -53,13 +63,13 @@ export default async function handler(req: Request): Promise<Response> {
       if (error) {
         return new Response(
           JSON.stringify({ error: (error as { message?: string })?.message ?? 'Failed to fetch' }),
-          { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },
+          { status: 400, headers: CORS_HEADERS },
         );
       }
       const post = (data as unknown[])?.[0] ?? null;
       return new Response(JSON.stringify({ post }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: CORS_HEADERS,
       });
     }
 
@@ -80,12 +90,18 @@ export default async function handler(req: Request): Promise<Response> {
       q = q.eq('category', category) as typeof q;
     }
 
-    const { data, error } = await (q as any).range?.(from, to) ?? q;
+    const qWithRange = q as { range?: (a: number, b: number) => typeof q; limit?: (n: number) => typeof q };
+    const { data, error } = await (qWithRange.range
+      ? qWithRange.range(from, to)
+      : qWithRange.limit
+        ? qWithRange.limit(pageSize)
+        : q);
 
     if (error) {
+      console.error('blog-posts-public: query error', { message: (error as { message?: string })?.message });
       return new Response(
         JSON.stringify({ error: (error as { message?: string })?.message ?? 'Failed to fetch' }),
-        { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },
+        { status: 400, headers: CORS_HEADERS },
       );
     }
 
@@ -93,13 +109,14 @@ export default async function handler(req: Request): Promise<Response> {
     const hasMore = posts.length === pageSize;
     return new Response(
       JSON.stringify({ posts, page, pageSize, hasMore }),
-      { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },
+      { status: 200, headers: CORS_HEADERS },
     );
   } catch (err) {
-    console.error('blog-posts-public error:', err);
+    const msg = err instanceof Error ? err.message : 'Internal error';
+    console.error('blog-posts-public error:', { message: msg, stack: err instanceof Error ? err.stack : undefined });
     return new Response(
-      JSON.stringify({ error: (err as Error).message ?? 'Internal error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },
+      JSON.stringify({ error: msg, code: 'INTERNAL_ERROR' }),
+      { status: 500, headers: CORS_HEADERS },
     );
   }
 }
