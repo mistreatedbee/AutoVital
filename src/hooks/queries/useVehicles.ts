@@ -4,7 +4,11 @@ import {
   fetchAccountVehicles,
   archiveVehicle,
   fetchVehicleDetails,
+  upsertVehicle,
 } from '../../services/vehicles';
+import { recomputeAndPersistVehicleHealth } from '../../services/vehicleHealth';
+import type { UpsertVehicleInput } from '../../services/vehicles';
+import type { Vehicle } from '../../domain/models';
 
 export function useVehicles(accountId: string | null) {
   return useQuery({
@@ -22,6 +26,27 @@ export function useVehicleDetails(accountId: string | null, vehicleId: string | 
   });
 }
 
+export function useUpsertVehicle(accountId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpsertVehicleInput): Promise<Vehicle | null> => {
+      const vehicle = await upsertVehicle(input);
+      if (!vehicle) return null;
+      return recomputeAndPersistVehicleHealth(vehicle, null);
+    },
+    onSuccess: (vehicle) => {
+      if (accountId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.list(accountId) });
+        if (vehicle?.id) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.detail(vehicle.id) });
+        }
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
+      }
+    },
+  });
+}
+
 export function useArchiveVehicle(accountId: string | null) {
   const queryClient = useQueryClient();
 
@@ -31,6 +56,7 @@ export function useArchiveVehicle(accountId: string | null) {
       if (accountId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.list(accountId) });
         queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.detail(vehicleId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
       }
     },
   });

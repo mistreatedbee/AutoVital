@@ -5,6 +5,7 @@ import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../auth/AuthProvider';
+import { mapAuthErrorToMessage } from '../../lib/authErrors';
 
 export function ForgotPasswordPage() {
   const { sendResetPasswordEmail, error: authError } = useAuth();
@@ -42,8 +43,12 @@ export function ForgotPasswordPage() {
       await sendResetPasswordEmail({ email: trimmedEmail });
       setSubmitted(true);
       runResendCooldown();
-    } catch {
-      setFormError(authError ?? 'Failed to send reset email. Please try again.');
+    } catch (err: unknown) {
+      const friendly = mapAuthErrorToMessage(
+        err,
+        authError ?? 'Failed to send reset email. Please try again.',
+      );
+      setFormError(friendly);
     } finally {
       setLoading(false);
     }
@@ -59,8 +64,12 @@ export function ForgotPasswordPage() {
     try {
       await sendResetPasswordEmail({ email: trimmedEmail });
       runResendCooldown();
-    } catch {
-      setFormError(authError ?? 'Failed to resend. Please try again.');
+    } catch (err: unknown) {
+      const friendly = mapAuthErrorToMessage(
+        err,
+        authError ?? 'Failed to resend. Please try again.',
+      );
+      setFormError(friendly);
     } finally {
       setLoading(false);
     }

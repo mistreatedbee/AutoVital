@@ -10,6 +10,7 @@ import { useAccount } from '../../account/AccountProvider';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/states/ErrorState';
 import { MyVehiclesSkeleton } from '../../components/states/pageSkeletons';
+import { Modal, ModalContent, ModalHeader, ModalFooter, ModalTitle } from '../../components/ui/Modal';
 
 export function MyVehicles() {
   const { accountId, loading: accountLoading } = useAccount();
@@ -18,14 +19,10 @@ export function MyVehicles() {
 
   const { data: vehicles = [], isLoading, isError, error, refetch } = useVehicles(accountId);
   const archiveMutation = useArchiveVehicle(accountId);
+  const [vehicleToArchive, setVehicleToArchive] = useState<string | null>(null);
 
-  const handleArchive = async (vehicleId: string) => {
-    const confirmed = window.confirm(
-      'Archive this vehicle? It will be hidden from your garage but not permanently deleted.',
-    );
-    if (!confirmed) return;
-
-    archiveMutation.mutate(vehicleId);
+  const handleArchive = (vehicleId: string) => {
+    setVehicleToArchive(vehicleId);
   };
 
   const filtered = vehicles.filter((vehicle) => {
@@ -163,7 +160,7 @@ export function MyVehicles() {
                     Mileage
                   </p>
                   <p className="font-medium text-slate-900">
-                    {vehicle.mileage ? `${vehicle.mileage} mi` : '—'}
+                    {vehicle.mileage != null ? `${Number(vehicle.mileage).toLocaleString()} km` : '—'}
                   </p>
                 </div>
                 <div>
@@ -211,6 +208,36 @@ export function MyVehicles() {
         )}
         </div>
       )}
+
+      <Modal open={vehicleToArchive != null} onOpenChange={(open) => !open && setVehicleToArchive(null)}>
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>Archive vehicle?</ModalTitle>
+          </ModalHeader>
+          <p className="text-sm text-slate-600">
+            This will hide the vehicle from your garage but keep its history for reporting.
+            You can restore it later from admin tools.
+          </p>
+          <ModalFooter>
+            <Button variant="ghost" onClick={() => setVehicleToArchive(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              className="bg-amber-600 hover:bg-amber-700"
+              loading={archiveMutation.isPending}
+              onClick={() => {
+                if (!vehicleToArchive) return;
+                archiveMutation.mutate(vehicleToArchive, {
+                  onSettled: () => setVehicleToArchive(null),
+                });
+              }}
+            >
+              Archive vehicle
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>);
 
 }

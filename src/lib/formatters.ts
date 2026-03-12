@@ -13,3 +13,13 @@ export function formatCurrencyZAROrDash(
   return formatCurrencyZAR(amountInCents);
 }
 
+export function formatKm(value: number | null | undefined): string {
+  if (value == null) return '—';
+  return `${Number(value).toLocaleString()} km`;
+}
+
+export function formatLitres(value: number | null | undefined): string {
+  if (value == null) return '—';
+  return `${Number(value).toLocaleString()} L`;
+}
+

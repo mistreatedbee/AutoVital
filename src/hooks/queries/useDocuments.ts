@@ -34,6 +34,7 @@ export function useUploadDocument(accountId: string | null) {
     onSuccess: () => {
       if (accountId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.documents.list(accountId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
       }
     },
   });
@@ -58,6 +59,7 @@ export function useDeleteDocument(accountId: string | null) {
     onSuccess: () => {
       if (accountId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.documents.list(accountId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
       }
     },
   });

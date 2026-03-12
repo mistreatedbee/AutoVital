@@ -1,4 +1,4 @@
-export { useVehicles, useVehicleDetails, useArchiveVehicle } from './useVehicles';
+export { useVehicles, useVehicleDetails, useUpsertVehicle, useArchiveVehicle } from './useVehicles';
 export {
   useMaintenanceLogs,
   useVehicleMaintenanceLogs,

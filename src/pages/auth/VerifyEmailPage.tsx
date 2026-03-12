@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../auth/AuthProvider';
 import { bootstrapAccountAndProfile } from '../../lib/authBootstrap';
+import { mapAuthErrorToMessage } from '../../lib/authErrors';
 
 export function VerifyEmailPage() {
   const navigate = useNavigate();
@@ -42,7 +43,11 @@ export function VerifyEmailPage() {
       })
       .catch((err) => {
         if (!isMounted) return;
-        setFormError(err?.message ?? authError ?? 'Invalid or expired verification link.');
+        const friendly = mapAuthErrorToMessage(
+          err,
+          authError ?? 'Invalid or expired verification link.',
+        );
+        setFormError(friendly);
         setVerifying(false);
       });
 
@@ -77,8 +82,12 @@ export function VerifyEmailPage() {
     try {
       await resendVerificationEmail({ email: trimmedEmail });
       runResendCooldown();
-    } catch {
-      setFormError(authError ?? 'Failed to resend. Please try again.');
+    } catch (err: unknown) {
+      const friendly = mapAuthErrorToMessage(
+        err,
+        authError ?? 'Failed to resend. Please try again.',
+      );
+      setFormError(friendly);
     } finally {
       setLoading(false);
     }

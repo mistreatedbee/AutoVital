@@ -6,9 +6,9 @@ import { Input } from '../../components/ui/Input';
 import { useAccount } from '../../account/AccountProvider';
 import { useAuth } from '../../auth/AuthProvider';
 import { LoadingState } from '../../components/states/LoadingState';
-import { fetchVehicleDetails, upsertVehicle } from '../../services/vehicles';
+import { fetchVehicleDetails } from '../../services/vehicles';
 import { uploadVehicleImageFile } from '../../services/vehicleImageUpload';
-import { recomputeAndPersistVehicleHealth } from '../../services/vehicleHealth';
+import { useUpsertVehicle } from '../../hooks/queries';
 
 type VehicleFormMode = 'create' | 'edit';
 
@@ -21,6 +21,7 @@ export function VehicleForm({ mode }: VehicleFormProps) {
   const { id } = useParams<{ id: string }>();
   const { accountId } = useAccount();
   const { user } = useAuth();
+  const upsertMutation = useUpsertVehicle(accountId);
 
   const [loading, setLoading] = useState(mode === 'edit');
   const [saving, setSaving] = useState(false);
@@ -105,9 +106,9 @@ export function VehicleForm({ mode }: VehicleFormProps) {
         }
       }
 
-      const vehicle = await upsertVehicle({
+      const vehicleWithHealth = await upsertMutation.mutateAsync({
         id: mode === 'edit' ? id : undefined,
-        accountId,
+        accountId: accountId!,
         ownerUserId: user.id,
         nickname: nickname.trim() || null,
         make: make.trim(),
@@ -119,13 +120,11 @@ export function VehicleForm({ mode }: VehicleFormProps) {
         currentMileage: currentMileage ? Number(currentMileage.replace(/,/g, '')) : null,
       });
 
-      if (!vehicle) {
+      if (!vehicleWithHealth) {
         setError('Unable to save vehicle. Please try again.');
         setSaving(false);
         return;
       }
-
-      const vehicleWithHealth = await recomputeAndPersistVehicleHealth(vehicle, null);
 
       if (imageFile) {
         await uploadVehicleImageFile({
@@ -257,7 +256,7 @@ export function VehicleForm({ mode }: VehicleFormProps) {
                 onClick={() => navigate('/dashboard/vehicles')}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" loading={saving}>
+              <Button type="submit" variant="primary" loading={saving || upsertMutation.isPending}>
                 {mode === 'create' ? 'Add Vehicle' : 'Save Changes'}
               </Button>
             </div>

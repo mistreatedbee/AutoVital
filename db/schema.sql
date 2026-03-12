@@ -547,10 +547,14 @@ BEGIN
   END IF;
 END $$;
 
--- RPC for admin funnel (aggregate counts only, no PII)
+-- RPC for admin funnel (aggregate counts only, no PII; admin only)
 CREATE OR REPLACE FUNCTION get_onboarding_funnel(p_start TIMESTAMPTZ DEFAULT now() - interval '30 days', p_end TIMESTAMPTZ DEFAULT now())
 RETURNS TABLE (event TEXT, step INTEGER, count BIGINT) AS $$
 BEGIN
+  IF NOT current_user_is_platform_admin() THEN
+    RAISE EXCEPTION 'admin_only' USING ERRCODE = '28000';
+  END IF;
+
   RETURN QUERY
   SELECT oe.event::TEXT, oe.step, COUNT(*)::BIGINT
   FROM onboarding_events oe
@@ -559,6 +563,9 @@ BEGIN
   ORDER BY oe.step NULLS FIRST, oe.event;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+REVOKE ALL ON FUNCTION get_onboarding_funnel(TIMESTAMPTZ, TIMESTAMPTZ) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION get_onboarding_funnel(TIMESTAMPTZ, TIMESTAMPTZ) TO admin_role;
 
 -- onboarding_progress RLS
 ALTER TABLE onboarding_progress ENABLE ROW LEVEL SECURITY;
@@ -740,17 +747,24 @@ SELECT
 FROM vehicles v
 JOIN accounts a ON a.id = v.account_id;
 
--- Admin views: readable by authenticated users; admin UI access enforced at app layer (VITE_ADMIN_EMAILS)
-GRANT SELECT ON admin_account_memberships_view TO authenticated;
-GRANT SELECT ON auth_users_view TO authenticated;
-GRANT SELECT ON admin_vehicles_view TO authenticated;
+-- Admin views: readable only by admin connections (admin_role; see platform admin helpers below)
+GRANT SELECT ON admin_account_memberships_view TO admin_role;
+GRANT SELECT ON auth_users_view TO admin_role;
+GRANT SELECT ON admin_vehicles_view TO admin_role;
 
--- admin_dashboard_metrics: single-row RPC for dashboard metrics
+-- admin_dashboard_metrics: single-row RPC for dashboard metrics (admin only)
 CREATE OR REPLACE FUNCTION admin_dashboard_metrics()
 RETURNS JSONB
-LANGUAGE SQL
+LANGUAGE plpgsql
 STABLE
 AS $$
+DECLARE
+  result JSONB;
+BEGIN
+  IF NOT current_user_is_platform_admin() THEN
+    RAISE EXCEPTION 'admin_only' USING ERRCODE = '28000';
+  END IF;
+
   SELECT jsonb_build_object(
     'newRegistrationsThisWeek', (SELECT COUNT(*)::INT FROM auth_users_view uv WHERE uv.created_at >= date_trunc('week', now())),
     'verifiedCount', (SELECT COUNT(*)::INT FROM auth_users_view uv WHERE uv.email_confirmed_at IS NOT NULL),
@@ -761,10 +775,15 @@ AS $$
     'upcomingReminderCount', (SELECT COUNT(*)::INT FROM alerts a WHERE a.status = 'pending' AND a.kind IN ('maintenance_due', 'document_expiring', 'subscription_renewal')),
     'overdueReminderCount', (SELECT COUNT(*)::INT FROM alerts a WHERE a.status = 'pending' AND a.kind = 'maintenance_overdue'),
     'totalVehicles', (SELECT COUNT(*)::INT FROM vehicles v WHERE v.archived_at IS NULL)
-  );
+  )
+  INTO result;
+
+  RETURN result;
+END;
 $$;
 
-GRANT EXECUTE ON FUNCTION admin_dashboard_metrics() TO authenticated;
+REVOKE ALL ON FUNCTION admin_dashboard_metrics() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION admin_dashboard_metrics() TO admin_role;
 
 -- admin_set_account_status: admin-only RPC to update user account status (SECURITY DEFINER)
 CREATE OR REPLACE FUNCTION admin_set_account_status(p_user_id UUID, p_status TEXT)
@@ -774,6 +793,10 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
+  IF NOT current_user_is_platform_admin() THEN
+    RAISE EXCEPTION 'admin_only' USING ERRCODE = '28000';
+  END IF;
+
   IF p_status NOT IN ('active', 'suspended', 'pending') THEN
     RAISE EXCEPTION 'Invalid account_status: %', p_status;
   END IF;
@@ -785,7 +808,8 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION admin_set_account_status(UUID, TEXT) TO authenticated;
+REVOKE ALL ON FUNCTION admin_set_account_status(UUID, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION admin_set_account_status(UUID, TEXT) TO admin_role;
 
 -- admin_set_flagged: admin-only RPC to flag/unflag a user
 CREATE OR REPLACE FUNCTION admin_set_flagged(p_user_id UUID, p_flagged BOOLEAN, p_reason TEXT DEFAULT NULL)
@@ -795,6 +819,10 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
+  IF NOT current_user_is_platform_admin() THEN
+    RAISE EXCEPTION 'admin_only' USING ERRCODE = '28000';
+  END IF;
+
   UPDATE profiles SET
     flagged_at = CASE WHEN p_flagged THEN now() ELSE NULL END,
     flagged_reason = CASE WHEN p_flagged THEN p_reason ELSE NULL END,
@@ -807,7 +835,8 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION admin_set_flagged(UUID, BOOLEAN, TEXT) TO authenticated;
+REVOKE ALL ON FUNCTION admin_set_flagged(UUID, BOOLEAN, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION admin_set_flagged(UUID, BOOLEAN, TEXT) TO admin_role;
 
 -- =========================
 --  Platform Admins (System Admin / Company Admin)
@@ -845,3 +874,35 @@ BEGIN
 END $$;
 
 GRANT SELECT ON platform_admins TO authenticated;
+
+-- Helper role and functions for platform-admin checks
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'admin_role') THEN
+    CREATE ROLE admin_role;
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION is_platform_admin(p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM platform_admins pa
+    WHERE pa.user_id = p_user_id
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION current_user_is_platform_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT is_platform_admin(auth.uid());
+$$;

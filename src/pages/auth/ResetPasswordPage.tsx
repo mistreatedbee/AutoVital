@@ -10,6 +10,7 @@ import {
   getStrengthColor,
   getStrengthWidth,
 } from '../../lib/passwordStrength';
+import { mapAuthErrorToMessage } from '../../lib/authErrors';
 
 export function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -49,8 +50,12 @@ export function ResetPasswordPage() {
       });
       setResetToken(token);
       setStep('password');
-    } catch {
-      setFormError(authError ?? 'Invalid or expired code. Please try again.');
+    } catch (err: unknown) {
+      const friendly = mapAuthErrorToMessage(
+        err,
+        authError ?? 'Invalid or expired code. Please try again.',
+      );
+      setFormError(friendly);
     } finally {
       setLoading(false);
     }
@@ -76,8 +81,12 @@ export function ResetPasswordPage() {
     try {
       await resetPassword({ newPassword: password, otp: resetToken });
       navigate('/login', { replace: true });
-    } catch {
-      setFormError(authError ?? 'Failed to reset password. Please try again.');
+    } catch (err: unknown) {
+      const friendly = mapAuthErrorToMessage(
+        err,
+        authError ?? 'Failed to reset password. Please try again.',
+      );
+      setFormError(friendly);
     } finally {
       setLoading(false);
     }

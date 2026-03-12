@@ -39,6 +39,10 @@ export const queryKeys = {
   dashboard: {
     overview: (accountId: string) => ['dashboard', 'overview', accountId] as const,
   },
+  reports: {
+    monthly: (accountId: string) => ['reports', 'monthly', accountId] as const,
+    vehicles: (accountId: string) => ['reports', 'vehicles', accountId] as const,
+  },
   blog: {
     all: ['blog'] as const,
     list: (params: { query?: string; category?: string; page?: number }) =>

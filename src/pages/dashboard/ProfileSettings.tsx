@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '../../components/ui/Card';
@@ -6,14 +6,17 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { getUserConsents, updateMarketingConsent } from '../../services/consents';
 import { changePassword, changeEmail } from '../../services/authSettings';
+import { fetchCurrentProfile, updateProfile } from '../../services/profile';
 import { queryKeys } from '../../lib/queryKeys';
 import { useAuth } from '../../auth/AuthProvider';
+import { useAccount } from '../../account/AccountProvider';
 import { ReauthModal } from '../../components/auth/ReauthModal';
 import {
   getPasswordStrength,
   getStrengthColor,
   getStrengthWidth,
 } from '../../lib/passwordStrength';
+import { validatePhoneWithSaHint } from '../../lib/validation';
 
 function formatDate(iso: string): string {
   try {
@@ -26,8 +29,12 @@ function formatDate(iso: string): string {
   }
 }
 
+const CURRENCIES = [{ value: 'ZAR', label: 'ZAR (South African Rand)' }, { value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }];
+const TIMEZONES = ['Africa/Johannesburg', 'Africa/Cairo', 'Europe/London', 'America/New_York', 'Asia/Dubai'];
+
 export function ProfileSettings() {
   const { user, reauthWithPassword } = useAuth();
+  const { accountId } = useAccount();
   const queryClient = useQueryClient();
   const [marketingLoading, setMarketingLoading] = useState(false);
 
@@ -43,6 +50,32 @@ export function ProfileSettings() {
   const [newEmail, setNewEmail] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState('');
+  const [country, setCountry] = useState('ZA');
+  const [currency, setCurrency] = useState('ZAR');
+  const [timezone, setTimezone] = useState('Africa/Johannesburg');
+  const [measurementSystem, setMeasurementSystem] = useState<'metric' | 'imperial'>('metric');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  const { data: profile } = useQuery({
+    queryKey: queryKeys.profile.current(user?.id ?? ''),
+    queryFn: () => fetchCurrentProfile(user!),
+    enabled: !!user?.id,
+  });
+
+  useEffect(() => {
+    if (profile) {
+      setDisplayName(profile.displayName ?? '');
+      setPhone(profile.phoneNumber ?? '');
+      setCountry(profile.country ?? 'ZA');
+      setCurrency(profile.currency ?? 'ZAR');
+      setTimezone(profile.timezone ?? 'Africa/Johannesburg');
+      setMeasurementSystem(profile.measurementSystem ?? 'metric');
+    }
+  }, [profile]);
 
   const { data: consents, isLoading: consentsLoading } = useQuery({
     queryKey: queryKeys.consents.user(),
@@ -144,6 +177,36 @@ export function ProfileSettings() {
 
   const strength = getPasswordStrength(newPassword);
 
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
+    setProfileError(null);
+    setProfileSaving(true);
+    try {
+      const ok = await updateProfile(user.id, {
+        displayName: displayName.trim() || null,
+        phoneNumber: phone.trim() || null,
+        country: country || 'ZA',
+        currency: currency || 'ZAR',
+        timezone: timezone || 'Africa/Johannesburg',
+        measurementSystem,
+      });
+      if (ok) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.profile.current(user.id) });
+        if (accountId) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
+          queryClient.invalidateQueries({ queryKey: queryKeys.fuel.all });
+          queryClient.invalidateQueries({ queryKey: queryKeys.maintenance.all });
+        }
+      } else {
+        setProfileError('Failed to save profile.');
+      }
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : 'Failed to save profile.');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-3xl">
       <div>
@@ -171,10 +234,12 @@ export function ProfileSettings() {
             </Button>
           </div>
           <div className="flex-1 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="First Name" defaultValue="Alex" />
-              <Input label="Last Name" defaultValue="Thompson" />
-            </div>
+            <Input
+              label="Display Name"
+              placeholder="e.g. John"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
             <div>
               <Input
                 label="Email Address"
@@ -220,15 +285,78 @@ export function ProfileSettings() {
               )}
             </div>
 
-            <Input
-              label="Phone Number"
-              type="tel"
-              defaultValue="+1 (555) 123-4567" />
+            <div>
+              <Input
+                label="Phone Number"
+                type="tel"
+                placeholder="+27 82 123 4567"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  setPhoneError(validatePhoneWithSaHint(e.target.value));
+                }}
+                error={phoneError ?? undefined}
+              />
+              <p className="text-xs text-slate-500 mt-1">Use full international format, e.g. +27 82 123 4567.</p>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Country</label>
+                <select
+                  className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                >
+                  <option value="ZA">South Africa</option>
+                  <option value="US">United States</option>
+                  <option value="GB">United Kingdom</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Currency</label>
+                <select
+                  className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                >
+                  {CURRENCIES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Timezone</label>
+                <select
+                  className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                >
+                  {TIMEZONES.map((tz) => (
+                    <option key={tz} value={tz}>{tz}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Units</label>
+                <select
+                  className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm"
+                  value={measurementSystem}
+                  onChange={(e) => setMeasurementSystem(e.target.value as 'metric' | 'imperial')}
+                >
+                  <option value="metric">Metric (km, litres)</option>
+                  <option value="imperial">Imperial (miles, gallons)</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-1">Default: Metric for South Africa.</p>
+              </div>
+            </div>
           </div>
         </div>
+        {profileError && <p className="text-sm text-rose-600 mb-4">{profileError}</p>}
         <div className="flex justify-end pt-4 border-t border-slate-100">
-          <Button variant="primary">Save Changes</Button>
+          <Button variant="primary" onClick={handleSaveProfile} loading={profileSaving}>
+            Save Changes
+          </Button>
         </div>
       </Card>
 

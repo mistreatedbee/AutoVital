@@ -19,6 +19,7 @@ import {
   getStrengthWidth,
   type PasswordStrength,
 } from '../../lib/passwordStrength';
+import { mapAuthErrorToMessage } from '../../lib/authErrors';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -52,6 +53,7 @@ export function SignUpPage() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [otp, setOtp] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const strength: PasswordStrength = getPasswordStrength(password);
 
@@ -106,6 +108,9 @@ export function SignUpPage() {
       });
 
       if (result.requireEmailVerification) {
+        setSuccessMessage(
+          'Account created successfully. A verification email has been sent to your email address. Please check your inbox or spam folder to verify your account.',
+        );
         setPhase('otp');
         setFormError(null);
       } else if (result.user) {
@@ -118,11 +123,10 @@ export function SignUpPage() {
         navigate('/onboarding', { replace: true });
       }
     } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message;
-      const friendly =
-        msg?.toLowerCase().includes('already exists')
-          ? 'An account with this email already exists. Sign in instead.'
-          : msg ?? authError ?? 'Failed to create account. Please try again.';
+      const friendly = mapAuthErrorToMessage(
+        err,
+        authError ?? 'Failed to create account. Please try again.',
+      );
       setFormError(friendly);
     } finally {
       setLoading(false);
@@ -147,8 +151,12 @@ export function SignUpPage() {
         { userAgent: navigator.userAgent, marketingConsent }
       );
       navigate('/onboarding', { replace: true });
-    } catch {
-      setFormError(authError ?? 'Invalid verification code. Please try again.');
+    } catch (err: unknown) {
+      const friendly = mapAuthErrorToMessage(
+        err,
+        authError ?? 'Invalid verification code. Please try again.',
+      );
+      setFormError(friendly);
     } finally {
       setLoading(false);
     }
@@ -160,8 +168,12 @@ export function SignUpPage() {
     try {
       await resendVerificationEmail({ email: email.trim() });
       runResendCooldown();
-    } catch {
-      setFormError(authError ?? 'Failed to resend. Please try again.');
+    } catch (err: unknown) {
+      const friendly = mapAuthErrorToMessage(
+        err,
+        authError ?? 'Failed to resend. Please try again.',
+      );
+      setFormError(friendly);
     }
   };
 
@@ -172,6 +184,11 @@ export function SignUpPage() {
         subtitle={`We sent a 6-digit code to ${email}. Enter it below.`}
       >
         <form onSubmit={handleOtpSubmit} className="space-y-5">
+          {successMessage && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              {successMessage}
+            </div>
+          )}
           <Input
             label="Verification code"
             type="text"

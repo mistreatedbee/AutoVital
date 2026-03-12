@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../auth/AuthProvider';
 import { fetchCurrentUserPlatformAdminStatus } from '../../services/platformAdmins';
+import { mapAuthErrorToMessage } from '../../lib/authErrors';
 
 function parseAdminAllowlist(raw: string | undefined): Set<string> {
   if (!raw) return new Set();
@@ -57,8 +58,11 @@ export function LoginPage() {
         navigate(target, { replace: true });
       })
       .catch((err: any) => {
-        const message: string = err?.message ?? 'Unable to sign in. Please try again.';
-        setFormError(message);
+        const friendly = mapAuthErrorToMessage(
+          err,
+          'Unable to sign in. Please check your email and password and try again.',
+        );
+        setFormError(friendly);
       })
       .finally(() => {
         setLoading(false);

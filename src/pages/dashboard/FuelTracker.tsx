@@ -49,7 +49,7 @@ export function FuelTracker() {
     queryFn: () => fetchCurrentProfile(user!.id),
     enabled: !!user?.id,
   });
-  const measurementSystem = profile?.measurementSystem ?? 'imperial';
+  const measurementSystem = profile?.measurementSystem ?? 'metric';
   const [formOpen, setFormOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

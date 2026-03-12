@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../auth/AuthProvider';
+import { clearAdminMfaVerified } from '../../services/adminMfa';
 import {
   ActivityIcon,
   UsersIcon,
@@ -82,11 +83,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     icon: <CreditCardIcon className="w-5 h-5" />
   },
   {
-    name: 'Content',
-    path: '/admin/content',
-    icon: <FileTextIcon className="w-5 h-5" />
-  },
-  {
     name: 'Roles',
     path: '/admin/roles',
     icon: <UserCogIcon className="w-5 h-5" />
@@ -114,6 +110,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const handleLogout = async () => {
     try {
+      clearAdminMfaVerified();
       await signOut();
     } finally {
       navigate('/login');

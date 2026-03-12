@@ -64,7 +64,13 @@ export async function bootstrapAccountAndProfile(
       user_id: userId,
       default_account_id: accountId,
       phone_number: phone || null,
-      measurement_system: 'imperial',
+      measurement_system: 'metric',
+      country: 'ZA',
+      currency: 'ZAR',
+      mileage_unit: 'km',
+      fuel_unit: 'litres',
+      timezone: 'Africa/Johannesburg',
+      locale: 'en',
     },
   ]);
 

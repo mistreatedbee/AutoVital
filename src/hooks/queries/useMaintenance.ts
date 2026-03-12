@@ -37,6 +37,9 @@ export function useCreateMaintenanceLog(accountId: string | null) {
       if (accountId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.maintenance.list(accountId) });
         queryClient.invalidateQueries({ queryKey: queryKeys.maintenance.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.reports.monthly(accountId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.reports.vehicles(accountId) });
       }
     },
   });
@@ -57,6 +60,9 @@ export function useUpdateMaintenanceLog(accountId: string | null) {
       if (accountId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.maintenance.list(accountId) });
         queryClient.invalidateQueries({ queryKey: queryKeys.maintenance.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.reports.monthly(accountId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.reports.vehicles(accountId) });
       }
     },
   });

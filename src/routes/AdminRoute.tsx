@@ -103,7 +103,13 @@ export function AdminRoute() {
   }
 
   if (!isAdmin) {
-    return <Navigate to="/dashboard" replace />;
+    return (
+      <Navigate
+        to="/dashboard"
+        replace
+        state={{ adminError: 'Admin access required to view this area.' }}
+      />
+    );
   }
 
   if (isMfaRoute) {

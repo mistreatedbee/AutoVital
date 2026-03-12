@@ -36,6 +36,9 @@ export function useCreateFuelLog(accountId: string | null) {
     onSuccess: () => {
       if (accountId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.fuel.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.reports.monthly(accountId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.reports.vehicles(accountId) });
       }
     },
   });
