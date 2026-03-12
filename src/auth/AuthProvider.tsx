@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 import type { ReactNode } from 'react';
 import { getInsforgeClient } from '../lib/insforgeClient';
+import { auditLogin, auditLoginFailed } from '../lib/auditEvents';
 
 interface AuthUser {
   id: string;
@@ -151,10 +152,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const mapped = mapUserFromApi(data.user as any);
       setUser(mapped);
+      auditLogin(
+        { userId: mapped.id, email: mapped.email },
+        { email: mapped.email }
+      ).catch(() => {});
       return mapped;
     } catch (err: any) {
       const message: string = err?.message ?? 'Failed to sign in. Please try again.';
       setError(message);
+      auditLoginFailed(
+        { userId: null, email },
+        { email, reason: message }
+      ).catch(() => {});
       // eslint-disable-next-line no-console
       console.error('Sign-in failed', err);
       throw err;

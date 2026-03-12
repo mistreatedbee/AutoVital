@@ -25,6 +25,40 @@ export interface AdminSubscriptionRow {
   createdAt: string;
 }
 
+export interface PublicPlanRow {
+  id: string;
+  code: string;
+  name: string;
+  priceMonthlyCents: number;
+  vehicleLimit: number | null;
+  features: Record<string, unknown>;
+}
+
+export async function fetchPublicPlans(): Promise<PublicPlanRow[]> {
+  try {
+    const client = getInsforgeClient();
+    const { data, error } = await client.database
+      .from('plans')
+      .select('id, code, name, price_monthly_cents, vehicle_limit, features')
+      .order('price_monthly_cents', { ascending: true });
+
+    if (error || !data) {
+      return [];
+    }
+
+    return (data as any[]).map((row) => ({
+      id: row.id,
+      code: row.code,
+      name: row.name,
+      priceMonthlyCents: row.price_monthly_cents ?? 0,
+      vehicleLimit: row.vehicle_limit ?? null,
+      features: (row.features ?? {}) as Record<string, unknown>,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchAdminPlans(): Promise<AdminPlanRow[]> {
   try {
     const client = getInsforgeClient();
@@ -89,5 +123,53 @@ export async function fetchAdminSubscriptions(): Promise<AdminSubscriptionRow[]>
     // eslint-disable-next-line no-console
     console.warn('Admin subscriptions service failed.', err);
     return [];
+  }
+}
+
+export interface CreatePlanInput {
+  code: string;
+  name: string;
+  priceMonthlyCents: number;
+  vehicleLimit?: number | null;
+  features?: Record<string, unknown>;
+}
+
+export async function createPlan(input: CreatePlanInput): Promise<string> {
+  const client = getInsforgeClient();
+  const { data, error } = await client.database.rpc('admin_create_plan', {
+    p_code: input.code,
+    p_name: input.name,
+    p_price_monthly_cents: input.priceMonthlyCents,
+    p_vehicle_limit: input.vehicleLimit ?? null,
+    p_features: input.features ?? {},
+  });
+
+  if (error) {
+    throw new Error(error.message ?? 'Failed to create plan');
+  }
+
+  return data as string;
+}
+
+export interface UpdatePlanInput {
+  id: string;
+  name?: string;
+  priceMonthlyCents?: number;
+  vehicleLimit?: number | null;
+  features?: Record<string, unknown>;
+}
+
+export async function updatePlan(input: UpdatePlanInput): Promise<void> {
+  const client = getInsforgeClient();
+  const { error } = await client.database.rpc('admin_update_plan', {
+    p_id: input.id,
+    p_name: input.name ?? null,
+    p_price_monthly_cents: input.priceMonthlyCents ?? null,
+    p_vehicle_limit: input.vehicleLimit ?? null,
+    p_features: input.features ?? null,
+  });
+
+  if (error) {
+    throw new Error(error.message ?? 'Failed to update plan');
   }
 }

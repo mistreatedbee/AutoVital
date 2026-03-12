@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   UsersIcon,
-  CreditCardIcon,
-  TrendingUpIcon,
   CarIcon,
-  ArrowUpRightIcon,
+  TrendingUpIcon,
   ActivityIcon,
   ServerIcon,
-  DatabaseIcon,
   WifiIcon,
+  DatabaseIcon,
   AlertCircleIcon,
   BellIcon,
   MailCheckIcon,
@@ -24,72 +23,28 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  ReferenceLine } from
-'recharts';
+} from 'recharts';
 import { StatCard } from '../../components/ui/StatCard';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { chartColors, cssVarHsl } from '../../lib/tokens';
-import { fetchAdminDashboardMetrics, type AdminDashboardMetrics } from '../../services/adminMetrics';
+import { formatCurrencyZAR } from '../../lib/formatters';
+import {
+  fetchAdminDashboardMetrics,
+  fetchAdminRevenueByMonth,
+  fetchAdminSignupsByDay,
+  type AdminDashboardMetrics,
+  type RevenueByMonthPoint,
+  type SignupsByDayPoint,
+} from '../../services/adminMetrics';
+import { fetchAuditLogs, type AuditLogEntry } from '../../services/auditLog';
+import { generateAdminReport } from '../../services/adminReports';
+import { useAuth } from '../../auth/AuthProvider';
+import { auditReportGenerated } from '../../lib/auditEvents';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { LoadingState } from '../../components/states/LoadingState';
 import { ErrorState } from '../../components/states/ErrorState';
-const revenueData = [
-{
-  month: 'Jan',
-  revenue: 85000
-},
-{
-  month: 'Feb',
-  revenue: 92000
-},
-{
-  month: 'Mar',
-  revenue: 105000
-},
-{
-  month: 'Apr',
-  revenue: 112000
-},
-{
-  month: 'May',
-  revenue: 125000
-},
-{
-  month: 'Jun',
-  revenue: 142500
-}];
-
-const signupData = [
-{
-  day: 'Mon',
-  users: 120
-},
-{
-  day: 'Tue',
-  users: 150
-},
-{
-  day: 'Wed',
-  users: 180
-},
-{
-  day: 'Thu',
-  users: 140
-},
-{
-  day: 'Fri',
-  users: 210
-},
-{
-  day: 'Sat',
-  users: 250
-},
-{
-  day: 'Sun',
-  users: 220
-}];
 
 const emptyMetrics: AdminDashboardMetrics = {
   newRegistrationsThisWeek: 0,
@@ -104,10 +59,35 @@ const emptyMetrics: AdminDashboardMetrics = {
   totalVehicles: 0,
 };
 
+function actionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    'user.signup': 'New user registered',
+    'user.email_verified': 'Email verified',
+    'user.login': 'User logged in',
+    'user.login_failed': 'Failed login attempt',
+    'user.status_updated': 'User status updated',
+    'user.flagged': 'User flagged',
+    'plan.created': 'Plan created',
+    'plan.updated': 'Plan updated',
+    'template.updated': 'Template updated',
+    'report.generated': 'Report generated',
+    'organization.created': 'Organization created',
+  };
+  return labels[action] ?? action;
+}
+
 export function AdminDashboard() {
+  const { user } = useAuth();
   const [metrics, setMetrics] = useState<AdminDashboardMetrics>(emptyMetrics);
+  const [reportLoading, setReportLoading] = useState(false);
   const [metricsLoading, setMetricsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [revenueData, setRevenueData] = useState<RevenueByMonthPoint[]>([]);
+  const [revenueLoading, setRevenueLoading] = useState(true);
+  const [signupData, setSignupData] = useState<SignupsByDayPoint[]>([]);
+  const [signupLoading, setSignupLoading] = useState(true);
+  const [activityFeed, setActivityFeed] = useState<AuditLogEntry[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
 
   const loadMetrics = useCallback(async () => {
     setMetricsLoading(true);
@@ -124,9 +104,90 @@ export function AdminDashboard() {
     }
   }, []);
 
+  const loadCharts = useCallback(async () => {
+    setRevenueLoading(true);
+    setSignupLoading(true);
+    try {
+      const [revenue, signups] = await Promise.all([
+        fetchAdminRevenueByMonth(6),
+        fetchAdminSignupsByDay(7),
+      ]);
+      setRevenueData(revenue);
+      setSignupData(signups);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to load admin charts', err);
+    } finally {
+      setRevenueLoading(false);
+      setSignupLoading(false);
+    }
+  }, []);
+
+  const loadActivity = useCallback(async () => {
+    setActivityLoading(true);
+    try {
+      const result = await fetchAuditLogs({ limit: 20, pageSize: 20 });
+      setActivityFeed(result.items);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to load activity feed', err);
+      setActivityFeed([]);
+    } finally {
+      setActivityLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadMetrics();
   }, [loadMetrics]);
+
+  useEffect(() => {
+    void loadCharts();
+  }, [loadCharts]);
+
+  useEffect(() => {
+    void loadActivity();
+  }, [loadActivity]);
+
+  const revenueChartData = revenueData.map((r) => ({
+    month: r.monthLabel,
+    revenue: r.revenueCents,
+  }));
+  const lastMonthRevenue = revenueData.length > 0 ? revenueData[revenueData.length - 1]?.revenueCents ?? 0 : 0;
+  const prevMonthRevenue = revenueData.length > 1 ? revenueData[revenueData.length - 2]?.revenueCents ?? 0 : 0;
+  const revenueGrowthPct = prevMonthRevenue > 0 ? Math.round(((lastMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100) : 0;
+
+  const signupChartData = signupData.map((s) => ({
+    day: s.dayLabel,
+    users: s.signupCount,
+  }));
+  const avgSignupsPerDay = signupData.length > 0
+    ? Math.round(
+        signupData.reduce((sum, s) => sum + s.signupCount, 0) / signupData.length,
+      )
+    : 0;
+
+  const handleGenerateReport = useCallback(async () => {
+    setReportLoading(true);
+    try {
+      const blob = await generateAdminReport();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `autovital-admin-report-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      await auditReportGenerated(
+        { userId: user?.id ?? null, email: user?.email ?? null },
+        { reportType: 'admin_csv' }
+      );
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Report generation failed', err);
+    } finally {
+      setReportLoading(false);
+    }
+  }, [user?.id, user?.email]);
 
   return (
     <div className="space-y-10">
@@ -140,14 +201,17 @@ export function AdminDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            icon={<ActivityIcon className="w-4 h-4" />}>
-            System Logs
-          </Button>
+          <Link to="/admin/audit-logs">
+            <Button
+              variant="secondary"
+              icon={<ActivityIcon className="w-4 h-4" />}>System Logs
+            </Button>
+          </Link>
           <Button
             variant="primary"
-            className="bg-rose-600 hover:bg-rose-700 hover:from-rose-600 hover:to-rose-700 shadow-rose-500/30 border-none">
+            className="bg-rose-600 hover:bg-rose-700 hover:from-rose-600 hover:to-rose-700 shadow-rose-500/30 border-none"
+            loading={reportLoading}
+            onClick={handleGenerateReport}>
             Generate Report
           </Button>
         </div>
@@ -166,7 +230,7 @@ export function AdminDashboard() {
         />
       )}
 
-      {/* Phase E: Admin Dashboard Metrics */}
+      {/* Platform Metrics */}
       <div>
         <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
           Platform Metrics
@@ -220,7 +284,7 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      {/* Upcoming / Overdue Reminders */}
+      {/* Reminders & Alerts */}
       <div>
         <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
           Reminders & Alerts
@@ -249,63 +313,43 @@ export function AdminDashboard() {
           Platform Health
         </h2>
         <p className="text-xs text-muted-foreground mb-3">
-          Sample placeholders only – wire to your observability stack before trusting these numbers.
+          Connect your monitoring stack to view live API uptime, response times, and error rates.
         </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="p-4 flex items-center gap-4 border-slate-200">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
               <ServerIcon className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
-                API Uptime
-              </p>
-              <p className="text-lg font-bold text-slate-900">
-                99.99%
-                <span className="ml-1 text-xs font-medium text-slate-400">(sample)</span>
-              </p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">API Uptime</p>
+              <p className="text-lg font-bold text-slate-400">—</p>
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-4 border-slate-200">
-            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
               <WifiIcon className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
-                Avg Response
-              </p>
-              <p className="text-lg font-bold text-slate-900">
-                45ms
-                <span className="ml-1 text-xs font-medium text-slate-400">(sample)</span>
-              </p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Avg Response</p>
+              <p className="text-lg font-bold text-slate-400">—</p>
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-4 border-slate-200">
-            <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
               <DatabaseIcon className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
-                Active Sessions
-              </p>
-              <p className="text-lg font-bold text-slate-900">
-                1,240
-                <span className="ml-1 text-xs font-medium text-slate-400">(sample)</span>
-              </p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Active Sessions</p>
+              <p className="text-lg font-bold text-slate-400">—</p>
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-4 border-slate-200">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
               <AlertCircleIcon className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
-                Error Rate
-              </p>
-              <p className="text-lg font-bold text-slate-900">
-                0.02%
-                <span className="ml-1 text-xs font-medium text-slate-400">(sample)</span>
-              </p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Error Rate</p>
+              <p className="text-lg font-bold text-slate-400">—</p>
             </div>
           </Card>
         </div>
@@ -316,167 +360,99 @@ export function AdminDashboard() {
         <Card className="p-6 relative overflow-hidden">
           <div className="flex items-center justify-between mb-8 relative z-10">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 font-heading">
-                Revenue Growth
-              </h2>
+              <h2 className="text-lg font-bold text-slate-900 font-heading">Revenue Growth</h2>
               <p className="text-sm text-slate-500">
-                Sample revenue trend (placeholder) – not live billing data.
+                Monthly recurring revenue (ZAR) from active subscriptions.
               </p>
             </div>
             <div className="text-right">
               <p className="text-3xl font-bold text-rose-600 font-heading tracking-tight">
-                $142.5k
+                {revenueLoading ? '...' : formatCurrencyZAR(lastMonthRevenue)}
               </p>
-              <p className="text-sm font-medium text-emerald-500 flex items-center justify-end gap-1">
-                <TrendingUpIcon className="w-4 h-4" /> +67% YTD
-              </p>
+              {!revenueLoading && revenueData.length > 1 && (
+                <p className={`text-sm font-medium flex items-center justify-end gap-1 ${revenueGrowthPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  <TrendingUpIcon className={`w-4 h-4 ${revenueGrowthPct < 0 ? 'rotate-180' : ''}`} />
+                  {revenueGrowthPct >= 0 ? '+' : ''}{revenueGrowthPct}% vs prev
+                </p>
+              )}
             </div>
           </div>
           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={revenueData}
-                margin={{
-                  top: 10,
-                  right: 0,
-                  left: -20,
-                  bottom: 0
-                }}>
-
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={chartColors.primary()} stopOpacity={0.35} />
-                    <stop offset="95%" stopColor={chartColors.primary()} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke={cssVarHsl('--border', '214 32% 91%')} />
-
-                <XAxis
-                  dataKey="month"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{
-                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
-                    fontSize: 12,
-                    fontWeight: 500
-                  }}
-                  dy={10} />
-
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{
-                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
-                    fontSize: 12,
-                    fontWeight: 500
-                  }}
-                  tickFormatter={(value) => `$${value / 1000}k`} />
-
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: '12px',
-                    border: `1px solid ${cssVarHsl('--border', '214 32% 91%')}`,
-                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                    fontWeight: 600
-                  }}
-                  formatter={(value: number) => [
-                  `$${value.toLocaleString()}`,
-                  'Revenue']
-                  } />
-
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke={chartColors.primary()}
-                  strokeWidth={4}
-                  fillOpacity={1}
-                  fill="url(#colorRevenue)"
-                  activeDot={{
-                    r: 6,
-                    strokeWidth: 0
-                  }} />
-
-              </AreaChart>
-            </ResponsiveContainer>
+            {revenueLoading ? (
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm">Loading...</div>
+            ) : revenueChartData.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <EmptyState
+                  title="No revenue data yet"
+                  description="Revenue will appear once you have active subscriptions."
+                />
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={revenueChartData}
+                  margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={chartColors.primary()} stopOpacity={0.35} />
+                      <stop offset="95%" stopColor={chartColors.primary()} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={cssVarHsl('--border', '214 32% 91%')} />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: cssVarHsl('--muted-foreground', '215 16% 47%'), fontSize: 12, fontWeight: 500 }} dy={10} />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: cssVarHsl('--muted-foreground', '215 16% 47%'), fontSize: 12, fontWeight: 500 }}
+                    tickFormatter={(value) => formatCurrencyZAR(value)}
+                  />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '12px', border: `1px solid ${cssVarHsl('--border', '214 32% 91%')}`, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontWeight: 600 }}
+                    formatter={(value: number) => [formatCurrencyZAR(value), 'Revenue']}
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke={chartColors.primary()} strokeWidth={4} fillOpacity={1} fill="url(#colorRevenue)" activeDot={{ r: 6, strokeWidth: 0 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
 
         <Card className="p-6">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 font-heading">
-                User Signups
-              </h2>
-              <p className="text-sm text-slate-500">
-                Sample signup volume (placeholder) – real analytics to follow.
-              </p>
+              <h2 className="text-lg font-bold text-slate-900 font-heading">User Signups</h2>
+              <p className="text-sm text-slate-500">New registrations by day (last 7 days).</p>
             </div>
-            <Badge
-              variant="primary"
-              className="bg-blue-50 text-blue-700 border-blue-200">
-
-              Sample avg: 181/day
-            </Badge>
+            {!signupLoading && signupData.length > 0 && (
+              <Badge variant="primary" className="bg-blue-50 text-blue-700 border-blue-200">
+                Avg: {avgSignupsPerDay}/day
+              </Badge>
+            )}
           </div>
           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={signupData}
-                margin={{
-                  top: 10,
-                  right: 0,
-                  left: -20,
-                  bottom: 0
-                }}>
-
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke={cssVarHsl('--border', '214 32% 91%')} />
-
-                <XAxis
-                  dataKey="day"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{
-                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
-                    fontSize: 12,
-                    fontWeight: 500
-                  }}
-                  dy={10} />
-
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{
-                    fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
-                    fontSize: 12,
-                    fontWeight: 500
-                  }} />
-
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: '12px',
-                    border: `1px solid ${cssVarHsl('--border', '214 32% 91%')}`,
-                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                    fontWeight: 600
-                  }}
-                  cursor={{
-                    fill: cssVarHsl('--muted', '210 40% 96%')
-                  }} />
-
-                <ReferenceLine y={181} stroke={cssVarHsl('--muted-foreground', '215 16% 47%')} strokeDasharray="3 3" />
-                <Bar
-                  dataKey="users"
-                  fill={chartColors.accent()}
-                  radius={[6, 6, 0, 0]}
-                  maxBarSize={50} />
-
-              </BarChart>
-            </ResponsiveContainer>
+            {signupLoading ? (
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm">Loading...</div>
+            ) : signupChartData.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <EmptyState
+                  title="No signup data yet"
+                  description="Signups will appear as users register."
+                />
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={signupChartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={cssVarHsl('--border', '214 32% 91%')} />
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: cssVarHsl('--muted-foreground', '215 16% 47%'), fontSize: 12, fontWeight: 500 }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: cssVarHsl('--muted-foreground', '215 16% 47%'), fontSize: 12, fontWeight: 500 }} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '12px', border: `1px solid ${cssVarHsl('--border', '214 32% 91%')}`, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontWeight: 600 }}
+                    cursor={{ fill: cssVarHsl('--muted', '210 40% 96%') }}
+                  />
+                  <Bar dataKey="users" fill={chartColors.accent()} radius={[6, 6, 0, 0]} maxBarSize={50} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
       </div>
@@ -484,30 +460,42 @@ export function AdminDashboard() {
       {/* Recent Activity */}
       <Card className="p-0 overflow-hidden border-slate-200">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-slate-900 font-heading">
-              Admin Activity Feed
-            </h2>
-            <Badge variant="secondary" className="shadow-sm">
-              Sample / coming soon
-            </Badge>
+          <h2 className="text-lg font-bold text-slate-900 font-heading">Admin Activity Feed</h2>
+          <Link to="/admin/audit-logs">
+            <Button variant="ghost" size="sm" className="text-rose-600 hover:text-rose-700 hover:bg-rose-50">
+              View All
+            </Button>
+          </Link>
+        </div>
+        {activityLoading ? (
+          <div className="p-10 bg-slate-50/40 flex items-center justify-center">
+            <LoadingState label="Loading activity..." />
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-            disabled
-          >
-            View All
-          </Button>
-        </div>
-        <div className="p-10 bg-slate-50/40 flex items-center justify-center">
-          <EmptyState
-            title="Admin activity feed coming soon"
-            description="We’ll surface a unified stream of onboarding, maintenance, alert, and document events here once the central audit feed is connected."
-          />
-        </div>
+        ) : activityFeed.length === 0 ? (
+          <div className="p-10 bg-slate-50/40 flex items-center justify-center">
+            <EmptyState
+              title="No activity yet"
+              description="Signups, logins, and admin actions will appear here once they occur."
+            />
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {activityFeed.slice(0, 10).map((entry) => (
+              <div key={entry.id} className="p-4 flex items-start gap-4 hover:bg-slate-50/50 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">
+                  <ActivityIcon className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-900">{actionLabel(entry.action)}</p>
+                  <p className="text-sm text-slate-500">
+                    {entry.actorEmail ?? 'System'} • {new Date(entry.createdAt).toLocaleString('en-ZA')}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
-    </div>);
-
+    </div>
+  );
 }

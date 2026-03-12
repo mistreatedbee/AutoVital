@@ -41,10 +41,10 @@ export function BillingSubscription() {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h2 className="text-2xl font-bold text-slate-900 font-heading">
-                {plan?.planName ?? 'Pro Plan'}
+                {plan?.planName ?? 'No active plan'}
               </h2>
               <Badge variant="primary">
-                {plan?.status === 'trialing' ? 'Trialing' : 'Active'}
+                {plan?.status === 'trialing' ? 'Trialing' : plan ? 'Active' : '—'}
               </Badge>
             </div>
             <p className="text-slate-600 mb-4">
@@ -54,7 +54,7 @@ export function BillingSubscription() {
                     ? ` • Next billing date: ${plan.nextBillingDate}`
                     : ''
                 }`
-                : '$9.00 / month • Next billing date: Nov 15, 2023'}
+                : 'No active subscription. Choose a plan to get started.'}
             </p>
 
             <div className="space-y-2 max-w-sm">
@@ -63,11 +63,11 @@ export function BillingSubscription() {
                   Vehicle Limit
                 </span>
                 <span className="text-slate-900 font-bold">
-                  {plan?.vehicleCountUsed ?? 3}
+                  {plan?.vehicleCountUsed ?? 0}
                   {' '}
                   of
                   {' '}
-                  {plan?.vehicleLimit ?? 5}
+                  {plan?.vehicleLimit ?? '—'}
                 </span>
               </div>
               <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
@@ -75,12 +75,12 @@ export function BillingSubscription() {
                   className="h-full bg-primary-500"
                   style={{
                     width:
-                      plan && plan.vehicleLimit && plan.vehicleCountUsed != null
+                      plan && plan.vehicleLimit && plan.vehicleLimit > 0 && plan.vehicleCountUsed != null
                         ? `${Math.min(
                           100,
                           (plan.vehicleCountUsed / plan.vehicleLimit) * 100,
                         ).toFixed(0)}%`
-                        : '60%',
+                        : '0%',
                   }} />
               </div>
             </div>
@@ -103,10 +103,14 @@ export function BillingSubscription() {
             </div>
             <div>
               <p className="font-semibold text-slate-900">
-                {billing?.paymentMethodSummary.split('•')[0] ?? 'Visa ending in 4242'}
+                {billing?.paymentMethodSummary && billing.paymentMethodSummary !== '—'
+                  ? (billing.paymentMethodSummary.split('•')[0] ?? 'No payment method on file')
+                  : 'No payment method on file'}
               </p>
               <p className="text-sm text-slate-500">
-                {billing?.paymentMethodSummary.split('•')[1] ?? 'Expires 12/2025'}
+                {billing?.paymentMethodSummary && billing.paymentMethodSummary !== '—'
+                  ? (billing.paymentMethodSummary.split('•')[1] ?? '')
+                  : 'Add a payment method to manage your subscription'}
               </p>
             </div>
           </div>

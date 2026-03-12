@@ -189,6 +189,48 @@ export async function adminSetAccountStatus(
 }
 
 /**
+ * Update user profile (display_name, phone_number) - admin only
+ */
+export async function adminUpdateProfile(
+  userId: string,
+  input: { displayName?: string | null; phoneNumber?: string | null },
+): Promise<void> {
+  const client = getInsforgeClient();
+  const { error } = await client.database.rpc('admin_update_profile', {
+    p_user_id: userId,
+    p_display_name: input.displayName ?? null,
+    p_phone_number: input.phoneNumber ?? null,
+  });
+  if (error) {
+    throw new Error(error.message ?? 'Failed to update profile');
+  }
+}
+
+/**
+ * Fetch profile for a user (for admin edit form)
+ */
+export async function fetchProfileForUser(userId: string): Promise<{
+  displayName: string | null;
+  phoneNumber: string | null;
+}> {
+  const client = getInsforgeClient();
+  const { data, error } = await client.database
+    .from('profiles')
+    .select('display_name, phone_number')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return { displayName: null, phoneNumber: null };
+  }
+
+  return {
+    displayName: (data as any).display_name ?? null,
+    phoneNumber: (data as any).phone_number ?? null,
+  };
+}
+
+/**
  * Flag or unflag a user (admin workflow)
  */
 export async function adminSetFlagged(

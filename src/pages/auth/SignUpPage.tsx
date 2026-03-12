@@ -13,6 +13,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../auth/AuthProvider';
 import { bootstrapAccountAndProfile } from '../../lib/authBootstrap';
+import { auditEmailVerified } from '../../lib/auditEvents';
 import {
   getPasswordStrength,
   getStrengthColor,
@@ -111,7 +112,7 @@ export function SignUpPage() {
           result.user.id,
           result.user.name || name.trim(),
           phone.trim() || undefined,
-          { userAgent: navigator.userAgent, marketingConsent }
+          { userAgent: navigator.userAgent, marketingConsent, email: email.trim() }
         );
         navigate('/onboarding', { replace: true });
       }
@@ -141,7 +142,12 @@ export function SignUpPage() {
         verifiedUser.id,
         verifiedUser.name || name.trim(),
         phone.trim() || undefined,
-        { userAgent: navigator.userAgent, marketingConsent }
+        { userAgent: navigator.userAgent, marketingConsent, email: email.trim() }
+      );
+      await auditEmailVerified(
+        { userId: verifiedUser.id, email: verifiedUser.email },
+        verifiedUser.id,
+        { email: verifiedUser.email }
       );
       navigate('/onboarding', { replace: true });
     } catch (err: unknown) {
@@ -245,7 +251,7 @@ export function SignUpPage() {
         <Input
           label="Full Name"
           type="text"
-          placeholder="John Doe"
+          placeholder="Sipho Mokoena"
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={() => setTouched((t) => ({ ...t, name: true }))}
@@ -256,7 +262,7 @@ export function SignUpPage() {
         <Input
           label="Email address"
           type="email"
-          placeholder="you@example.com"
+          placeholder="sipho@example.co.za"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           onBlur={() => setTouched((t) => ({ ...t, email: true }))}
@@ -271,7 +277,7 @@ export function SignUpPage() {
         <Input
           label="Mobile number (optional)"
           type="tel"
-          placeholder="+1 (555) 000-0000"
+          placeholder="+27 73 153 1188"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           icon={<PhoneIcon className="w-5 h-5" />}

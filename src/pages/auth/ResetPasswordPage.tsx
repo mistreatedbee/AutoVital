@@ -110,7 +110,7 @@ export function ResetPasswordPage() {
           <Input
             label="Email address"
             type="email"
-            placeholder="you@example.com"
+            placeholder="sipho@example.co.za"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             icon={<MailIcon className="w-5 h-5" />}

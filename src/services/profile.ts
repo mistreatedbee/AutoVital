@@ -5,6 +5,8 @@ export interface ProfileUpdatePayload {
   displayName?: string | null;
   country?: string | null;
   city?: string | null;
+  province?: string | null;
+  postalCode?: string | null;
   currency?: string | null;
   mileageUnit?: string | null;
   fuelUnit?: string | null;
@@ -38,6 +40,8 @@ export async function fetchCurrentProfile(userId: string): Promise<Profile | nul
     displayName: data.display_name ?? null,
     country: data.country ?? null,
     city: data.city ?? null,
+    province: data.province ?? null,
+    postalCode: data.postal_code ?? null,
     currency: data.currency ?? null,
     mileageUnit: data.mileage_unit ?? null,
     fuelUnit: data.fuel_unit ?? null,
@@ -61,6 +65,8 @@ export async function updateProfile(
     if (payload.displayName !== undefined) dbPayload.display_name = payload.displayName;
     if (payload.country !== undefined) dbPayload.country = payload.country;
     if (payload.city !== undefined) dbPayload.city = payload.city;
+    if (payload.province !== undefined) dbPayload.province = payload.province;
+    if (payload.postalCode !== undefined) dbPayload.postal_code = payload.postalCode;
     if (payload.currency !== undefined) dbPayload.currency = payload.currency;
     if (payload.mileageUnit !== undefined) dbPayload.mileage_unit = payload.mileageUnit;
     if (payload.fuelUnit !== undefined) dbPayload.fuel_unit = payload.fuelUnit;

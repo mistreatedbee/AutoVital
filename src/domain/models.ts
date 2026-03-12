@@ -28,6 +28,8 @@ export interface Profile {
   displayName?: string | null;
   country?: string | null;
   city?: string | null;
+  province?: string | null;
+  postalCode?: string | null;
   currency?: string | null;
   mileageUnit?: string | null;
   fuelUnit?: string | null;

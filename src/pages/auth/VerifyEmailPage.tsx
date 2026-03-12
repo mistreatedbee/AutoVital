@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../auth/AuthProvider';
 import { bootstrapAccountAndProfile } from '../../lib/authBootstrap';
+import { auditEmailVerified } from '../../lib/auditEvents';
 import { mapAuthErrorToMessage } from '../../lib/authErrors';
 
 export function VerifyEmailPage() {
@@ -29,13 +30,18 @@ export function VerifyEmailPage() {
     setFormError(null);
 
     verifyEmail({ otp: tokenFromUrl })
-      .then((verifiedUser) => {
+      .then(async (verifiedUser) => {
         if (!isMounted) return;
-        return bootstrapAccountAndProfile(
+        await bootstrapAccountAndProfile(
           verifiedUser.id,
           verifiedUser.name || 'User',
           undefined,
-          { userAgent: navigator.userAgent, marketingConsent: false }
+          { userAgent: navigator.userAgent, marketingConsent: false, email: verifiedUser.email }
+        );
+        await auditEmailVerified(
+          { userId: verifiedUser.id, email: verifiedUser.email },
+          verifiedUser.id,
+          { email: verifiedUser.email }
         );
       })
       .then(() => {
@@ -127,7 +133,7 @@ export function VerifyEmailPage() {
           <Input
             label="Email address (to resend)"
             type="email"
-            placeholder="you@example.com"
+            placeholder="sipho@example.co.za"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             icon={<MailIcon className="w-5 h-5" />}

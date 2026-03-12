@@ -20,9 +20,13 @@ import {
   adminResendVerification,
   adminSetAccountStatus,
   adminSetFlagged,
+  adminUpdateProfile,
+  fetchProfileForUser,
   type AdminUserListItem,
   type AccountStatus,
 } from '../../services/usersAdmin';
+import { useAuth } from '../../auth/AuthProvider';
+import { auditUserStatusUpdated, auditUserFlagged, auditUserProfileUpdated } from '../../lib/auditEvents';
 import { fetchAdminPlans } from '../../services/adminPlans';
 
 type RoleFilterValue = AccountRole | 'all';
@@ -61,6 +65,8 @@ function exportUsersToCsv(users: AdminUserListItem[]): void {
 }
 
 export function UserManagement() {
+  const { user } = useAuth();
+  const actor = { userId: user?.id ?? null, email: user?.email ?? null };
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilterValue>('all');
   const [verifiedFilter, setVerifiedFilter] = useState<'all' | boolean>('all');
@@ -75,6 +81,7 @@ export function UserManagement() {
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [flagModalUser, setFlagModalUser] = useState<AdminUserListItem | null>(null);
+  const [editModalUser, setEditModalUser] = useState<AdminUserListItem | null>(null);
 
   useEffect(() => {
     fetchAdminPlans().then((p) => setPlans(p));
@@ -137,6 +144,7 @@ export function UserManagement() {
       const newStatus: AccountStatus = user.accountStatus === 'suspended' ? 'active' : 'suspended';
       try {
         await adminSetAccountStatus(user.id, newStatus);
+        await auditUserStatusUpdated(actor, user.id, { status: newStatus });
         setUsers((prev) =>
           prev.map((u) => (u.id === user.id ? { ...u, accountStatus: newStatus } : u)),
         );
@@ -166,6 +174,7 @@ export function UserManagement() {
       setActionLoading(flagModalUser.id);
       try {
         await adminSetFlagged(flagModalUser.id, flagged, reason ?? null);
+        await auditUserFlagged(actor, flagModalUser.id, { flagged, reason: reason ?? undefined });
         setUsers((prev) =>
           prev.map((u) =>
             u.id === flagModalUser.id
@@ -351,6 +360,16 @@ export function UserManagement() {
                     onClick={() => setActionMenuOpen(null)}
                   />
                   <div className="absolute right-0 top-full mt-1 z-20 py-1 bg-white rounded-lg shadow-lg border border-slate-200 min-w-[180px]">
+                    <button
+                      type="button"
+                      className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                      onClick={() => {
+                        setActionMenuOpen(null);
+                        setEditModalUser(row);
+                      }}>
+                      <UserIcon className="w-4 h-4" />
+                      Edit user
+                    </button>
                     {!row.emailVerified && (
                       <button
                         type="button"
@@ -540,6 +559,21 @@ export function UserManagement() {
           loading={actionLoading === flagModalUser.id}
         />
       )}
+
+      {/* Edit user modal */}
+      {editModalUser && (
+        <EditUserModal
+          user={editModalUser}
+          onClose={() => setEditModalUser(null)}
+          onSaved={(updated) => {
+            setUsers((prev) =>
+              prev.map((u) => (u.id === editModalUser.id ? { ...u, fullName: updated.fullName } : u))
+            );
+            setEditModalUser(null);
+          }}
+          actor={actor}
+        />
+      )}
     </div>
   );
 }
@@ -577,7 +611,7 @@ function FlagModal({
         </p>
         <textarea
           className="w-full border border-slate-200 rounded-xl p-3 text-sm resize-none h-24"
-          placeholder="e.g. Suspicious signup pattern..."
+          placeholder="e.g. Suspicious signup pattern"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           disabled={loading}
@@ -594,6 +628,100 @@ function FlagModal({
             {loading ? 'Saving...' : 'Flag user'}
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function EditUserModal({
+  user,
+  onClose,
+  onSaved,
+  actor,
+}: {
+  user: AdminUserListItem;
+  onClose: () => void;
+  onSaved: (updated: { fullName: string | null }) => void;
+  actor: { userId: string | null; email: string | null };
+}) {
+  const [displayName, setDisplayName] = useState(user.fullName ?? '');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setProfileLoading(true);
+    fetchProfileForUser(user.id)
+      .then((profile) => {
+        if (!cancelled) {
+          setDisplayName(profile.displayName ?? user.fullName ?? '');
+          setPhoneNumber(profile.phoneNumber ?? '');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setProfileLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [user.id, user.fullName]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await adminUpdateProfile(user.id, {
+        displayName: displayName.trim() || null,
+        phoneNumber: phoneNumber.trim() || null,
+      });
+      await auditUserProfileUpdated(actor, user.id, { displayName: displayName.trim() || undefined });
+      onSaved({ fullName: displayName.trim() || null });
+    } catch (err) {
+      setError((err as Error).message ?? 'Failed to update user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-labelledby="edit-user-modal-title">
+        <h2 id="edit-user-modal-title" className="text-lg font-bold text-slate-900 mb-2">
+          Edit user: {user.email}
+        </h2>
+        {profileLoading ? (
+          <p className="text-sm text-slate-500 py-4">Loading...</p>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="Display name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="e.g. Sipho Mokoena"
+            />
+            <Input
+              label="Phone number"
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="+27 73 153 1188"
+            />
+            {error && <p className="text-sm text-rose-600">{error}</p>}
+            <div className="flex gap-2 mt-4 justify-end">
+              <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" disabled={loading} loading={loading}>
+                Save
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

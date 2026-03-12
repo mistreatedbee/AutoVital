@@ -172,20 +172,20 @@ export function VehicleForm({ mode }: VehicleFormProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Nickname"
-                placeholder="Family SUV"
+                placeholder="e.g. Daily Driver"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
               />
               <Input
                 label="Make"
-                placeholder="Toyota"
+                placeholder="e.g. Toyota"
                 required
                 value={make}
                 onChange={(e) => setMake(e.target.value)}
               />
               <Input
                 label="Model"
-                placeholder="RAV4"
+                placeholder="e.g. Corolla"
                 required
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
@@ -205,7 +205,7 @@ export function VehicleForm({ mode }: VehicleFormProps) {
               />
               <Input
                 label="License Plate"
-                placeholder="ABC-1234"
+                placeholder="e.g. ABC 123 GP"
                 value={licensePlate}
                 onChange={(e) => setLicensePlate(e.target.value)}
               />

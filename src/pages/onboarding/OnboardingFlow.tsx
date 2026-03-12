@@ -93,6 +93,8 @@ export function OnboardingFlow() {
   const [displayName, setDisplayName] = useState('');
   const [country, setCountry] = useState('ZA');
   const [city, setCity] = useState('');
+  const [province, setProvince] = useState('');
+  const [postalCode, setPostalCode] = useState('');
   const [currency, setCurrency] = useState('ZAR');
   const [mileageUnit, setMileageUnit] = useState('km');
   const [fuelUnit, setFuelUnit] = useState('litres');
@@ -155,6 +157,8 @@ export function OnboardingFlow() {
         setDisplayName(profile.displayName ?? '');
         setCountry(profile.country ?? 'ZA');
         setCity(profile.city ?? '');
+        setProvince(profile.province ?? '');
+        setPostalCode(profile.postalCode ?? '');
         setCurrency(profile.currency ?? 'ZAR');
         setMileageUnit(profile.mileageUnit ?? 'km');
         setFuelUnit(profile.fuelUnit ?? 'litres');
@@ -174,6 +178,8 @@ export function OnboardingFlow() {
             if (sd1.displayName != null) setDisplayName(String(sd1.displayName));
             if (sd1.country != null) setCountry(String(sd1.country));
             if (sd1.city != null) setCity(String(sd1.city));
+            if (sd1.province != null) setProvince(String(sd1.province));
+            if (sd1.postalCode != null) setPostalCode(String(sd1.postalCode));
             if (sd1.currency != null) setCurrency(String(sd1.currency));
             if (sd1.mileageUnit != null) setMileageUnit(String(sd1.mileageUnit));
             if (sd1.fuelUnit != null) setFuelUnit(String(sd1.fuelUnit));
@@ -232,7 +238,7 @@ export function OnboardingFlow() {
     if (!user?.id || step >= 5) return;
     const next: OnboardingStepData = { ...stepDataRef.current };
     if (step === 1) {
-      next[1] = { displayName, country, city, currency, mileageUnit, fuelUnit, timezone, locale };
+      next[1] = { displayName, country, city, province, postalCode, currency, mileageUnit, fuelUnit, timezone, locale };
     } else if (step === 2) {
       next[2] = { nickname, make, model, year, registration, vin, currentMileage, fuelType, transmission, engineType, color };
     } else if (step === 3) {
@@ -242,7 +248,7 @@ export function OnboardingFlow() {
     }
     stepDataRef.current = next;
     await upsertOnboardingProgress(user.id, { stepData: next });
-  }, [user?.id, step, displayName, country, city, currency, mileageUnit, fuelUnit, timezone, locale, nickname, make, model, year, registration, vin, currentMileage, fuelType, transmission, engineType, color, lastServiceDate, lastServiceMileage, serviceIntervalMonths, serviceIntervalMileage, lastOilChangeDate, lastOilChangeMileage, lastBrakeServiceDate, lastBatteryDate, lastTireRotationDate, knownIssues, workshopName, emailReminders, inAppReminders, leadDays, reminderBasis, weeklySummary]);
+  }, [user?.id, step, displayName, country, city, province, postalCode, currency, mileageUnit, fuelUnit, timezone, locale, nickname, make, model, year, registration, vin, currentMileage, fuelType, transmission, engineType, color, lastServiceDate, lastServiceMileage, serviceIntervalMonths, serviceIntervalMileage, lastOilChangeDate, lastOilChangeMileage, lastBrakeServiceDate, lastBatteryDate, lastTireRotationDate, knownIssues, workshopName, emailReminders, inAppReminders, leadDays, reminderBasis, weeklySummary]);
 
   useEffect(() => {
     if (!user?.id || step >= 5 || initializing) return;
@@ -250,7 +256,7 @@ export function OnboardingFlow() {
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [user?.id, step, initializing, persistStepData, displayName, country, city, currency, mileageUnit, fuelUnit, timezone, locale, nickname, make, model, year, registration, vin, currentMileage, fuelType, transmission, engineType, color, lastServiceDate, lastServiceMileage, serviceIntervalMonths, serviceIntervalMileage, lastOilChangeDate, lastOilChangeMileage, lastBrakeServiceDate, lastBatteryDate, lastTireRotationDate, knownIssues, workshopName, emailReminders, inAppReminders, leadDays, reminderBasis, weeklySummary]);
+  }, [user?.id, step, initializing, persistStepData, displayName, country, city, province, postalCode, currency, mileageUnit, fuelUnit, timezone, locale, nickname, make, model, year, registration, vin, currentMileage, fuelType, transmission, engineType, color, lastServiceDate, lastServiceMileage, serviceIntervalMonths, serviceIntervalMileage, lastOilChangeDate, lastOilChangeMileage, lastBrakeServiceDate, lastBatteryDate, lastTireRotationDate, knownIssues, workshopName, emailReminders, inAppReminders, leadDays, reminderBasis, weeklySummary]);
 
   const [showStartOverConfirm, setShowStartOverConfirm] = useState(false);
 
@@ -272,6 +278,8 @@ export function OnboardingFlow() {
         setDisplayName('');
         setCountry('ZA');
         setCity('');
+        setProvince('');
+        setPostalCode('');
         setCurrency('ZAR');
         setMileageUnit('km');
         setFuelUnit('litres');
@@ -320,6 +328,8 @@ export function OnboardingFlow() {
       displayName: displayName.trim() || null,
       country: country || 'ZA',
       city: city.trim() || null,
+      province: province.trim() || null,
+      postalCode: postalCode.trim() || null,
       currency: currency || 'ZAR',
       mileageUnit: mileageUnit || 'km',
       fuelUnit: fuelUnit || 'litres',
@@ -330,7 +340,7 @@ export function OnboardingFlow() {
       await uploadAvatarFile(user.id, avatarFile);
     }
     return ok;
-  }, [user?.id, displayName, country, city, currency, mileageUnit, fuelUnit, timezone, locale, avatarFile]);
+  }, [user?.id, displayName, country, city, province, postalCode, currency, mileageUnit, fuelUnit, timezone, locale, avatarFile]);
 
   const saveVehicleStep = useCallback(async () => {
     if (vehicleSkipped || !accountId || !user?.id) return true;
@@ -627,7 +637,7 @@ export function OnboardingFlow() {
                   <div className="space-y-4">
                     <Input
                       label="Preferred display name"
-                      placeholder="e.g. John"
+                      placeholder="e.g. Sipho"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                     />
@@ -643,6 +653,33 @@ export function OnboardingFlow() {
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                     />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Province</label>
+                        <select
+                          className="w-full rounded-md border border-slate-300 py-2 px-3 text-sm"
+                          value={province}
+                          onChange={(e) => setProvince(e.target.value)}
+                        >
+                          <option value="">Select province</option>
+                          <option value="EC">Eastern Cape</option>
+                          <option value="FS">Free State</option>
+                          <option value="GP">Gauteng</option>
+                          <option value="KZN">KwaZulu-Natal</option>
+                          <option value="LP">Limpopo</option>
+                          <option value="MP">Mpumalanga</option>
+                          <option value="NC">Northern Cape</option>
+                          <option value="NW">North West</option>
+                          <option value="WC">Western Cape</option>
+                        </select>
+                      </div>
+                      <Input
+                        label="Postal code"
+                        placeholder="e.g. 2000"
+                        value={postalCode}
+                        onChange={(e) => setPostalCode(e.target.value)}
+                      />
+                    </div>
                     <Input
                       label="Preferred currency"
                       placeholder="ZAR"

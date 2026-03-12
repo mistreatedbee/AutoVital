@@ -1,12 +1,31 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { SectionHeading } from '../../components/ui/SectionHeading';
 import { PricingCard } from '../../components/ui/PricingCard';
 import { Toggle } from '../../components/ui/Toggle';
 import { Accordion } from '../../components/ui/Accordion';
+import { fetchPublicPlans } from '../../services/adminPlans';
+import { formatCurrencyZAR } from '../../lib/formatters';
+
 export function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<string>('Monthly');
   const isAnnual = billingCycle === 'Annually';
+
+  const { data: plans = [], isLoading } = useQuery({
+    queryKey: ['public', 'plans'],
+    queryFn: fetchPublicPlans,
+  });
+
+  const priceForPlan = (cents: number) => {
+    if (cents === 0) return 'R 0';
+    if (isAnnual) {
+      const monthlyEquivalent = Math.round(cents * 0.8);
+      return formatCurrencyZAR(monthlyEquivalent);
+    }
+    return formatCurrencyZAR(cents);
+  };
+
   return (
     <div className="pt-32 pb-24 bg-slate-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -68,48 +87,36 @@ export function PricingPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto mb-24">
-          <PricingCard
-            name="Starter"
-            price={isAnnual ? '$0' : '$0'}
-            period="mo"
-            description="Perfect for individuals with a single vehicle."
-            features={[
-            '1 Vehicle Profile',
-            'Basic Maintenance Log',
-            'Standard Reminders',
-            'Email Support']
-            }
-            ctaText="Get Started Free" />
-
-          <PricingCard
-            name="Pro"
-            price={isAnnual ? '$7' : '$9'}
-            period="mo"
-            description="For enthusiasts and multi-car households."
-            popular
-            features={[
-            'Up to 5 Vehicles',
-            'Advanced Health Score',
-            'Expense & Fuel Tracking',
-            'Document Storage (10GB)',
-            'Priority Support']
-            }
-            ctaText="Start 14-Day Trial" />
-
-          <PricingCard
-            name="Fleet"
-            price={isAnnual ? '$31' : '$39'}
-            period="mo"
-            description="For small businesses managing multiple vehicles."
-            features={[
-            'Unlimited Vehicles',
-            'Fleet Dashboard',
-            'Custom Maintenance Schedules',
-            'Data Export & Reporting',
-            '24/7 Phone Support']
-            }
-            ctaText="Contact Sales" />
-
+          {isLoading ? (
+            <div className="col-span-3 py-12 text-center text-slate-500">Loading plans...</div>
+          ) : plans.length === 0 ? (
+            <div className="col-span-3 py-12 text-center text-slate-500">No plans available. Check back soon.</div>
+          ) : (
+            plans.map((plan, idx) => (
+              <PricingCard
+                key={plan.id}
+                name={plan.name}
+                price={priceForPlan(plan.priceMonthlyCents)}
+                period="mo"
+                description={
+                  plan.code === 'starter'
+                    ? 'Perfect for individuals with a single vehicle.'
+                    : plan.code === 'pro'
+                      ? 'For enthusiasts and multi-car households.'
+                      : 'For small businesses managing multiple vehicles.'
+                }
+                popular={plan.code === 'pro'}
+                features={
+                  plan.code === 'starter'
+                    ? ['1 Vehicle Profile', 'Basic Maintenance Log', 'Standard Reminders', 'Email Support']
+                    : plan.code === 'pro'
+                      ? ['Up to 5 Vehicles', 'Advanced Health Score', 'Expense & Fuel Tracking', 'Document Storage (10GB)', 'Priority Support']
+                      : ['Unlimited Vehicles', 'Fleet Dashboard', 'Custom Maintenance Schedules', 'Data Export & Reporting', '24/7 Phone Support']
+                }
+                ctaText={plan.code === 'starter' ? 'Get Started Free' : plan.code === 'pro' ? 'Start 14-Day Trial' : 'Contact Sales'}
+              />
+            ))
+          )}
         </div>
 
         <div className="max-w-3xl mx-auto">

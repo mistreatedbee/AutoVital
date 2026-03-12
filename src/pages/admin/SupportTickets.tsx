@@ -25,7 +25,7 @@ export function SupportTickets() {
             <Button
               variant="secondary"
               onClick={() => {
-                window.open('mailto:support@example.com');
+                window.open('mailto:support@autovital.co.za');
               }}
             >
               Contact support team

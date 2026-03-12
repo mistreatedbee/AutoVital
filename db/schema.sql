@@ -5,6 +5,14 @@
 -- Enable required extensions (InsForge/Supabase usually have these available)
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+-- Admin role required for platform-admin RPCs and views (must exist before GRANTs)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'admin_role') THEN
+    CREATE ROLE admin_role;
+  END IF;
+END $$;
+
 -- =========================
 --  Accounts & Membership
 -- =========================
@@ -875,14 +883,7 @@ END $$;
 
 GRANT SELECT ON platform_admins TO authenticated;
 
--- Helper role and functions for platform-admin checks
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'admin_role') THEN
-    CREATE ROLE admin_role;
-  END IF;
-END $$;
-
+-- Helper functions for platform-admin checks (admin_role created at top of schema)
 CREATE OR REPLACE FUNCTION is_platform_admin(p_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql

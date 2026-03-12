@@ -54,6 +54,9 @@ export function ProfileSettings() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [country, setCountry] = useState('ZA');
+  const [city, setCity] = useState('');
+  const [province, setProvince] = useState('');
+  const [postalCode, setPostalCode] = useState('');
   const [currency, setCurrency] = useState('ZAR');
   const [timezone, setTimezone] = useState('Africa/Johannesburg');
   const [measurementSystem, setMeasurementSystem] = useState<'metric' | 'imperial'>('metric');
@@ -71,6 +74,9 @@ export function ProfileSettings() {
       setDisplayName(profile.displayName ?? '');
       setPhone(profile.phoneNumber ?? '');
       setCountry(profile.country ?? 'ZA');
+      setCity(profile.city ?? '');
+      setProvince(profile.province ?? '');
+      setPostalCode(profile.postalCode ?? '');
       setCurrency(profile.currency ?? 'ZAR');
       setTimezone(profile.timezone ?? 'Africa/Johannesburg');
       setMeasurementSystem(profile.measurementSystem ?? 'metric');
@@ -186,6 +192,9 @@ export function ProfileSettings() {
         displayName: displayName.trim() || null,
         phoneNumber: phone.trim() || null,
         country: country || 'ZA',
+        city: city.trim() || null,
+        province: province.trim() || null,
+        postalCode: postalCode.trim() || null,
         currency: currency || 'ZAR',
         timezone: timezone || 'Africa/Johannesburg',
         measurementSystem,
@@ -236,7 +245,7 @@ export function ProfileSettings() {
           <div className="flex-1 space-y-4">
             <Input
               label="Display Name"
-              placeholder="e.g. John"
+              placeholder="e.g. Sipho"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
             />
@@ -265,7 +274,7 @@ export function ProfileSettings() {
                   <Input
                     label="New email address"
                     type="email"
-                    placeholder="new@example.com"
+                    placeholder="sipho@example.co.za"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     error={emailError ?? undefined}
@@ -301,6 +310,37 @@ export function ProfileSettings() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+              <Input
+                label="City"
+                placeholder="e.g. Johannesburg"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+              />
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Province</label>
+                <select
+                  className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm"
+                  value={province}
+                  onChange={(e) => setProvince(e.target.value)}
+                >
+                  <option value="">Select province</option>
+                  <option value="EC">Eastern Cape</option>
+                  <option value="FS">Free State</option>
+                  <option value="GP">Gauteng</option>
+                  <option value="KZN">KwaZulu-Natal</option>
+                  <option value="LP">Limpopo</option>
+                  <option value="MP">Mpumalanga</option>
+                  <option value="NC">Northern Cape</option>
+                  <option value="NW">North West</option>
+                  <option value="WC">Western Cape</option>
+                </select>
+              </div>
+              <Input
+                label="Postal code"
+                placeholder="e.g. 2000"
+                value={postalCode}
+                onChange={(e) => setPostalCode(e.target.value)}
+              />
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Country</label>
                 <select

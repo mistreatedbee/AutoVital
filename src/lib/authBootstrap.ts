@@ -1,5 +1,6 @@
 import { getInsforgeClient } from './insforgeClient';
 import { recordConsents } from '../services/consents';
+import { auditUserSignup, auditOrganizationCreated } from './auditEvents';
 
 function slugify(text: string): string {
   return text
@@ -12,6 +13,7 @@ function slugify(text: string): string {
 export interface BootstrapOptions {
   userAgent?: string | null;
   marketingConsent?: boolean;
+  email?: string | null;
 }
 
 /**
@@ -102,4 +104,9 @@ export async function bootstrapAccountAndProfile(
     marketing: options?.marketingConsent ?? false,
     userAgent: options?.userAgent ?? null,
   });
+
+  // Audit: new user signup and organization created
+  const actor = { userId, email: options?.email ?? null };
+  await auditUserSignup(actor, userId, { email: options?.email ?? undefined });
+  await auditOrganizationCreated(actor, accountId, { name: accountName });
 }

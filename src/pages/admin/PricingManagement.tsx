@@ -1,53 +1,51 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { EditIcon } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { Input } from '../../components/ui/Input';
 import { formatCurrencyZAR } from '../../lib/formatters';
 import {
   fetchAdminPlans,
+  fetchAdminSubscriptions,
+  createPlan,
+  updatePlan,
   type AdminPlanRow,
 } from '../../services/adminPlans';
-import { fetchAdminSubscriptions } from '../../services/adminPlans';
+import { useAuth } from '../../auth/AuthProvider';
+import { auditPlanCreated, auditPlanUpdated } from '../../lib/auditEvents';
 
 export function PricingManagement() {
+  const { user } = useAuth();
+  const actor = { userId: user?.id ?? null, email: user?.email ?? null };
   const [plans, setPlans] = useState<AdminPlanRow[]>([]);
   const [subscriptionCounts, setSubscriptionCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
+  const [planModal, setPlanModal] = useState<{ mode: 'create' | 'edit'; plan?: AdminPlanRow } | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      try {
-        const [planRows, subRows] = await Promise.all([
-          fetchAdminPlans(),
-          fetchAdminSubscriptions(),
-        ]);
-        if (!cancelled) {
-          setPlans(planRows);
-          const counts: Record<string, number> = {};
-          for (const s of subRows) {
-            if (s.status === 'active' || s.status === 'trialing') {
-              counts[s.planCode] = (counts[s.planCode] ?? 0) + 1;
-            }
-          }
-          setSubscriptionCounts(counts);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
+  const loadPlans = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [planRows, subRows] = await Promise.all([
+        fetchAdminPlans(),
+        fetchAdminSubscriptions(),
+      ]);
+      setPlans(planRows);
+      const counts: Record<string, number> = {};
+      for (const s of subRows) {
+        if (s.status === 'active' || s.status === 'trialing') {
+          counts[s.planCode] = (counts[s.planCode] ?? 0) + 1;
         }
       }
+      setSubscriptionCounts(counts);
+    } finally {
+      setLoading(false);
     }
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    void loadPlans();
+  }, [loadPlans]);
 
   const priceLabel = (cents: number) => formatCurrencyZAR(cents);
 
@@ -68,7 +66,7 @@ export function PricingManagement() {
         <Button
           variant="primary"
           className="bg-rose-600 hover:bg-rose-700 border-none"
-        >
+          onClick={() => setPlanModal({ mode: 'create' })}>
           Create New Plan
         </Button>
       </div>
@@ -142,7 +140,7 @@ export function PricingManagement() {
                 variant="secondary"
                 className="w-full"
                 icon={<EditIcon className="w-4 h-4" />}
-              >
+                onClick={() => setPlanModal({ mode: 'edit', plan })}>
                 Edit Plan
               </Button>
             </Card>
@@ -164,6 +162,135 @@ export function PricingManagement() {
           Feature toggles can be configured here. (Future enhancement)
         </p>
       </Card>
+
+      {planModal && (
+        <PlanModal
+          mode={planModal.mode}
+          plan={planModal.plan}
+          onClose={() => setPlanModal(null)}
+          onSaved={() => {
+            setPlanModal(null);
+            void loadPlans();
+          }}
+          actor={actor}
+        />
+      )}
+    </div>
+  );
+}
+
+function PlanModal({
+  mode,
+  plan,
+  onClose,
+  onSaved,
+  actor,
+}: {
+  mode: 'create' | 'edit';
+  plan?: AdminPlanRow;
+  onClose: () => void;
+  onSaved: () => void;
+  actor: { userId: string | null; email: string | null };
+}) {
+  const [code, setCode] = useState(plan?.code ?? '');
+  const [name, setName] = useState(plan?.name ?? '');
+  const [priceCents, setPriceCents] = useState(plan ? String(plan.priceMonthlyCents / 100) : '');
+  const [vehicleLimit, setVehicleLimit] = useState(plan?.vehicleLimit != null ? String(plan.vehicleLimit) : '');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const cents = Math.round(parseFloat(priceCents || '0') * 100);
+    if (cents < 0) {
+      setError('Price must be non-negative');
+      return;
+    }
+    if (!name.trim()) {
+      setError('Name is required');
+      return;
+    }
+    if (mode === 'create' && !code.trim()) {
+      setError('Code is required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (mode === 'create') {
+        const id = await createPlan({
+          code: code.trim().toLowerCase(),
+          name: name.trim(),
+          priceMonthlyCents: cents,
+          vehicleLimit: vehicleLimit ? parseInt(vehicleLimit, 10) : null,
+          features: {},
+        });
+        await auditPlanCreated(actor, id, { code: code.trim(), name: name.trim() });
+      } else if (plan) {
+        await updatePlan({
+          id: plan.id,
+          name: name.trim(),
+          priceMonthlyCents: cents,
+          vehicleLimit: vehicleLimit ? parseInt(vehicleLimit, 10) : null,
+        });
+        await auditPlanUpdated(actor, plan.id, { code: plan.code, name: name.trim() });
+      }
+      onSaved();
+    } catch (err) {
+      setError((err as Error).message ?? 'Failed to save plan');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-bold text-slate-900 mb-4">
+          {mode === 'create' ? 'Create Plan' : 'Edit Plan'}
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="e.g. starter"
+            disabled={mode === 'edit'}
+          />
+          <Input
+            label="Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Starter"
+            required
+          />
+          <Input
+            label="Price (ZAR per month)"
+            type="number"
+            step="0.01"
+            value={priceCents}
+            onChange={(e) => setPriceCents(e.target.value)}
+            placeholder="e.g. 99.00"
+          />
+          <Input
+            label="Vehicle limit (empty = unlimited)"
+            type="number"
+            value={vehicleLimit}
+            onChange={(e) => setVehicleLimit(e.target.value)}
+            placeholder="e.g. 5"
+          />
+          {error && <p className="text-sm text-rose-600">{error}</p>}
+          <div className="flex gap-2 justify-end pt-4">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" loading={loading}>
+              {mode === 'create' ? 'Create' : 'Save'}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

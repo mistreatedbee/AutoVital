@@ -121,14 +121,14 @@ export function ContactPage() {
               {!sent ?
               <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Input name="firstName" label="First Name" placeholder="John" required />
-                    <Input name="lastName" label="Last Name" placeholder="Doe" required />
+                    <Input name="firstName" label="First Name" placeholder="Sipho" required />
+                    <Input name="lastName" label="Last Name" placeholder="Mokoena" required />
                   </div>
                   <Input
                   name="email"
                   label="Email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="sipho@example.co.za"
                   required />
 
                   <Input

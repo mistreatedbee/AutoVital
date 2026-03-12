@@ -360,7 +360,7 @@ export function MaintenanceLog() {
               />
               <Input
                 label="Workshop"
-                placeholder="Tesla Service Center"
+                placeholder="e.g. AutoZone Sandton"
                 value={formState.vendorName}
                 onChange={(e) =>
                   setFormState((prev) => ({ ...prev, vendorName: e.target.value }))

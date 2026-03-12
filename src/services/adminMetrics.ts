@@ -60,3 +60,81 @@ export async function fetchAdminDashboardMetrics(): Promise<AdminDashboardMetric
     return empty;
   }
 }
+
+export interface RevenueByMonthPoint {
+  monthKey: string;
+  monthLabel: string;
+  revenueCents: number;
+}
+
+export async function fetchAdminRevenueByMonth(
+  months: number = 6,
+): Promise<RevenueByMonthPoint[]> {
+  try {
+    const client = getInsforgeClient();
+    const { data, error } = await client.database.rpc('admin_revenue_by_month', {
+      p_months: months,
+    });
+
+    if (error || !data) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to load admin revenue by month.', error);
+      return [];
+    }
+
+    const rows = (data as { month_key: string; revenue_cents: number }[]) ?? [];
+    return rows.map((r) => {
+      const [y, m] = (r.month_key ?? '').split('-');
+      const d = new Date(Number(y), Number(m || 1) - 1, 1);
+      const monthLabel = d.toLocaleDateString('en-ZA', { month: 'short' });
+      return {
+        monthKey: r.month_key,
+        monthLabel,
+        revenueCents: Number(r.revenue_cents ?? 0),
+      };
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Admin revenue by month failed.', err);
+    return [];
+  }
+}
+
+export interface SignupsByDayPoint {
+  dayKey: string;
+  dayLabel: string;
+  signupCount: number;
+}
+
+export async function fetchAdminSignupsByDay(
+  days: number = 7,
+): Promise<SignupsByDayPoint[]> {
+  try {
+    const client = getInsforgeClient();
+    const { data, error } = await client.database.rpc('admin_signups_by_day', {
+      p_days: days,
+    });
+
+    if (error || !data) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to load admin signups by day.', error);
+      return [];
+    }
+
+    const rows = (data as { day_key: string; signup_count: number }[]) ?? [];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return rows.map((r) => {
+      const d = new Date(r.day_key);
+      const dayLabel = dayNames[d.getDay()] ?? '';
+      return {
+        dayKey: r.day_key,
+        dayLabel,
+        signupCount: Number(r.signup_count ?? 0),
+      };
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Admin signups by day failed.', err);
+    return [];
+  }
+}
