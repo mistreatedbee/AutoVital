@@ -73,6 +73,22 @@ Edge functions need these secrets (set via `insforge secrets add`):
 | `INSFORGE_SERVICE_ROLE_KEY` | Admin API key; **never** expose in frontend |
 | `SENDGRID_API_KEY` | For send-welcome-email (optional) |
 
+### Admin Dashboard Edge Function
+
+The admin dashboard (metrics, revenue, signups, platform health) uses the `admin-dashboard-data` edge function when direct RPCs return 403. Deploy and configure:
+
+```bash
+insforge functions deploy admin-dashboard-data
+insforge secrets add INSFORGE_SERVICE_ROLE_KEY <your-service-role-key>
+```
+
+Run migrations so the service key can call admin RPCs:
+
+```bash
+insforge db query --file db/migrations/2026-03-12-admin-allow-project-admin.sql
+insforge db query --file db/migrations/2026-03-12-admin-rpcs-grant-authenticated.sql
+```
+
 ---
 
 ## Where Credentials Are Configured

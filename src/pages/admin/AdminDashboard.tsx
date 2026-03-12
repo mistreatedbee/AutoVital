@@ -31,6 +31,7 @@ import { Button } from '../../components/ui/Button';
 import { chartColors, cssVarHsl } from '../../lib/tokens';
 import { formatCurrencyZAR } from '../../lib/formatters';
 import {
+  fetchAdminDashboardData,
   fetchAdminDashboardMetrics,
   fetchAdminRevenueByMonth,
   fetchAdminSignupsByDay,
@@ -98,35 +99,37 @@ export function AdminDashboard() {
   const [platformHealth, setPlatformHealth] = useState<PlatformHealthMetrics | null>(null);
   const [healthProbeTick, setHealthProbeTick] = useState(0);
 
-  const loadMetrics = useCallback(async () => {
+  const loadDashboard = useCallback(async () => {
     setMetricsLoading(true);
+    setRevenueLoading(true);
+    setSignupLoading(true);
     setError(null);
     try {
-      const m = await fetchAdminDashboardMetrics();
-      setMetrics(m);
+      const data = await fetchAdminDashboardData();
+      if (data) {
+        if (data.metrics) setMetrics(data.metrics);
+        else setMetrics(emptyMetrics);
+        setRevenueData(data.revenue ?? []);
+        setSignupData(data.signups ?? []);
+        setPlatformHealth(data.platformHealth ?? null);
+      } else {
+        const [m, revenue, signups] = await Promise.all([
+          fetchAdminDashboardMetrics(),
+          fetchAdminRevenueByMonth(6),
+          fetchAdminSignupsByDay(7),
+        ]);
+        setMetrics(m);
+        setRevenueData(revenue);
+        setSignupData(signups);
+        const ph = await fetchPlatformHealth();
+        setPlatformHealth(ph);
+      }
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error('Failed to load admin dashboard metrics', err);
+      console.error('Failed to load admin dashboard', err);
       setError('We could not load admin metrics right now. Please try again.');
     } finally {
       setMetricsLoading(false);
-    }
-  }, []);
-
-  const loadCharts = useCallback(async () => {
-    setRevenueLoading(true);
-    setSignupLoading(true);
-    try {
-      const [revenue, signups] = await Promise.all([
-        fetchAdminRevenueByMonth(6),
-        fetchAdminSignupsByDay(7),
-      ]);
-      setRevenueData(revenue);
-      setSignupData(signups);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('Failed to load admin charts', err);
-    } finally {
       setRevenueLoading(false);
       setSignupLoading(false);
     }
@@ -146,28 +149,18 @@ export function AdminDashboard() {
     }
   }, []);
 
-  const loadPlatformHealth = useCallback(async () => {
-    const metrics = await fetchPlatformHealth();
-    setPlatformHealth(metrics);
-  }, []);
-
   useEffect(() => {
-    void loadMetrics();
-  }, [loadMetrics]);
-
-  useEffect(() => {
-    void loadCharts();
-  }, [loadCharts]);
+    void loadDashboard();
+  }, [loadDashboard]);
 
   useEffect(() => {
     void loadActivity();
   }, [loadActivity]);
 
   useEffect(() => {
-    void loadPlatformHealth();
-    const interval = setInterval(() => void loadPlatformHealth(), 60_000);
+    const interval = setInterval(() => void loadDashboard(), 60_000);
     return () => clearInterval(interval);
-  }, [loadPlatformHealth]);
+  }, [loadDashboard]);
 
   useEffect(() => {
     const runProbe = async () => {
@@ -258,7 +251,7 @@ export function AdminDashboard() {
         <ErrorState
           title="Admin metrics are unavailable"
           description={error}
-          onRetry={() => void loadMetrics()}
+          onRetry={() => void loadDashboard()}
           className="max-w-3xl"
         />
       )}

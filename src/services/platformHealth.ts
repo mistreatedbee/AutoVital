@@ -50,14 +50,14 @@ export async function fetchPlatformHealth(): Promise<PlatformHealthMetrics | nul
 }
 
 /**
- * Runs a lightweight API probe and records latency.
- * Uses admin_dashboard_metrics as a representative API call.
+ * Runs a health probe via the admin-dashboard-data edge function.
+ * Uses the edge function when direct RPCs return 403.
  */
 export async function runHealthProbe(): Promise<HealthProbeResult> {
   const start = performance.now();
   try {
     const client = getInsforgeClient();
-    const { error } = await client.database.rpc('admin_dashboard_metrics');
+    const { error } = await client.functions.invoke('admin-dashboard-data', { method: 'GET' });
     const latencyMs = Math.round(performance.now() - start);
     const ok = !error;
 
