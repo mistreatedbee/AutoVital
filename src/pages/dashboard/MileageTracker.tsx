@@ -104,7 +104,7 @@ export function MileageTracker() {
 
   const latestOdometer = history.length ? history[history.length - 1].odometer : null;
 
-  const milesLast30d = useMemo(() => {
+  const distanceKmLast30d = useMemo(() => {
     if (!history.length) return null;
     const now = new Date();
     const cutoff = new Date(now);
@@ -115,9 +115,9 @@ export function MileageTracker() {
   }, [history]);
 
   const projectedAnnual = useMemo(() => {
-    if (milesLast30d == null) return null;
-    return (milesLast30d / 30) * 365;
-  }, [milesLast30d]);
+    if (distanceKmLast30d == null) return null;
+    return (distanceKmLast30d / 30) * 365;
+  }, [distanceKmLast30d]);
 
   const columns = [
     {
@@ -240,10 +240,10 @@ export function MileageTracker() {
           icon={<ActivityIcon className="w-6 h-6" />}
         />
         <StatCard
-          title={measurementSystem === 'imperial' ? 'Miles Driven (30d)' : 'Kilometers Driven (30d)'}
+          title="Kilometers Driven (30d)"
           value={
-            milesLast30d != null
-              ? milesLast30d.toFixed(0)
+            distanceKmLast30d != null
+              ? distanceKmLast30d.toFixed(0)
               : '—'
           }
           icon={<ActivityIcon className="w-6 h-6" />}

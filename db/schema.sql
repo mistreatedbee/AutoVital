@@ -199,7 +199,7 @@ CREATE TABLE IF NOT EXISTS maintenance_logs (
   mileage NUMERIC,
   service_date DATE NOT NULL,
   cost_cents INTEGER,
-  currency TEXT NOT NULL DEFAULT 'USD',
+  currency TEXT NOT NULL DEFAULT 'ZAR',
   vendor_name TEXT,
   document_id UUID REFERENCES documents (id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -215,7 +215,7 @@ CREATE TABLE IF NOT EXISTS fuel_logs (
   volume NUMERIC NOT NULL, -- gallons or liters based on measurement_system
   total_cost_cents INTEGER NOT NULL,
   price_per_unit_cents INTEGER,
-  currency TEXT NOT NULL DEFAULT 'USD',
+  currency TEXT NOT NULL DEFAULT 'ZAR',
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

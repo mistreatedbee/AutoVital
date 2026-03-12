@@ -28,7 +28,7 @@ export function AdminSettings() {
           </div>
           <Input
             label="Company Address"
-            defaultValue="100 Tech Parkway, San Francisco, CA 94105" />
+            defaultValue="80 Victoria Street, Cape Town, 8001, South Africa" />
 
           <Button
             variant="primary"

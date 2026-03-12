@@ -13,8 +13,8 @@ export interface VehicleCostBreakdown {
   maintenanceCents: number;
   fuelCents: number;
   totalCents: number;
-  distanceMiles: number | null;
-  costPerMileCents: number | null;
+  distanceKm: number | null;
+  costPerKmCents: number | null;
 }
 
 function monthKey(dateString: string): string {
@@ -189,11 +189,9 @@ export async function fetchVehicleCostBreakdown(
       const maintenanceCents = maintenanceByVehicle.get(vId) ?? 0;
       const fuelCents = fuelByVehicle.get(vId) ?? 0;
       const totalCents = maintenanceCents + fuelCents;
-      const distanceMiles = distanceByVehicle.get(vId) ?? null;
-      const costPerMileCents =
-        distanceMiles && distanceMiles > 0
-          ? Math.round(totalCents / distanceMiles)
-          : null;
+      const distanceKm = distanceByVehicle.get(vId) ?? null;
+      const costPerKmCents =
+        distanceKm && distanceKm > 0 ? Math.round(totalCents / distanceKm) : null;
 
       result.push({
         vehicleId: vId,
@@ -201,8 +199,8 @@ export async function fetchVehicleCostBreakdown(
         maintenanceCents,
         fuelCents,
         totalCents,
-        distanceMiles,
-        costPerMileCents,
+        distanceKm,
+        costPerKmCents,
       });
     }
 
@@ -232,19 +230,19 @@ export function exportVehicleBreakdownToCsv(
   rows: VehicleCostBreakdown[],
 ): Blob {
   const header =
-    'vehicle,maintenance,fuel,total,distance_miles,cost_per_mile\n';
+    'vehicle,maintenance,fuel,total,distance_km,cost_per_km\n';
   const body = rows
     .map((r) => {
       const maintenance = (r.maintenanceCents / 100).toFixed(2);
       const fuel = (r.fuelCents / 100).toFixed(2);
       const total = (r.totalCents / 100).toFixed(2);
       const distance =
-        r.distanceMiles != null ? r.distanceMiles.toFixed(1) : '';
-      const costPerMile =
-        r.costPerMileCents != null
-          ? (r.costPerMileCents / 100).toFixed(2)
+        r.distanceKm != null ? r.distanceKm.toFixed(1) : '';
+      const costPerKm =
+        r.costPerKmCents != null
+          ? (r.costPerKmCents / 100).toFixed(2)
           : '';
-      return `${JSON.stringify(r.vehicleName)},${maintenance},${fuel},${total},${distance},${costPerMile}`;
+      return `${JSON.stringify(r.vehicleName)},${maintenance},${fuel},${total},${distance},${costPerKm}`;
     })
     .join('\n');
   const csv = header + body;

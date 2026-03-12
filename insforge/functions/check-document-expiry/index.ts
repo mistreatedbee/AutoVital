@@ -92,7 +92,8 @@ export default async function handler(req: Request): Promise<Response> {
 
           const docType = (doc.type as string) || 'document';
           const title = `${docType.charAt(0).toUpperCase() + docType.slice(1)} expiring soon`;
-          const message = `Your ${docType} "${doc.name}" expires on ${expiresAt.toLocaleDateString()}.`;
+          // Note: Dates are interpreted in the Africa/Johannesburg timezone for SA deployment.
+          const message = `Your ${docType} "${doc.name}" expires on ${expiresAt.toLocaleDateString('en-ZA')}.`;
 
           // Avoid duplicate alerts: skip if same alert exists in last 7 days
           const sevenDaysAgo = new Date(now);

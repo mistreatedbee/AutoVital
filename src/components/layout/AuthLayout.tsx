@@ -116,7 +116,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
                     Upcoming Service
                   </p>
                   <p className="text-slate-400 text-xs">
-                    Oil Change in 450 miles
+                    Oil change in 700 km
                   </p>
                 </div>
               </div>

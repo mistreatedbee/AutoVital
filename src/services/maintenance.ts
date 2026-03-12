@@ -65,7 +65,7 @@ export async function createMaintenanceLogWithHealthUpdate(
     mileage: input.mileage ?? null,
     service_date: input.serviceDate,
     cost_cents: input.costCents ?? null,
-    currency: input.currency ?? 'USD',
+    currency: input.currency ?? 'ZAR',
     vendor_name: input.vendorName ?? null,
     document_id: input.documentId ?? null,
   };

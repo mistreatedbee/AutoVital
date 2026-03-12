@@ -30,13 +30,14 @@ import { useAccount } from '../../account/AccountProvider';
 import { ErrorState } from '../../components/states/ErrorState';
 import { DashboardHomeSkeleton } from '../../components/states/pageSkeletons';
 import { useDashboardOverview } from '../../hooks/queries';
+import { formatCurrencyZAR } from '../../lib/formatters';
 
 export function DashboardHome() {
   const { user } = useAuth();
   const { accountId, loading: accountLoading, error: accountError, refresh } = useAccount();
   const { data: overview, isLoading, error, refetch } = useDashboardOverview(accountId);
 
-  const today = new Date().toLocaleDateString('en-US', {
+  const today = new Date().toLocaleDateString('en-ZA', {
     weekday: 'long',
     month: 'short',
     day: 'numeric',
@@ -50,7 +51,7 @@ export function DashboardHome() {
 
   const activeVehicles = overview?.stats.vehicleCount ?? 0;
   const openAlerts = overview?.stats.openAlertCount ?? 0;
-  const monthlySpend = overview?.stats.monthlyCostTotal ?? 0;
+  const monthlySpendCents = overview?.stats.monthlyCostTotal ?? 0;
   const expenseData = overview?.expenseSeries ?? [];
 
   const hasVehicles = (overview?.vehicles?.length ?? 0) > 0;
@@ -193,7 +194,7 @@ export function DashboardHome() {
 
           <StatCard
             title="Monthly Spend"
-            value={`$${monthlySpend.toFixed(0)}`}
+            value={formatCurrencyZAR(monthlySpendCents)}
             change="Last 30 days • fuel, maintenance, billing"
             trend="up"
             accentColor="rose"
@@ -356,7 +357,7 @@ export function DashboardHome() {
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-2xl font-bold text-slate-900">
-                    {`$${monthlySpend.toFixed(0)}`}
+                    {formatCurrencyZAR(monthlySpendCents)}
                   </span>
                   <Badge variant="success" className="text-[10px] px-2 py-0.5">
                     Last 6 months
@@ -415,7 +416,7 @@ export function DashboardHome() {
                         fontSize: 12,
                         fontWeight: 500
                       }}
-                      tickFormatter={(value) => `$${value}`} />
+                      tickFormatter={(value) => formatCurrencyZAR(value)} />
 
                     <Tooltip
                       contentStyle={{
@@ -425,9 +426,9 @@ export function DashboardHome() {
                         fontWeight: 600
                       }}
                       formatter={(value: number) => [
-                      `$${value}`,
-                      'Total Expense']
-                      } />
+                        formatCurrencyZAR(value),
+                        'Total Expense',
+                      ]} />
 
                     <Area
                       type="monotone"

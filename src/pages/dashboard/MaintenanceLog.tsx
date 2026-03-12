@@ -41,7 +41,7 @@ const EMPTY_FORM: MaintenanceFormState = {
   serviceDate: '',
   mileage: '',
   cost: '',
-  currency: 'USD',
+  currency: 'ZAR',
   vendorName: '',
   description: '',
   documentFile: null,
@@ -138,7 +138,7 @@ export function MaintenanceLog() {
       serviceDate: entry.date,
       mileage: entry.mileage ? entry.mileage.replace(/,/g, '') : '',
       cost: entry.cost ? entry.cost.replace(/[^0-9.]/g, '') : '',
-      currency: 'USD',
+      currency: 'ZAR',
       vendorName: entry.shop ?? '',
       description: '',
       documentFile: null,
@@ -196,7 +196,7 @@ export function MaintenanceLog() {
           mileage: mileageNumber,
           serviceDate: formState.serviceDate,
           costCents: costNumber,
-          currency: formState.currency || 'USD',
+          currency: formState.currency || 'ZAR',
           vendorName: formState.vendorName || null,
           documentId,
         };
@@ -211,7 +211,7 @@ export function MaintenanceLog() {
             mileage: mileageNumber,
             serviceDate: formState.serviceDate,
             costCents: costNumber,
-            currency: formState.currency || 'USD',
+            currency: formState.currency || 'ZAR',
             vendorName: formState.vendorName || null,
             documentId,
           },
@@ -331,7 +331,7 @@ export function MaintenanceLog() {
               />
               <Input
                 label="Currency"
-                placeholder="USD"
+                placeholder="ZAR"
                 value={formState.currency}
                 onChange={(e) =>
                   setFormState((prev) => ({ ...prev, currency: e.target.value }))

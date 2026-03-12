@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
+import { formatCurrencyZAR } from '../../lib/formatters';
 import {
   fetchAdminMaintenanceLogs,
   type AdminMaintenanceRow,
@@ -86,9 +87,10 @@ export function MaintenanceManagement() {
         l.cost ? Number(l.cost.replace(/[^0-9.]/g, '')) : null,
       )
       .filter((v): v is number => v != null && !Number.isNaN(v));
-    if (!amounts.length) return '$0.00';
-    const total = amounts.reduce((sum, n) => sum + n, 0);
-    return `$${total.toFixed(2)}`;
+    if (!amounts.length) return formatCurrencyZAR(0);
+    const totalRands = amounts.reduce((sum, n) => sum + n, 0);
+    const totalCents = Math.round(totalRands * 100);
+    return formatCurrencyZAR(totalCents);
   }, [filteredLogs]);
 
   const avgTicketLabel = useMemo(() => {
@@ -97,9 +99,10 @@ export function MaintenanceManagement() {
         l.cost ? Number(l.cost.replace(/[^0-9.]/g, '')) : null,
       )
       .filter((v): v is number => v != null && !Number.isNaN(v));
-    if (!amounts.length) return '$0.00';
-    const avg = amounts.reduce((sum, n) => sum + n, 0) / amounts.length;
-    return `$${avg.toFixed(2)}`;
+    if (!amounts.length) return formatCurrencyZAR(0);
+    const avgRands = amounts.reduce((sum, n) => sum + n, 0) / amounts.length;
+    const avgCents = Math.round(avgRands * 100);
+    return formatCurrencyZAR(avgCents);
   }, [filteredLogs]);
 
   const columns = useMemo(

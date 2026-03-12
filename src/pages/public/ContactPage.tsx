@@ -89,9 +89,9 @@ export function ContactPage() {
                   Come say hello at our HQ.
                 </p>
                 <p className="text-slate-700 font-medium">
-                  100 Tech Parkway
+                  80 Victoria Street
                   <br />
-                  San Francisco, CA 94105
+                  Cape Town, 8001, South Africa
                 </p>
               </div>
             </Card>
@@ -106,10 +106,10 @@ export function ContactPage() {
                   Mon-Fri from 8am to 5pm.
                 </p>
                 <a
-                  href="tel:+15550000000"
+                  href="tel:+27215550123"
                   className="text-slate-700 font-medium hover:text-primary-600">
 
-                  +1 (555) 000-0000
+                  +27 21 555 0123
                 </a>
               </div>
             </Card>

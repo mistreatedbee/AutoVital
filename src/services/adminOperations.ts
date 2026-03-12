@@ -1,4 +1,5 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
+import { formatCurrencyZAR, formatCurrencyZAROrDash } from '../lib/formatters';
 import {
   type PaginatedParams,
   type PaginatedResult,
@@ -205,13 +206,7 @@ export async function fetchAdminMaintenanceLogs(
           : 'Vehicle';
       const mileage =
         row.mileage != null ? Number(row.mileage).toLocaleString() : null;
-      const cost =
-        row.cost_cents != null
-          ? new Intl.NumberFormat('en-US', {
-              style: 'currency',
-              currency: row.currency ?? 'USD',
-            }).format(row.cost_cents / 100)
-          : null;
+      const cost = row.cost_cents != null ? formatCurrencyZAR(row.cost_cents) : null;
 
       return {
         id: row.id,
@@ -271,20 +266,13 @@ export async function fetchAdminFuelLogs(
           ? `${row.vehicles.make} ${row.vehicles.model}`
           : 'Vehicle';
       const volume = row.volume != null ? String(row.volume) : '0';
-      const totalCost =
-        row.total_cost_cents != null
-          ? new Intl.NumberFormat('en-US', {
-              style: 'currency',
-              currency: row.currency ?? 'USD',
-            }).format(row.total_cost_cents / 100)
-          : '$0.00';
+      const totalCost = formatCurrencyZAROrDash(row.total_cost_cents, 'R0.00');
       const pricePerUnit =
         row.volume && row.total_cost_cents
-          ? new Intl.NumberFormat('en-US', {
-              style: 'currency',
-              currency: row.currency ?? 'USD',
-            }).format(row.total_cost_cents / 100 / Number(row.volume))
-          : '$0.00';
+          ? formatCurrencyZAR(
+              Math.round(row.total_cost_cents / Number(row.volume)),
+            )
+          : 'R0.00';
       const odometer =
         row.odometer != null ? Number(row.odometer).toLocaleString() : null;
 

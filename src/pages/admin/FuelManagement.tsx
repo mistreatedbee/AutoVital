@@ -3,6 +3,7 @@ import { DropletIcon, FilterIcon } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { DataTable } from '../../components/ui/DataTable';
 import { Input } from '../../components/ui/Input';
+import { formatCurrencyZAR } from '../../lib/formatters';
 import {
   fetchAdminFuelLogs,
   type AdminFuelRow,
@@ -74,9 +75,10 @@ export function FuelManagement() {
         r.totalCost ? Number(r.totalCost.replace(/[^0-9.]/g, '')) : null,
       )
       .filter((v): v is number => v != null && !Number.isNaN(v));
-    if (!amounts.length) return '$0.00';
-    const total = amounts.reduce((sum, n) => sum + n, 0);
-    return `$${total.toFixed(2)}`;
+    if (!amounts.length) return formatCurrencyZAR(0);
+    const totalRands = amounts.reduce((sum, n) => sum + n, 0);
+    const totalCents = Math.round(totalRands * 100);
+    return formatCurrencyZAR(totalCents);
   }, [filteredRows]);
 
   const avgPriceLabel = useMemo(() => {
@@ -87,9 +89,10 @@ export function FuelManagement() {
           : null,
       )
       .filter((v): v is number => v != null && !Number.isNaN(v));
-    if (!prices.length) return '$0.00';
-    const avg = prices.reduce((sum, n) => sum + n, 0) / prices.length;
-    return `$${avg.toFixed(2)}`;
+    if (!prices.length) return formatCurrencyZAR(0);
+    const avgRands = prices.reduce((sum, n) => sum + n, 0) / prices.length;
+    const avgCents = Math.round(avgRands * 100);
+    return formatCurrencyZAR(avgCents);
   }, [filteredRows]);
 
   const columns = useMemo(

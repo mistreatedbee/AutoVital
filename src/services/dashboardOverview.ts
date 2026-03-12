@@ -1,4 +1,5 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
+import { formatCurrencyZAR } from '../lib/formatters';
 import type { BillingInvoice } from './billing';
 import type { FuelLogEntry } from './fuel';
 import type { MaintenanceEntry } from './maintenance';
@@ -8,7 +9,7 @@ export interface OverviewStats {
   vehicleCount: number;
   openAlertCount: number;
   upcomingMaintenanceCount: number;
-  monthlyCostTotal: number;
+  monthlyCostTotal: number; // cents
   avgHealthScore: number | null;
 }
 
@@ -50,7 +51,7 @@ export interface DashboardOverviewData {
   documentProfileComplete: boolean;
 }
 
-const MONTH_FORMAT = new Intl.DateTimeFormat('en-US', {
+const MONTH_FORMAT = new Intl.DateTimeFormat('en-ZA', {
   month: 'short',
 });
 
@@ -254,7 +255,7 @@ export async function fetchDashboardOverview(
     vehicleCount: vehicles.length,
     openAlertCount: openAlerts.length,
     upcomingMaintenanceCount: upcomingMaintenance.length,
-    monthlyCostTotal: monthlyCostTotal / 100,
+    monthlyCostTotal,
     avgHealthScore,
   };
 
@@ -348,10 +349,7 @@ export async function fetchDashboardOverview(
   const invoices: BillingInvoice[] = invoiceRows.map((row) => ({
     id: row.id,
     date: row.invoice_date,
-    amount: new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: row.currency ?? 'USD',
-    }).format((row.amount_cents ?? 0) / 100),
+    amount: formatCurrencyZAR(row.amount_cents ?? 0),
     status: row.status ?? 'paid',
   }));
 

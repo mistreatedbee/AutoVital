@@ -16,6 +16,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { chartColors, cssVarHsl } from '../../lib/tokens';
+import { formatCurrencyZAR } from '../../lib/formatters';
 const monthlyCosts = [
 {
   name: 'Jan',
@@ -114,7 +115,7 @@ export function ReportsAnalytics() {
                   )}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number) => [`$${value}`, 'Amount']}
+                  formatter={(value: number) => [formatCurrencyZAR(value * 100), 'Amount']}
                   contentStyle={{
                     borderRadius: '12px',
                     border: 'none',
@@ -164,7 +165,7 @@ export function ReportsAnalytics() {
                     fill: cssVarHsl('--muted-foreground', '215 16% 47%'),
                     fontSize: 12
                   }}
-                  tickFormatter={(val) => `$${val}`} />
+                  tickFormatter={(val) => formatCurrencyZAR(val * 100)} />
 
                 <Tooltip
                   cursor={{

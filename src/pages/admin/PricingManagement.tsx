@@ -3,6 +3,7 @@ import { EditIcon } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { formatCurrencyZAR } from '../../lib/formatters';
 import {
   fetchAdminPlans,
   type AdminPlanRow,
@@ -48,13 +49,7 @@ export function PricingManagement() {
     };
   }, []);
 
-  const priceLabel = (cents: number) =>
-    cents === 0
-      ? '$0'
-      : new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: 'USD',
-        }).format(cents / 100);
+  const priceLabel = (cents: number) => formatCurrencyZAR(cents);
 
   const vehicleLimitLabel = (limit: number | null) =>
     limit == null ? 'Unlimited' : String(limit);

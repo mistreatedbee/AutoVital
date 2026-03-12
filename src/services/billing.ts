@@ -1,4 +1,5 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
+import { formatCurrencyZAR } from '../lib/formatters';
 import type { PlanTier } from '../domain/models';
 
 export interface BillingPlanSummary {
@@ -66,10 +67,7 @@ export async function fetchBillingOverview(
     const planRow = subscriptionData.plans;
     const planCode = (planRow.code ?? 'pro') as PlanTier;
     const priceMonthlyCents = planRow.price_monthly_cents ?? 900;
-    const priceMonthly = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(priceMonthlyCents / 100);
+    const priceMonthly = formatCurrencyZAR(priceMonthlyCents);
 
     // Optional: derive vehicle usage from vehicles table
     let vehicleCountUsed: number | null = null;
@@ -105,10 +103,7 @@ export async function fetchBillingOverview(
       invoices = (invoicesData as any[]).map((row) => ({
         id: row.id,
         date: row.invoice_date,
-        amount: new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: row.currency ?? 'USD',
-        }).format((row.amount_cents ?? 0) / 100),
+        amount: formatCurrencyZAR(row.amount_cents ?? 0),
         status: row.status ?? 'paid',
       }));
     } else {

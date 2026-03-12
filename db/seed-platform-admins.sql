@@ -38,4 +38,4 @@
 -- SELECT u.id, 'company_admin', a.id
 -- FROM auth.users u, accounts a
 -- WHERE u.email = 'company-admin@example.com'
---   AND a.id = (SELECT id FROM accounts WHERE name = 'Acme Fleet' LIMIT 1);
+--   AND a.id = (SELECT id FROM accounts WHERE name = 'Ubuntu Fleet' LIMIT 1);

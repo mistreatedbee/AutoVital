@@ -47,7 +47,7 @@ export function FaqPage() {
               {
                 question: 'How do reminders work?',
                 answer:
-                  'Reminders can be based on time (e.g., every 6 months) or mileage (e.g., every 5,000 miles). AutoVital uses the data you provide to determine what’s due and when.'
+              'Reminders can be based on time (e.g., every 6 months) or distance (e.g., every 10,000 km). AutoVital uses the data you provide to determine what’s due and when.'
               },
               {
                 question: 'How do I contact support?',

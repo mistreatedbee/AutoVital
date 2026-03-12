@@ -58,7 +58,7 @@ export function FuelTracker() {
   const [odometer, setOdometer] = useState('');
   const [volume, setVolume] = useState('');
   const [totalCost, setTotalCost] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('ZAR');
   const [notes, setNotes] = useState('');
 
   const columns = [
@@ -124,8 +124,8 @@ export function FuelTracker() {
       }
       return sum;
     }, 0);
-    if (totalCents === 0) return '$0.00';
-    return `$${(totalCents / 100).toFixed(2)}`;
+    if (totalCents === 0) return formatCurrencyZAR(0);
+    return formatCurrencyZAR(totalCents);
   }, [fuelLogs]);
 
   const avgPricePerUnitLabel = useMemo(() => {
@@ -140,9 +140,10 @@ export function FuelTracker() {
         totalVolume += vol;
       }
     });
-    if (totalVolume === 0) return '$0.00';
-    const price = totalCost / totalVolume;
-    return `$${price.toFixed(2)}`;
+    if (totalVolume === 0) return formatCurrencyZAR(0);
+    const priceRandsPerUnit = totalCost / totalVolume;
+    const priceCentsPerUnit = Math.round(priceRandsPerUnit * 100);
+    return formatCurrencyZAR(priceCentsPerUnit);
   }, [fuelLogs]);
 
   const vehicleOptions = useMemo(
@@ -204,7 +205,7 @@ export function FuelTracker() {
       setOdometer('');
       setVolume('');
       setTotalCost('');
-      setCurrency('USD');
+      setCurrency('ZAR');
       setNotes('');
     } catch (err: unknown) {
       // eslint-disable-next-line no-console

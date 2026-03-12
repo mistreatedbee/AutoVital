@@ -7,6 +7,8 @@ export type { FuelLogEntry };
 export interface EfficiencyPoint {
   date: string;
   mpg: number;
+  lPer100km?: number;
+  kmPerL?: number;
 }
 
 export interface EfficiencyPointWithUnits extends EfficiencyPoint {
@@ -39,12 +41,21 @@ export async function fetchFuelEfficiency(
       const prev = rows[i - 1];
       const curr = rows[i];
       if (prev.odometer == null || curr.odometer == null || curr.volume == null) continue;
-      const miles = Number(curr.odometer) - Number(prev.odometer);
-      const gallons = Number(curr.volume);
-      if (miles > 0 && gallons > 0) {
+      const km = Number(curr.odometer) - Number(prev.odometer);
+      const litres = Number(curr.volume);
+      if (km > 0 && litres > 0) {
+        const kmPerL = km / litres;
+        const lPer100km = (litres / km) * 100;
+        // Derive MPG for imperial displays, but base calculations on km and litres.
+        const miles = km * 0.621371;
+        const gallons = litres * 0.264172;
+        const mpg = miles > 0 && gallons > 0 ? miles / gallons : 0;
+
         points.push({
           date: curr.fill_date,
-          mpg: Number((miles / gallons).toFixed(1)),
+          mpg: Number(mpg.toFixed(1)),
+          lPer100km: Number(lPer100km.toFixed(1)),
+          kmPerL: Number(kmPerL.toFixed(2)),
         });
       }
     }
@@ -100,6 +111,9 @@ export function calculateFuelEfficiencyWithUnits(
   }
 
   return points.map((p) => {
+    if (p.lPer100km != null && p.kmPerL != null) {
+      return p;
+    }
     const mpg = p.mpg;
     const lPer100km = Number((235.214583 / mpg).toFixed(1));
     const kmPerL = Number((mpg * 0.425144).toFixed(2));
@@ -140,7 +154,7 @@ export async function createFuelLogWithMileage(
     volume: input.volume,
     total_cost_cents: input.totalCostCents,
     price_per_unit_cents: pricePerUnitCents,
-    currency: input.currency ?? 'USD',
+    currency: input.currency ?? 'ZAR',
     notes: input.notes ?? null,
   };
 

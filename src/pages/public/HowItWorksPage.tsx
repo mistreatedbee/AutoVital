@@ -17,7 +17,7 @@ export function HowItWorksPage() {
     icon: <UserPlusIcon className="w-8 h-8" />,
     title: '1. Create Your Account',
     description:
-    'Sign up in seconds. Set your preferences for measurement units (miles/km) and how you want to receive notifications.',
+    'Sign up in seconds. Set your preferences for measurement units (km, with optional miles support) and how you want to receive notifications.',
     image: 'bg-gradient-to-br from-primary-100 to-primary-50'
   },
   {

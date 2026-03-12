@@ -56,9 +56,9 @@ export function FeaturesPage() {
     id: 'expenses',
     title: 'Expense & Fuel Tracking',
     description:
-    'Understand the true cost of ownership. Log fuel fill-ups to calculate real-world MPG and view beautiful charts of your maintenance spending.',
+    'Understand the true cost of ownership. Log fuel fill-ups to calculate real-world fuel efficiency (L/100km and km/L) and view beautiful charts of your maintenance spending.',
     bullets: [
-    'Cost per mile analysis',
+    'Cost per kilometer analysis',
     'Monthly spending charts',
     'Fuel efficiency tracking'],
 

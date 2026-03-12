@@ -1,3 +1,5 @@
+import { formatCurrencyZAROrDash } from '../formatters';
+
 export interface MaintenanceEntry {
   id: string | number;
   vehicleId: string | null;
@@ -31,13 +33,7 @@ export function rowToMaintenanceEntry(row: MaintenanceLogDbRow): MaintenanceEntr
       : 'Vehicle';
   const mileage =
     row.mileage != null ? Number(row.mileage).toLocaleString() : null;
-  const cost =
-    row.cost_cents != null
-      ? new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: row.currency ?? 'USD',
-        }).format(row.cost_cents / 100)
-      : null;
+  const cost = row.cost_cents != null ? formatCurrencyZAROrDash(row.cost_cents) : null;
 
   return {
     id: row.id,

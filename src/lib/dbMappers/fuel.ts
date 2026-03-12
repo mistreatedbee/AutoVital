@@ -1,3 +1,5 @@
+import { formatCurrencyZAR, formatCurrencyZAROrDash } from '../formatters';
+
 export interface FuelLogEntry {
   id: string | number;
   date: string;
@@ -24,20 +26,13 @@ export function rowToFuelLogEntry(row: FuelLogDbRow): FuelLogEntry {
       ? `${row.vehicles.make} ${row.vehicles.model}`
       : 'Vehicle';
   const gallons = row.volume != null ? String(row.volume) : '0';
-  const totalCost =
-    row.total_cost_cents != null
-      ? new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: row.currency ?? 'USD',
-        }).format(row.total_cost_cents / 100)
-      : '$0.00';
+  const totalCost = formatCurrencyZAROrDash(row.total_cost_cents, 'R0.00');
   const ppg =
     row.volume && row.total_cost_cents
-      ? new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: row.currency ?? 'USD',
-        }).format(row.total_cost_cents / 100 / Number(row.volume))
-      : '$0.00';
+      ? formatCurrencyZAR(
+          Math.round(row.total_cost_cents / Number(row.volume)),
+        )
+      : 'R0.00';
   const mileage =
     row.odometer != null ? Number(row.odometer).toLocaleString() : '0';
 

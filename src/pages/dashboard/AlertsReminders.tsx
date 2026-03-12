@@ -296,9 +296,9 @@ export function AlertsReminders() {
                   Maintenance Advance Notice
                 </label>
                 <select className="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5">
-                  <option>14 days / 500 miles before</option>
-                  <option>30 days / 1,000 miles before</option>
-                  <option>7 days / 250 miles before</option>
+                  <option>14 days / 800 km before</option>
+                  <option>30 days / 1,600 km before</option>
+                  <option>7 days / 400 km before</option>
                 </select>
               </div>
 
