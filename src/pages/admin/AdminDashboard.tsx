@@ -340,8 +340,13 @@ export function AdminDashboard() {
         </h2>
         <p className="text-xs text-muted-foreground mb-3">
           Live API uptime and response times from health probes; error rates from audit logs (24h).
-          {uptimePct == null && platformHealth == null && healthProbeTick === 0 && (
-            <span className="ml-1 text-amber-600">Showing demo values until connected.</span>
+          {uptimePct === 0 && healthProbeTick > 0 && (
+            <span className="ml-1 text-amber-600">
+              API unreachable. Add INSFORGE_URL, INSFORGE_ANON_KEY, INSFORGE_SERVICE_ROLE_KEY as edge function secrets and deploy admin-dashboard-data.
+            </span>
+          )}
+          {uptimePct != null && uptimePct > 0 && platformHealth == null && (
+            <span className="ml-1 text-amber-600">Apply admin migrations for full metrics.</span>
           )}
         </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -352,7 +357,7 @@ export function AdminDashboard() {
             <div>
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">API Uptime</p>
               <p className="text-lg font-bold text-slate-900">
-                {uptimePct != null ? `${uptimePct}%` : healthProbeTick > 0 ? 'Measuring…' : '99.9%'}
+                {uptimePct != null ? `${uptimePct}%` : healthProbeTick > 0 ? 'Measuring…' : '—'}
               </p>
             </div>
           </Card>
@@ -363,7 +368,7 @@ export function AdminDashboard() {
             <div>
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Avg Response</p>
               <p className="text-lg font-bold text-slate-900">
-                {avgLatencyMs != null ? `${avgLatencyMs}ms` : healthProbeTick > 0 ? 'Measuring…' : '45ms'}
+                {avgLatencyMs != null ? `${avgLatencyMs}ms` : healthProbeTick > 0 ? 'Measuring…' : '—'}
               </p>
             </div>
           </Card>
@@ -374,7 +379,7 @@ export function AdminDashboard() {
             <div>
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Logins (24h)</p>
               <p className="text-lg font-bold text-slate-900">
-                {platformHealth != null ? platformHealth.successfulLogins24h.toLocaleString() : '12'}
+                {platformHealth != null ? platformHealth.successfulLogins24h.toLocaleString() : '—'}
               </p>
             </div>
           </Card>
@@ -385,7 +390,7 @@ export function AdminDashboard() {
             <div>
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Login Error Rate</p>
               <p className="text-lg font-bold text-slate-900">
-                {platformHealth != null ? `${platformHealth.loginErrorRatePct}%` : '0.2%'}
+                {platformHealth != null ? `${platformHealth.loginErrorRatePct}%` : '—'}
               </p>
             </div>
           </Card>
