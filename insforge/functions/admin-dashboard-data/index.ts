@@ -10,11 +10,22 @@
  */
 import { createClient } from '@insforge/sdk';
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+  'Access-Control-Max-Age': '86400',
+};
+
 export default async function handler(req: Request): Promise<Response> {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   if (req.method !== 'GET') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     });
   }
 
@@ -22,7 +33,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (!authHeader) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     });
   }
 
@@ -30,7 +41,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (!serviceKey) {
     return new Response(
       JSON.stringify({ error: 'INSFORGE_SERVICE_ROLE_KEY not configured' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },
+      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     );
   }
 
@@ -49,7 +60,7 @@ export default async function handler(req: Request): Promise<Response> {
     if (!userId) {
       return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       });
     }
 
@@ -62,7 +73,7 @@ export default async function handler(req: Request): Promise<Response> {
     if (!adminRows || (adminRows as unknown[]).length === 0) {
       return new Response(JSON.stringify({ error: 'Forbidden: platform admin required' }), {
         status: 403,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       });
     }
 
@@ -93,14 +104,14 @@ export default async function handler(req: Request): Promise<Response> {
       }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       },
     );
   } catch (err) {
     console.error('admin-dashboard-data error:', err);
     return new Response(
       JSON.stringify({ error: (err as Error).message ?? 'Internal error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },
+      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     );
   }
 }
