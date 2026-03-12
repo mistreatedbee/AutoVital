@@ -27,25 +27,29 @@ import {
   type CreateFuelLogInput,
 } from '../../services/fuel';
 import { fetchCurrentProfile } from '../../services/profile';
+import { queryKeys } from '../../lib/queryKeys';
 import { useAccount } from '../../account/AccountProvider';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/states/ErrorState';
 import { FuelTrackerSkeleton } from '../../components/states/pageSkeletons';
 import { useAuth } from '../../auth/AuthProvider';
 import { Input } from '../../components/ui/Input';
+import { validateOdometerKm, validateZarAmount, parsePositiveNumber } from '../../lib/validation';
 
 export function FuelTracker() {
   const { accountId, loading: accountLoading } = useAccount();
   const { user } = useAuth();
   const { data: efficiencyData = [], isLoading: efficiencyLoading } =
     useFuelEfficiency(accountId);
-  const { data: fuelLogs = [], isLoading: fuelLogsLoading, isError: fuelLogsError, error: fuelLogsErr, refetch: refetchFuelLogs } =
+  const { data: fuelLogsResult, isLoading: fuelLogsLoading, isError: fuelLogsError, error: fuelLogsErr, refetch: refetchFuelLogs } =
     useFuelLogs(accountId);
-  const { data: vehicles = [], isLoading: vehiclesLoading } =
+  const fuelLogs = fuelLogsResult?.items ?? [];
+  const { data: vehiclesResult, isLoading: vehiclesLoading } =
     useVehicles(accountId);
+  const vehicles = vehiclesResult?.items ?? [];
   const createMutation = useCreateFuelLog(accountId);
   const { data: profile } = useQuery({
-    queryKey: ['profile', user?.id],
+    queryKey: queryKeys.profile.current(user?.id ?? ''),
     queryFn: () => fetchCurrentProfile(user!.id),
     enabled: !!user?.id,
   });
@@ -164,22 +168,27 @@ export function FuelTracker() {
       return;
     }
 
-    const volumeNumber = Number(volume);
-    const costNumber = Math.round(Number(totalCost) * 100);
-    if (Number.isNaN(volumeNumber) || volumeNumber <= 0) {
+    const volumeNumber = parsePositiveNumber(volume);
+    if (volumeNumber == null) {
       setError('Volume must be a positive number.');
       return;
     }
-    if (Number.isNaN(costNumber) || costNumber <= 0) {
-      setError('Total cost must be a positive number.');
+
+    const costAmountError = validateZarAmount(totalCost);
+    if (costAmountError) {
+      setError(costAmountError);
       return;
     }
+    const costNumber = Math.round(Number(totalCost.replace(/,/g, '')) * 100);
 
-    const odometerNumber =
-      odometer.trim() !== '' ? Number(odometer.replace(/,/g, '')) : null;
-    if (odometerNumber != null && (Number.isNaN(odometerNumber) || odometerNumber < 0)) {
-      setError('Odometer must be a non-negative number.');
-      return;
+    let odometerNumber: number | null = null;
+    if (odometer.trim() !== '') {
+      const odoError = validateOdometerKm(odometer);
+      if (odoError) {
+        setError(odoError);
+        return;
+      }
+      odometerNumber = Number(odometer.replace(/,/g, ''));
     }
 
     setError(null);

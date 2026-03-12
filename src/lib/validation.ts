@@ -69,3 +69,11 @@ export function validatePhoneWithSaHint(raw: string): string | null {
   return null;
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function validateEmailAddress(email: string): string | null {
+  if (!email.trim()) return 'Email is required';
+  if (!EMAIL_REGEX.test(email.trim())) return 'Please enter a valid email address';
+  return null;
+}
+

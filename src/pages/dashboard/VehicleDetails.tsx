@@ -36,6 +36,7 @@ import {
   ModalFooter,
   ModalTrigger,
 } from '../../components/ui/Modal';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
 export function VehicleDetails() {
   const navigate = useNavigate();
@@ -44,11 +45,13 @@ export function VehicleDetails() {
   const { user } = useAuth();
 
   const { data: vehicleDetails, isLoading, error, refetch } = useVehicleDetails(accountId, id);
-  const { data: serviceHistory = [] } = useVehicleMaintenanceLogs(accountId, id);
-  const { data: documents = [], isLoading: documentsLoading } = useVehicleDocuments(
+  const { data: serviceHistoryResult } = useVehicleMaintenanceLogs(accountId, id);
+  const serviceHistory = serviceHistoryResult?.items ?? [];
+  const { data: documentsResult, isLoading: documentsLoading } = useVehicleDocuments(
     accountId,
     id,
   );
+  const documents = documentsResult?.items ?? [];
   const queryClient = useQueryClient();
   const archiveMutation = useArchiveVehicle(accountId);
   const uploadDocMutation = useUploadDocument(accountId);
@@ -57,6 +60,7 @@ export function VehicleDetails() {
   const [imageUploading, setImageUploading] = useState(false);
   const [documentUploadError, setDocumentUploadError] = useState<string | null>(null);
   const [documentUploadOpen, setDocumentUploadOpen] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [docFile, setDocFile] = useState<File | null>(null);
   const [docType, setDocType] = useState<string>('other');
   const [docExpiresAt, setDocExpiresAt] = useState<string>('');
@@ -147,16 +151,7 @@ export function VehicleDetails() {
             variant="ghost"
             className="text-red-600"
             disabled={archiveMutation.isPending}
-            onClick={async () => {
-              if (!accountId) return;
-              const confirmed = window.confirm(
-                'Archive this vehicle? It will be hidden from your garage but not permanently deleted.',
-              );
-              if (!confirmed) return;
-              archiveMutation.mutate(vehicle.id, {
-                onSuccess: () => navigate('/dashboard/vehicles'),
-              });
-            }}>
+            onClick={() => setArchiveConfirmOpen(true)}>
             {archiveMutation.isPending ? 'Archiving…' : 'Archive'}
           </Button>
         </div>
@@ -575,6 +570,22 @@ export function VehicleDetails() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={archiveConfirmOpen}
+        onOpenChange={setArchiveConfirmOpen}
+        title="Archive vehicle?"
+        description="This will hide the vehicle from your garage but not permanently delete it. You can restore it later from admin tools."
+        confirmLabel="Archive vehicle"
+        variant="destructive"
+        loading={archiveMutation.isPending}
+        onConfirm={() => {
+          archiveMutation.mutate(vehicle.id, {
+            onSuccess: () => navigate('/dashboard/vehicles'),
+            onSettled: () => setArchiveConfirmOpen(false),
+          });
+        }}
+      />
     </div>);
 
 }

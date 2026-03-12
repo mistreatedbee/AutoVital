@@ -27,6 +27,7 @@ import {
 } from '../../services/mileage';
 import { fetchCurrentProfile } from '../../services/profile';
 import { chartColors, cssVarHsl } from '../../lib/tokens';
+import { validateOdometerKm } from '../../lib/validation';
 
 export function MileageTracker() {
   const { accountId, loading: accountLoading } = useAccount();
@@ -50,8 +51,9 @@ export function MileageTracker() {
     setLoading(true);
 
     Promise.all([fetchAccountVehicles(accountId), fetchCurrentProfile(user.id)])
-      .then(([vehs, profile]) => {
+      .then(([vehsResult, profile]) => {
         if (!isMounted) return;
+        const vehs = vehsResult.items;
         setVehicles(vehs);
         if (vehs.length > 0) {
           setSelectedVehicleId(vehs[0].id);
@@ -148,11 +150,12 @@ export function MileageTracker() {
       return;
     }
 
-    const odometerNumber = Number(odometer.replace(/,/g, ''));
-    if (Number.isNaN(odometerNumber) || odometerNumber < 0) {
-      setError('Odometer must be a non-negative number.');
+    const odoError = validateOdometerKm(odometer);
+    if (odoError) {
+      setError(odoError);
       return;
     }
+    const odometerNumber = Number(odometer.replace(/,/g, ''));
 
     setSaving(true);
     setError(null);

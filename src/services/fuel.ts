@@ -1,6 +1,7 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
 import { rowToFuelLogEntry, type FuelLogEntry, type FuelLogDbRow } from '../lib/dbMappers';
 import { createMileageLog, updateVehicleCurrentMileageIfHigher } from './mileage';
+import { toLimitOffset, type PaginatedParams, type PaginatedResult, DEFAULT_PAGE_SIZE } from '../lib/pagination';
 
 export type { FuelLogEntry };
 
@@ -71,34 +72,44 @@ export async function fetchFuelEfficiency(
 export async function fetchFuelLogs(
   accountId: string | null,
   vehicleId?: string,
-): Promise<FuelLogEntry[]> {
-  if (!accountId) return [];
+  params?: PaginatedParams,
+): Promise<PaginatedResult<FuelLogEntry>> {
+  if (!accountId) {
+    return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
+  }
+
+  const { limit, offset, page, pageSize } = toLimitOffset(params ?? {});
 
   try {
     const client = getInsforgeClient();
-    let query = client.database
+    let q = client.database
       .from('fuel_logs')
       .select('id, fill_date, odometer, volume, total_cost_cents, currency, vehicles(make, model)')
       .eq('account_id', accountId)
       .order('fill_date', { ascending: false });
 
     if (vehicleId) {
-      query = query.eq('vehicle_id', vehicleId);
+      q = q.eq('vehicle_id', vehicleId);
     }
 
-    const { data, error } = await query;
+    const qWithRange = q as { range?: (a: number, b: number) => typeof q };
+    const { data, error } = await (qWithRange.range
+      ? qWithRange.range(offset, offset + limit - 1)
+      : q);
 
     if (error || !data) {
       // eslint-disable-next-line no-console
       console.warn('Failed to load fuel logs from backend.', error);
-      return [];
+      return { items: [], page, pageSize, hasMore: false };
     }
 
-    return (data as FuelLogDbRow[]).map(rowToFuelLogEntry);
+    const items = (data as FuelLogDbRow[]).map(rowToFuelLogEntry);
+    const hasMore = items.length === limit;
+    return { items, page, pageSize, hasMore };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Fuel logs service unavailable.', err);
-    return [];
+    return { items: [], page, pageSize, hasMore: false };
   }
 }
 

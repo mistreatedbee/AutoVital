@@ -9,11 +9,12 @@ import {
 import { recomputeAndPersistVehicleHealth } from '../../services/vehicleHealth';
 import type { UpsertVehicleInput } from '../../services/vehicles';
 import type { Vehicle } from '../../domain/models';
+import type { PaginatedParams } from '../../lib/pagination';
 
-export function useVehicles(accountId: string | null) {
+export function useVehicles(accountId: string | null, params?: PaginatedParams) {
   return useQuery({
-    queryKey: queryKeys.vehicles.list(accountId ?? ''),
-    queryFn: () => fetchAccountVehicles(accountId!),
+    queryKey: [...queryKeys.vehicles.list(accountId ?? ''), params ?? {}],
+    queryFn: () => fetchAccountVehicles(accountId!, params),
     enabled: !!accountId,
   });
 }

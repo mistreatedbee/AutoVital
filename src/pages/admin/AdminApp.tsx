@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { AdminMfaSetup } from './AdminMfaSetup';
 import { AdminMfaVerify } from './AdminMfaVerify';
@@ -18,6 +18,8 @@ import { AuditLogsPage } from './AuditLogsPage';
 import { AdminAnalytics } from './AdminAnalytics';
 import { SupportTickets } from './SupportTickets';
 import { AdminSettings } from './AdminSettings';
+import { AdminNotFound } from './AdminNotFound';
+
 export function AdminApp() {
   return (
     <Routes>
@@ -41,7 +43,7 @@ export function AdminApp() {
         <Route path="/analytics" element={<AdminAnalytics />} />
         <Route path="/support" element={<SupportTickets />} />
             <Route path="/settings" element={<AdminSettings />} />
-            <Route path="*" element={<Navigate to="/admin" replace />} />
+            <Route path="*" element={<AdminNotFound />} />
           </Routes>
         </AdminLayout>
       } />

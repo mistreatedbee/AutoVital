@@ -10,14 +10,15 @@ import { useAccount } from '../../account/AccountProvider';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/states/ErrorState';
 import { MyVehiclesSkeleton } from '../../components/states/pageSkeletons';
-import { Modal, ModalContent, ModalHeader, ModalFooter, ModalTitle } from '../../components/ui/Modal';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
 export function MyVehicles() {
   const { accountId, loading: accountLoading } = useAccount();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
 
-  const { data: vehicles = [], isLoading, isError, error, refetch } = useVehicles(accountId);
+  const { data: vehiclesResult, isLoading, isError, error, refetch } = useVehicles(accountId);
+  const vehicles = vehiclesResult?.items ?? [];
   const archiveMutation = useArchiveVehicle(accountId);
   const [vehicleToArchive, setVehicleToArchive] = useState<string | null>(null);
 
@@ -209,35 +210,21 @@ export function MyVehicles() {
         </div>
       )}
 
-      <Modal open={vehicleToArchive != null} onOpenChange={(open) => !open && setVehicleToArchive(null)}>
-        <ModalContent>
-          <ModalHeader>
-            <ModalTitle>Archive vehicle?</ModalTitle>
-          </ModalHeader>
-          <p className="text-sm text-slate-600">
-            This will hide the vehicle from your garage but keep its history for reporting.
-            You can restore it later from admin tools.
-          </p>
-          <ModalFooter>
-            <Button variant="ghost" onClick={() => setVehicleToArchive(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              className="bg-amber-600 hover:bg-amber-700"
-              loading={archiveMutation.isPending}
-              onClick={() => {
-                if (!vehicleToArchive) return;
-                archiveMutation.mutate(vehicleToArchive, {
-                  onSettled: () => setVehicleToArchive(null),
-                });
-              }}
-            >
-              Archive vehicle
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <ConfirmDialog
+        open={vehicleToArchive != null}
+        onOpenChange={(open) => !open && setVehicleToArchive(null)}
+        title="Archive vehicle?"
+        description="This will hide the vehicle from your garage but keep its history for reporting. You can restore it later from admin tools."
+        confirmLabel="Archive vehicle"
+        variant="destructive"
+        loading={archiveMutation.isPending}
+        onConfirm={() => {
+          if (!vehicleToArchive) return;
+          archiveMutation.mutate(vehicleToArchive, {
+            onSettled: () => setVehicleToArchive(null),
+          });
+        }}
+      />
     </div>);
 
 }

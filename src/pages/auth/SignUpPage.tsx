@@ -20,14 +20,7 @@ import {
   type PasswordStrength,
 } from '../../lib/passwordStrength';
 import { mapAuthErrorToMessage } from '../../lib/authErrors';
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function validateEmail(email: string): string | null {
-  if (!email.trim()) return 'Email is required';
-  if (!EMAIL_REGEX.test(email.trim())) return 'Please enter a valid email address';
-  return null;
-}
+import { validateEmailAddress, validatePhoneWithSaHint } from '../../lib/validation';
 
 export function SignUpPage() {
   const navigate = useNavigate();
@@ -75,7 +68,7 @@ export function SignUpPage() {
     e.preventDefault();
     setFormError(null);
 
-    const emailErr = validateEmail(email);
+    const emailErr = validateEmailAddress(email);
     if (emailErr) {
       setFormError(emailErr);
       return;
@@ -270,7 +263,7 @@ export function SignUpPage() {
           icon={<MailIcon className="w-5 h-5" />}
           error={
             touched.email
-              ? validateEmail(email) ?? undefined
+              ? validateEmailAddress(email) ?? undefined
               : undefined
           }
           required
@@ -282,6 +275,12 @@ export function SignUpPage() {
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           icon={<PhoneIcon className="w-5 h-5" />}
+          error={
+            touched.phone
+              ? validatePhoneWithSaHint(phone) ?? undefined
+              : undefined
+          }
+          onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
         />
         <div className="space-y-1">
           <Input

@@ -5,6 +5,9 @@ import { Input } from '../../components/ui/Input';
 import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { formatCurrencyZAR } from '../../lib/formatters';
+import { LoadingState } from '../../components/states/LoadingState';
+import { ErrorState } from '../../components/states/ErrorState';
+import { EmptyState } from '../../components/ui/EmptyState';
 import {
   fetchAdminMaintenanceLogs,
   type AdminMaintenanceRow,
@@ -18,12 +21,14 @@ export function MaintenanceManagement() {
   const [search, setSearch] = useState('');
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       setLoading(true);
+      setError(null);
       try {
         const result = await fetchAdminMaintenanceLogs({
           page,
@@ -34,6 +39,12 @@ export function MaintenanceManagement() {
         if (!cancelled) {
           setLogs(result.items);
           setHasMore(result.hasMore);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to load admin maintenance logs', err);
+          setError('We could not load maintenance logs right now. Please try again.');
         }
       } finally {
         if (!cancelled) {
@@ -234,12 +245,22 @@ export function MaintenanceManagement() {
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
         {loading ? (
-          <div className="p-8 text-center text-slate-400 text-sm">
-            Loading maintenance logs...
+          <div className="p-6">
+            <LoadingState label="Loading maintenance logs..." />
+          </div>
+        ) : error ? (
+          <div className="p-6">
+            <ErrorState
+              title="Failed to load maintenance logs"
+              description={error}
+            />
           </div>
         ) : filteredLogs.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 text-sm">
-            No maintenance records match the current filters.
+          <div className="p-10">
+            <EmptyState
+              title="No maintenance records found"
+              description="Try adjusting your filters or search to see more results."
+            />
           </div>
         ) : (
           <>

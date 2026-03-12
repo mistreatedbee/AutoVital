@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../auth/AuthProvider';
 import { mapAuthErrorToMessage } from '../../lib/authErrors';
+import { validateEmailAddress } from '../../lib/validation';
 
 export function ForgotPasswordPage() {
   const { sendResetPasswordEmail, error: authError } = useAuth();
@@ -35,6 +36,11 @@ export function ForgotPasswordPage() {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       setFormError('Please enter your email address');
+      return;
+    }
+    const emailError = validateEmailAddress(trimmedEmail);
+    if (emailError) {
+      setFormError(emailError);
       return;
     }
 

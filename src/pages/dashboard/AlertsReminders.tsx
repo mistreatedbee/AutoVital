@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   BellIcon,
   SettingsIcon,
@@ -9,63 +9,32 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Toggle } from '../../components/ui/Toggle';
 import {
-  fetchUserAlerts,
-  updateAlertStatus,
-  fetchAlertPreferences,
-  upsertAlertPreference,
-  type UserAlert,
-  type AlertPreference,
-} from '../../services/alerts';
+  useAlertsAndPreferences,
+  useUpdateAlertStatus,
+  useUpsertAlertPreference,
+} from '../../hooks/queries';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/states/ErrorState';
 import { useAuth } from '../../auth/AuthProvider';
 
 export function AlertsReminders() {
   const { accountId, loading: accountLoading } = useAccount();
   const { user } = useAuth();
-  const [alerts, setAlerts] = useState<UserAlert[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [preferences, setPreferences] = useState<AlertPreference[] | null>(null);
-  const [savingPrefs, setSavingPrefs] = useState(false);
-
-  useEffect(() => {
-    if (!accountId) {
-      return;
-    }
-
-    let isMounted = true;
-
-    Promise.all([
-      fetchUserAlerts(accountId),
-      fetchAlertPreferences(user?.id ?? null, accountId),
-    ])
-      .then(([data, prefs]) => {
-        if (!isMounted) return;
-        setAlerts(data);
-        setPreferences(prefs);
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [accountId]);
+  const { data, isLoading: loading, isError, error: queryError, refetch } =
+    useAlertsAndPreferences(accountId, user?.id ?? null);
+  const alerts = data?.alerts ?? [];
+  const preferences = data?.preferences ?? null;
+  const updateStatusMutation = useUpdateAlertStatus(accountId);
+  const upsertPrefMutation = useUpsertAlertPreference(accountId);
+  const savingPrefs = upsertPrefMutation.isPending;
 
   const openAlerts = alerts.filter((a) => a.status === 'open');
   const resolvedAlerts = alerts.filter((a) => a.status === 'resolved');
 
   const handleDismiss = (alertId: string | number) => {
-    setAlerts((prev) =>
-      prev.map((a) =>
-        a.id === alertId ? { ...a, status: 'resolved' } : a,
-      ),
-    );
-    void updateAlertStatus(alertId, 'dismissed');
+    updateStatusMutation.mutate({ alertId, status: 'dismissed' });
   };
 
   const emailPrefEnabled =
@@ -75,53 +44,38 @@ export function AlertsReminders() {
   const documentExpiryLeadDays =
     preferences?.find((p) => p.channel === 'email')?.documentExpiryLeadDays ?? 30;
 
-  const handleToggleChannel = async (
-    channel: 'email' | 'in_app',
-    value: 'Off' | 'On',
-  ) => {
+  const handleToggleChannel = (channel: 'email' | 'in_app', value: 'Off' | 'On') => {
     if (!accountId || !user) return;
-    setSavingPrefs(true);
-    try {
-      await upsertAlertPreference({
-        userId: user.id,
-        accountId,
-        channel,
-        enabled: value === 'On',
-      });
-      const updated = await fetchAlertPreferences(user.id, accountId);
-      setPreferences(updated);
-    } finally {
-      setSavingPrefs(false);
-    }
+    upsertPrefMutation.mutate({
+      userId: user.id,
+      accountId,
+      channel,
+      enabled: value === 'On',
+    });
   };
 
-  const handleDocumentExpiryLeadDays = async (days: number) => {
+  const handleDocumentExpiryLeadDays = (days: number) => {
     if (!accountId || !user || !preferences) return;
-    setSavingPrefs(true);
-    try {
-      const emailPref = preferences.find((p) => p.channel === 'email');
-      const inAppPref = preferences.find((p) => p.channel === 'in_app');
-      await upsertAlertPreference({
+    const emailPref = preferences.find((p) => p.channel === 'email');
+    const inAppPref = preferences.find((p) => p.channel === 'in_app');
+    Promise.all([
+      upsertPrefMutation.mutateAsync({
         userId: user.id,
         accountId,
         channel: 'email',
         enabled: emailPrefEnabled,
         maintenanceLeadDaysArray: emailPref?.maintenanceLeadDaysArray,
         documentExpiryLeadDays: days,
-      });
-      await upsertAlertPreference({
+      }),
+      upsertPrefMutation.mutateAsync({
         userId: user.id,
         accountId,
         channel: 'in_app',
         enabled: inAppPrefEnabled,
         maintenanceLeadDaysArray: inAppPref?.maintenanceLeadDaysArray,
         documentExpiryLeadDays: days,
-      });
-      const updated = await fetchAlertPreferences(user.id, accountId);
-      setPreferences(updated);
-    } finally {
-      setSavingPrefs(false);
-    }
+      }),
+    ]).catch(() => {});
   };
 
   return (
@@ -136,6 +90,15 @@ export function AlertsReminders() {
           </p>
         </div>
       </div>
+
+      {isError && !accountLoading && !loading && (
+        <ErrorState
+          title="Alerts could not be loaded"
+          description={queryError instanceof Error ? queryError.message : 'We could not load your alerts right now. Please try again.'}
+          onRetry={() => refetch()}
+          className="max-w-2xl"
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">

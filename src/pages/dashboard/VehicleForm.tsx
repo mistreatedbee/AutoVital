@@ -9,6 +9,7 @@ import { LoadingState } from '../../components/states/LoadingState';
 import { fetchVehicleDetails } from '../../services/vehicles';
 import { uploadVehicleImageFile } from '../../services/vehicleImageUpload';
 import { useUpsertVehicle } from '../../hooks/queries';
+import { validateYear, validateOdometerKm } from '../../lib/validation';
 
 type VehicleFormMode = 'create' | 'edit';
 
@@ -88,19 +89,18 @@ export function VehicleForm({ mode }: VehicleFormProps) {
       }
 
       if (year) {
-        const yearNumber = Number(year);
-        const currentYear = new Date().getFullYear();
-        if (Number.isNaN(yearNumber) || yearNumber < 1900 || yearNumber > currentYear + 1) {
-          setError(`Year must be between 1900 and ${currentYear + 1}.`);
+        const yearError = validateYear(year);
+        if (yearError) {
+          setError(yearError);
           setSaving(false);
           return;
         }
       }
 
       if (currentMileage) {
-        const mileageNumber = Number(currentMileage.replace(/,/g, ''));
-        if (Number.isNaN(mileageNumber) || mileageNumber < 0) {
-          setError('Current mileage must be a non-negative number.');
+        const mileageError = validateOdometerKm(currentMileage);
+        if (mileageError) {
+          setError(mileageError);
           setSaving(false);
           return;
         }

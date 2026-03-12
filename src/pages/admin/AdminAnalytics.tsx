@@ -17,6 +17,8 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { chartColors, cssVarHsl } from '../../lib/tokens';
 import { fetchOnboardingFunnel } from '../../services/onboardingAnalytics';
+import { LoadingState } from '../../components/states/LoadingState';
+import { ErrorState } from '../../components/states/ErrorState';
 
 const featureData = [
   { name: 'Maintenance Log', value: 45 },
@@ -43,7 +45,13 @@ export function AdminAnalytics() {
     };
   }, [rangeDays]);
 
-  const { data: funnel = null, isLoading } = useQuery({
+  const {
+    data: funnel = null,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['onboarding-funnel', startDate, endDate],
     queryFn: () => fetchOnboardingFunnel(startDate, endDate),
   });
@@ -106,9 +114,16 @@ export function AdminAnalytics() {
           </div>
           <div className="h-72 w-full">
             {isLoading ? (
-              <div className="h-full flex items-center justify-center text-slate-500">
-                Loading funnel...
-              </div>
+              <LoadingState label="Loading onboarding funnel..." className="h-full" />
+            ) : isError ? (
+              <ErrorState
+                title="Onboarding analytics failed to load"
+                description={
+                  error instanceof Error ? error.message : 'Please try again in a moment.'
+                }
+                onRetry={() => refetch()}
+                className="h-full flex items-center justify-center"
+              />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart

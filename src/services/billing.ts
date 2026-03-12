@@ -1,5 +1,5 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
-import { formatCurrencyZAR } from '../lib/formatters';
+import { formatCurrencyZAR, formatDateShort } from '../lib/formatters';
 import type { PlanTier } from '../domain/models';
 
 export interface BillingPlanSummary {
@@ -102,7 +102,7 @@ export async function fetchBillingOverview(
     if (!invoicesError && invoicesData) {
       invoices = (invoicesData as any[]).map((row) => ({
         id: row.id,
-        date: row.invoice_date,
+        date: formatDateShort(row.invoice_date),
         amount: formatCurrencyZAR(row.amount_cents ?? 0),
         status: row.status ?? 'paid',
       }));

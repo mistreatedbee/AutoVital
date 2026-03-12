@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../auth/AuthProvider';
 import { fetchCurrentUserPlatformAdminStatus } from '../../services/platformAdmins';
 import { mapAuthErrorToMessage } from '../../lib/authErrors';
+import { validateEmailAddress } from '../../lib/validation';
 
 function parseAdminAllowlist(raw: string | undefined): Set<string> {
   if (!raw) return new Set();
@@ -38,6 +39,12 @@ export function LoginPage() {
     const trimmedPassword = password.trim();
     if (!trimmedEmail || !trimmedPassword) {
       setFormError('Please enter both email and password.');
+      return;
+    }
+
+    const emailValidationError = validateEmailAddress(trimmedEmail);
+    if (emailValidationError) {
+      setFormError(emailValidationError);
       return;
     }
 

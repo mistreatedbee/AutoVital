@@ -19,6 +19,7 @@ import { Card } from '../../components/ui/Card';
 import { useAuth } from '../../auth/AuthProvider';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { fetchCurrentProfile, updateProfile } from '../../services/profile';
 import { uploadAvatarFile } from '../../services/avatarUpload';
 import { upsertVehicle } from '../../services/vehicles';
@@ -34,6 +35,7 @@ import {
   type OnboardingStepData,
 } from '../../services/onboarding';
 import { recordOnboardingEvent } from '../../services/onboardingAnalytics';
+import { validateYear, validateOdometerKm } from '../../lib/validation';
 
 const COMMON_MAKES = [
   'Toyota', 'Ford', 'BMW', 'Mercedes-Benz', 'Volkswagen', 'Honda', 'Nissan',
@@ -250,9 +252,15 @@ export function OnboardingFlow() {
     };
   }, [user?.id, step, initializing, persistStepData, displayName, country, city, currency, mileageUnit, fuelUnit, timezone, locale, nickname, make, model, year, registration, vin, currentMileage, fuelType, transmission, engineType, color, lastServiceDate, lastServiceMileage, serviceIntervalMonths, serviceIntervalMileage, lastOilChangeDate, lastOilChangeMileage, lastBrakeServiceDate, lastBatteryDate, lastTireRotationDate, knownIssues, workshopName, emailReminders, inAppReminders, leadDays, reminderBasis, weeklySummary]);
 
+  const [showStartOverConfirm, setShowStartOverConfirm] = useState(false);
+
   const handleStartOver = useCallback(async () => {
     if (!user?.id) return;
-    if (!window.confirm('Start over? Your progress will be reset.')) return;
+    setShowStartOverConfirm(true);
+  }, [user?.id]);
+
+  const handleStartOverConfirm = useCallback(async () => {
+    if (!user?.id) return;
     setLoading(true);
     try {
       const ok = await resetOnboardingProgress(user.id);
@@ -301,6 +309,7 @@ export function OnboardingFlow() {
       }
     } finally {
       setLoading(false);
+      setShowStartOverConfirm(false);
     }
   }, [user?.id, queryClient]);
 
@@ -326,8 +335,26 @@ export function OnboardingFlow() {
   const saveVehicleStep = useCallback(async () => {
     if (vehicleSkipped || !accountId || !user?.id) return true;
     if (!make.trim() || !model.trim()) return false;
-    const yearNum = year ? Number(year) : null;
-    const mileageNum = currentMileage ? Number(currentMileage.replace(/,/g, '')) : null;
+
+    let yearNum: number | null = null;
+    if (year) {
+      const yearError = validateYear(year);
+      if (yearError) {
+        setError(yearError);
+        return false;
+      }
+      yearNum = Number(year);
+    }
+
+    let mileageNum: number | null = null;
+    if (currentMileage) {
+      const mileageError = validateOdometerKm(currentMileage);
+      if (mileageError) {
+        setError(mileageError);
+        return false;
+      }
+      mileageNum = Number(currentMileage.replace(/,/g, ''));
+    }
     const vehicle = await upsertVehicle({
       id: vehicleId ?? undefined,
       accountId,
@@ -1043,6 +1070,17 @@ export function OnboardingFlow() {
           </Card>
         </div>
       </main>
+
+      <ConfirmDialog
+        open={showStartOverConfirm}
+        onOpenChange={setShowStartOverConfirm}
+        title="Start over?"
+        description="Your progress will be reset. You will need to complete the setup again."
+        confirmLabel="Start over"
+        variant="destructive"
+        loading={loading}
+        onConfirm={handleStartOverConfirm}
+      />
     </div>
   );
 }

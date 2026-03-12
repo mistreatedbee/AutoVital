@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   UsersIcon,
   CreditCardIcon,
@@ -33,6 +33,8 @@ import { Button } from '../../components/ui/Button';
 import { chartColors, cssVarHsl } from '../../lib/tokens';
 import { fetchAdminDashboardMetrics, type AdminDashboardMetrics } from '../../services/adminMetrics';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { LoadingState } from '../../components/states/LoadingState';
+import { ErrorState } from '../../components/states/ErrorState';
 const revenueData = [
 {
   month: 'Jan',
@@ -105,20 +107,26 @@ const emptyMetrics: AdminDashboardMetrics = {
 export function AdminDashboard() {
   const [metrics, setMetrics] = useState<AdminDashboardMetrics>(emptyMetrics);
   const [metricsLoading, setMetricsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    setError(null);
+    try {
+      const m = await fetchAdminDashboardMetrics();
+      setMetrics(m);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load admin dashboard metrics', err);
+      setError('We could not load admin metrics right now. Please try again.');
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    fetchAdminDashboardMetrics()
-      .then((m) => {
-        if (!cancelled) setMetrics(m);
-      })
-      .finally(() => {
-        if (!cancelled) setMetricsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadMetrics();
+  }, [loadMetrics]);
 
   return (
     <div className="space-y-10">
@@ -144,6 +152,19 @@ export function AdminDashboard() {
           </Button>
         </div>
       </div>
+
+      {metricsLoading && (
+        <LoadingState label="Loading admin metrics..." className="py-6" />
+      )}
+
+      {error && !metricsLoading && (
+        <ErrorState
+          title="Admin metrics are unavailable"
+          description={error}
+          onRetry={() => void loadMetrics()}
+          className="max-w-3xl"
+        />
+      )}
 
       {/* Phase E: Admin Dashboard Metrics */}
       <div>

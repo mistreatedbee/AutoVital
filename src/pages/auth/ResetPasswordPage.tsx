@@ -11,6 +11,7 @@ import {
   getStrengthWidth,
 } from '../../lib/passwordStrength';
 import { mapAuthErrorToMessage } from '../../lib/authErrors';
+import { validateEmailAddress } from '../../lib/validation';
 
 export function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -35,6 +36,11 @@ export function ResetPasswordPage() {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       setFormError('Email is required');
+      return;
+    }
+    const emailErr = validateEmailAddress(trimmedEmail);
+    if (emailErr) {
+      setFormError(emailErr);
       return;
     }
     if (!code.trim()) {

@@ -4,34 +4,47 @@ import {
   type DocumentCard,
   type DocumentCardDbRow,
 } from '../lib/dbMappers';
+import { toLimitOffset, type PaginatedParams, type PaginatedResult, DEFAULT_PAGE_SIZE } from '../lib/pagination';
 
 export type { DocumentCard };
 
 export async function fetchAccountDocuments(
   accountId: string | null,
-): Promise<DocumentCard[]> {
-  if (!accountId) return [];
+  params?: PaginatedParams,
+): Promise<PaginatedResult<DocumentCard>> {
+  if (!accountId) {
+    return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
+  }
+
+  const { limit, offset, page, pageSize } = toLimitOffset(params ?? {});
 
   try {
     const client = getInsforgeClient();
-    const { data, error } = await client.database
+    const q = client.database
       .from('documents')
       .select('id, name, type, size_bytes, created_at, public_url, mime_type, expires_at, vehicles(make, model)')
       .eq('account_id', accountId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
 
+    const qWithRange = q as { range?: (a: number, b: number) => typeof q };
+    const { data, error } = await (qWithRange.range
+      ? qWithRange.range(offset, offset + limit - 1)
+      : q);
+
     if (error || !data) {
       // eslint-disable-next-line no-console
       console.warn('Failed to load documents from backend.', error);
-      return [];
+      return { items: [], page, pageSize, hasMore: false };
     }
 
-    return (data as DocumentCardDbRow[]).map(rowToDocumentCard);
+    const items = (data as DocumentCardDbRow[]).map(rowToDocumentCard);
+    const hasMore = items.length === limit;
+    return { items, page, pageSize, hasMore };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Documents service unavailable.', err);
-    return [];
+    return { items: [], page, pageSize, hasMore: false };
   }
 }
 
@@ -99,14 +112,17 @@ export async function uploadDocumentFile(params: UploadDocumentParams) {
 export async function fetchVehicleDocuments(
   accountId: string | null,
   vehicleId: string | null,
-): Promise<DocumentCard[]> {
+  params?: PaginatedParams,
+): Promise<PaginatedResult<DocumentCard>> {
   if (!accountId || !vehicleId) {
-    return [];
+    return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
   }
+
+  const { limit, offset, page, pageSize } = toLimitOffset(params ?? {});
 
   try {
     const client = getInsforgeClient();
-    const { data, error } = await client.database
+    const q = client.database
       .from('documents')
       .select('id, name, type, size_bytes, created_at, public_url, mime_type, expires_at')
       .eq('account_id', accountId)
@@ -114,19 +130,26 @@ export async function fetchVehicleDocuments(
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
 
+    const qWithRange = q as { range?: (a: number, b: number) => typeof q };
+    const { data, error } = await (qWithRange.range
+      ? qWithRange.range(offset, offset + limit - 1)
+      : q);
+
     if (error || !data) {
       // eslint-disable-next-line no-console
       console.warn('Failed to load vehicle documents from backend.', error);
-      return [];
+      return { items: [], page, pageSize, hasMore: false };
     }
 
-    return (data as DocumentCardDbRow[]).map((row) =>
+    const items = (data as DocumentCardDbRow[]).map((row) =>
       rowToDocumentCard(row, ''),
     );
+    const hasMore = items.length === limit;
+    return { items, page, pageSize, hasMore };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Vehicle documents service unavailable.', err);
-    return [];
+    return { items: [], page, pageSize, hasMore: false };
   }
 }
 

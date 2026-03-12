@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { DashboardHome } from './DashboardHome';
 import { MyVehicles } from './MyVehicles';
@@ -13,6 +13,8 @@ import { Documents } from './Documents';
 import { ReportsAnalytics } from './ReportsAnalytics';
 import { BillingSubscription } from './BillingSubscription';
 import { ProfileSettings } from './ProfileSettings';
+import { DashboardNotFound } from './DashboardNotFound';
+
 export function DashboardApp() {
   return (
     <DashboardLayout>
@@ -30,7 +32,7 @@ export function DashboardApp() {
         <Route path="/reports" element={<ReportsAnalytics />} />
         <Route path="/billing" element={<BillingSubscription />} />
         <Route path="/settings" element={<ProfileSettings />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<DashboardNotFound />} />
       </Routes>
     </DashboardLayout>);
 

@@ -5,17 +5,23 @@ import type { VehicleDbRow } from '../lib/dbMappers';
 import { rowToMaintenanceEntry, type MaintenanceEntry, type MaintenanceLogDbRow } from '../lib/dbMappers';
 import { recomputeAndPersistVehicleHealth } from './vehicleHealth';
 import { createMileageLog, updateVehicleCurrentMileageIfHigher } from './mileage';
+import { toLimitOffset, type PaginatedParams, type PaginatedResult, DEFAULT_PAGE_SIZE } from '../lib/pagination';
 
 export type { MaintenanceEntry };
 
 export async function fetchAccountMaintenanceLogs(
   accountId: string | null,
-): Promise<MaintenanceEntry[]> {
-  if (!accountId) return [];
+  params?: PaginatedParams,
+): Promise<PaginatedResult<MaintenanceEntry>> {
+  if (!accountId) {
+    return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
+  }
+
+  const { limit, offset, page, pageSize } = toLimitOffset(params ?? {});
 
   try {
     const client = getInsforgeClient();
-    const { data, error } = await client.database
+    const q = client.database
       .from('maintenance_logs')
       .select(
         'id, vehicle_id, service_date, mileage, cost_cents, currency, vendor_name, type, document_id, vehicles(make, model)',
@@ -23,17 +29,24 @@ export async function fetchAccountMaintenanceLogs(
       .eq('account_id', accountId)
       .order('service_date', { ascending: false });
 
+    const qWithRange = q as { range?: (a: number, b: number) => typeof q };
+    const { data, error } = await (qWithRange.range
+      ? qWithRange.range(offset, offset + limit - 1)
+      : q);
+
     if (error || !data) {
       // eslint-disable-next-line no-console
       console.warn('Failed to load maintenance logs from backend.', error);
-      return [];
+      return { items: [], page, pageSize, hasMore: false };
     }
 
-    return (data as MaintenanceLogDbRow[]).map(rowToMaintenanceEntry);
+    const items = (data as MaintenanceLogDbRow[]).map(rowToMaintenanceEntry);
+    const hasMore = items.length === limit;
+    return { items, page, pageSize, hasMore };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Maintenance service unavailable.', err);
-    return [];
+    return { items: [], page, pageSize, hasMore: false };
   }
 }
 
@@ -120,9 +133,44 @@ export async function createMaintenanceLogWithHealthUpdate(
 export async function fetchVehicleMaintenanceLogs(
   accountId: string,
   vehicleId: string,
-): Promise<MaintenanceEntry[]> {
-  const all = await fetchAccountMaintenanceLogs(accountId);
-  return all.filter((entry) => entry.vehicleId === vehicleId);
+  params?: PaginatedParams,
+): Promise<PaginatedResult<MaintenanceEntry>> {
+  if (!accountId || !vehicleId) {
+    return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
+  }
+
+  const { limit, offset, page, pageSize } = toLimitOffset(params ?? {});
+
+  try {
+    const client = getInsforgeClient();
+    const q = client.database
+      .from('maintenance_logs')
+      .select(
+        'id, vehicle_id, service_date, mileage, cost_cents, currency, vendor_name, type, document_id, vehicles(make, model)',
+      )
+      .eq('account_id', accountId)
+      .eq('vehicle_id', vehicleId)
+      .order('service_date', { ascending: false });
+
+    const qWithRange = q as { range?: (a: number, b: number) => typeof q };
+    const { data, error } = await (qWithRange.range
+      ? qWithRange.range(offset, offset + limit - 1)
+      : q);
+
+    if (error || !data) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to load vehicle maintenance logs from backend.', error);
+      return { items: [], page, pageSize, hasMore: false };
+    }
+
+    const items = (data as MaintenanceLogDbRow[]).map(rowToMaintenanceEntry);
+    const hasMore = items.length === limit;
+    return { items, page, pageSize, hasMore };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Vehicle maintenance service unavailable.', err);
+    return { items: [], page, pageSize, hasMore: false };
+  }
 }
 
 export interface UpdateMaintenanceLogInput {

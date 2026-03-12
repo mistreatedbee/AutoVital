@@ -11,6 +11,7 @@ import { ErrorState } from '../../components/states/ErrorState';
 import { MaintenanceLogSkeleton } from '../../components/states/pageSkeletons';
 import {
   useMaintenanceLogs,
+  useVehicleMaintenanceLogs,
   useCreateMaintenanceLog,
   useUpdateMaintenanceLog,
 } from '../../hooks/queries';
@@ -19,6 +20,8 @@ import type { MaintenanceEntry } from '../../services/maintenance';
 import type { CreateMaintenanceLogInput } from '../../services/maintenance';
 import { uploadDocumentFile } from '../../services/documents';
 import { useAuth } from '../../auth/AuthProvider';
+import { validateOdometerKm, validateZarAmount } from '../../lib/validation';
+import { formatDateShort } from '../../lib/formatters';
 
 type FormMode = 'create' | 'edit';
 
@@ -50,8 +53,8 @@ const EMPTY_FORM: MaintenanceFormState = {
 export function MaintenanceLog() {
   const { accountId, loading: accountLoading } = useAccount();
   const { user } = useAuth();
-  const { data: logs = [], isLoading, isError, error: queryError, refetch } = useMaintenanceLogs(accountId);
-  const { data: vehicles = [] } = useVehicles(accountId);
+  const { data: vehiclesResult } = useVehicles(accountId);
+  const vehicles = vehiclesResult?.items ?? [];
   const createMutation = useCreateMaintenanceLog(accountId);
   const updateMutation = useUpdateMaintenanceLog(accountId);
   const [formOpen, setFormOpen] = useState(false);
@@ -59,6 +62,21 @@ export function MaintenanceLog() {
   const [formState, setFormState] = useState<MaintenanceFormState>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [vehicleFilter, setVehicleFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
+
+  const logsQuery = useMaintenanceLogs(accountId, { page, pageSize: 20 });
+  const vehicleLogsQuery = useVehicleMaintenanceLogs(
+    accountId,
+    vehicleFilter === 'all' ? null : vehicleFilter,
+    { page, pageSize: 20 },
+  );
+  const logsResult = vehicleFilter === 'all' ? logsQuery.data : vehicleLogsQuery.data;
+  const logs = logsResult?.items ?? [];
+  const hasMore = logsResult?.hasMore ?? false;
+  const isLoading = vehicleFilter === 'all' ? logsQuery.isLoading : vehicleLogsQuery.isLoading;
+  const isError = vehicleFilter === 'all' ? logsQuery.isError : vehicleLogsQuery.isError;
+  const queryError = vehicleFilter === 'all' ? logsQuery.error : vehicleLogsQuery.error;
+  const refetch = vehicleFilter === 'all' ? logsQuery.refetch : vehicleLogsQuery.refetch;
 
   const vehicleOptions = useMemo(
     () =>
@@ -69,17 +87,14 @@ export function MaintenanceLog() {
     [vehicles],
   );
 
-  const filteredLogs = useMemo(() => {
-    if (vehicleFilter === 'all') {
-      return logs;
-    }
-    return logs.filter((log) => log.vehicleId === vehicleFilter);
-  }, [logs, vehicleFilter]);
+  // When vehicleFilter is set, vehicleLogsQuery returns that vehicle's logs; otherwise logsQuery returns all
+  const displayLogs = logs;
 
   const columns = [
     {
       key: 'date',
       header: 'Date',
+      render: (val: string) => formatDateShort(val),
     },
     {
       key: 'vehicle',
@@ -156,18 +171,24 @@ export function MaintenanceLog() {
       return;
     }
 
-    const mileageNumber =
-      formState.mileage.trim() !== '' ? Number(formState.mileage.replace(/,/g, '')) : null;
-    if (mileageNumber != null && (Number.isNaN(mileageNumber) || mileageNumber < 0)) {
-      setError('Mileage must be a non-negative number.');
-      return;
+    let mileageNumber: number | null = null;
+    if (formState.mileage.trim() !== '') {
+      const mileageError = validateOdometerKm(formState.mileage);
+      if (mileageError) {
+        setError(mileageError);
+        return;
+      }
+      mileageNumber = Number(formState.mileage.replace(/,/g, ''));
     }
 
-    const costNumber =
-      formState.cost.trim() !== '' ? Math.round(Number(formState.cost) * 100) : null;
-    if (costNumber != null && (Number.isNaN(costNumber) || costNumber < 0)) {
-      setError('Cost must be a non-negative number.');
-      return;
+    let costNumber: number | null = null;
+    if (formState.cost.trim() !== '') {
+      const amountError = validateZarAmount(formState.cost);
+      if (amountError) {
+        setError(amountError);
+        return;
+      }
+      costNumber = Math.round(Number(formState.cost.replace(/,/g, '')) * 100);
     }
 
     setError(null);
@@ -395,8 +416,11 @@ export function MaintenanceLog() {
           <div className="flex gap-2">
             <select
               className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
-              value={vehicleFilter}
-              onChange={(e) => setVehicleFilter(e.target.value)}
+            value={vehicleFilter}
+            onChange={(e) => {
+              setVehicleFilter(e.target.value);
+              setPage(1);
+            }}
             >
               <option value="all">All Vehicles</option>
               {vehicleOptions.map((v) => (
@@ -447,11 +471,34 @@ export function MaintenanceLog() {
             />
           </div>
         ) : (
-          <DataTable
-            columns={columns}
-            data={filteredLogs}
-            className="border-none rounded-none"
-          />
+          <>
+            <DataTable
+              columns={columns}
+              data={displayLogs}
+              className="border-none rounded-none"
+            />
+            {(hasMore || page > 1) && (
+              <div className="p-4 border-t border-slate-200 flex justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1 || isLoading}>
+                  Previous
+                </Button>
+                <span className="flex items-center px-3 text-sm text-slate-600">
+                  Page {page}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={!hasMore || isLoading}>
+                  Next
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </Card>
     </div>

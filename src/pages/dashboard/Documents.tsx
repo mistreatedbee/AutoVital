@@ -24,6 +24,8 @@ import {
   ModalTrigger,
 } from '../../components/ui/Modal';
 
+import { formatDateShort } from '../../lib/formatters';
+
 function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
   const expiry = new Date(expiresAt);
   const now = new Date();
@@ -44,7 +46,7 @@ function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
   }
   return (
     <Badge variant="neutral" className="text-[10px] px-2 py-0.5">
-      Expires {expiry.toLocaleDateString()}
+      Expires {formatDateShort(expiry)}
     </Badge>
   );
 }
@@ -52,7 +54,10 @@ function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
 export function Documents() {
   const { accountId, loading: accountLoading } = useAccount();
   const { user } = useAuth();
-  const { data: documents = [], isLoading, isError, error, refetch } = useDocuments(accountId);
+  const [page, setPage] = useState(1);
+  const { data: documentsResult, isLoading, isError, error, refetch } = useDocuments(accountId, { page, pageSize: 20 });
+  const documents = documentsResult?.items ?? [];
+  const hasMore = documentsResult?.hasMore ?? false;
   const uploadMutation = useUploadDocument(accountId);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('All');
@@ -68,7 +73,7 @@ export function Documents() {
       !term ||
       doc.name.toLowerCase().includes(term) ||
       doc.vehicle.toLowerCase().includes(term);
-    const matchesType = typeFilter === 'All' || doc.type === typeFilter;
+    const matchesType = typeFilter === 'All' || doc.type.toLowerCase() === typeFilter.toLowerCase();
     return matchesSearch && matchesType;
   });
 
@@ -290,6 +295,7 @@ export function Documents() {
           />
         </div>
       ) : (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {filtered.map((doc) => (
             <Card
@@ -336,11 +342,31 @@ export function Documents() {
               </div>
               <div className="mt-auto pt-4 border-t border-slate-100 text-xs text-slate-500 flex justify-between">
                 <span>{doc.vehicle}</span>
-                <span>{doc.date}</span>
+                <span>{formatDateShort(doc.date)}</span>
               </div>
             </Card>
           ))}
         </div>
+        {(hasMore || page > 1) && (
+          <div className="flex justify-center gap-2 pt-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || isLoading}>
+              Previous
+            </Button>
+            <span className="flex items-center px-3 text-sm text-slate-600">Page {page}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={!hasMore || isLoading}>
+              Next
+            </Button>
+          </div>
+        )}
+        </>
       )}
     </div>
   );

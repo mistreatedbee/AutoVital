@@ -6,16 +6,19 @@ import {
   createFuelLogWithMileage,
 } from '../../services/fuel';
 import type { CreateFuelLogInput } from '../../services/fuel';
+import type { PaginatedParams } from '../../lib/pagination';
 
 export function useFuelLogs(
   accountId: string | null,
   vehicleId?: string,
+  params?: PaginatedParams,
 ) {
   return useQuery({
-    queryKey: vehicleId
-      ? queryKeys.fuel.byVehicle(vehicleId)
-      : queryKeys.fuel.list(accountId ?? ''),
-    queryFn: () => fetchFuelLogs(accountId!, vehicleId),
+    queryKey: [
+      ...(vehicleId ? queryKeys.fuel.byVehicle(vehicleId) : queryKeys.fuel.list(accountId ?? '')),
+      params ?? {},
+    ],
+    queryFn: () => fetchFuelLogs(accountId!, vehicleId, params),
     enabled: !!accountId,
   });
 }

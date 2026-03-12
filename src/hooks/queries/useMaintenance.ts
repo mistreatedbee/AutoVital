@@ -8,10 +8,10 @@ import {
 } from '../../services/maintenance';
 import type { CreateMaintenanceLogInput, UpdateMaintenanceLogInput } from '../../services/maintenance';
 
-export function useMaintenanceLogs(accountId: string | null) {
+export function useMaintenanceLogs(accountId: string | null, params?: { page?: number; pageSize?: number }) {
   return useQuery({
-    queryKey: queryKeys.maintenance.list(accountId ?? ''),
-    queryFn: () => fetchAccountMaintenanceLogs(accountId!),
+    queryKey: [...queryKeys.maintenance.list(accountId ?? ''), params ?? {}],
+    queryFn: () => fetchAccountMaintenanceLogs(accountId!, params),
     enabled: !!accountId,
   });
 }
@@ -19,10 +19,11 @@ export function useMaintenanceLogs(accountId: string | null) {
 export function useVehicleMaintenanceLogs(
   accountId: string | null,
   vehicleId: string | null,
+  params?: { page?: number; pageSize?: number },
 ) {
   return useQuery({
-    queryKey: queryKeys.maintenance.byVehicle(vehicleId ?? ''),
-    queryFn: () => fetchVehicleMaintenanceLogs(accountId!, vehicleId!),
+    queryKey: [...queryKeys.maintenance.byVehicle(vehicleId ?? ''), params ?? {}],
+    queryFn: () => fetchVehicleMaintenanceLogs(accountId!, vehicleId!, params),
     enabled: !!accountId && !!vehicleId,
   });
 }

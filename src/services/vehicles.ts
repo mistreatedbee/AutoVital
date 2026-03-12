@@ -1,4 +1,5 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
+import { toLimitOffset, type PaginatedParams, type PaginatedResult, DEFAULT_PAGE_SIZE } from '../lib/pagination';
 import type { Vehicle, VehicleImage, VehicleHealthSnapshot } from '../domain/models';
 import {
   rowToVehicle,
@@ -41,29 +42,43 @@ export interface UpsertVehicleInput {
   color?: string | null;
 }
 
-export async function fetchAccountVehicles(accountId: string | null): Promise<VehicleSummary[]> {
-  if (!accountId) return [];
+export async function fetchAccountVehicles(
+  accountId: string | null,
+  params?: PaginatedParams,
+): Promise<PaginatedResult<VehicleSummary>> {
+  if (!accountId) {
+    return { items: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, hasMore: false };
+  }
+
+  const { limit, offset, page, pageSize } = toLimitOffset(params ?? {});
 
   try {
     const client = getInsforgeClient();
-    const { data, error } = await client.database
+    const q = client.database
       .from('vehicles')
       .select('id, make, model, year, current_mileage, fuel_type, health_score, hero_image_url, archived_at')
       .eq('account_id', accountId)
       .is('archived_at', null)
       .order('created_at', { ascending: false });
 
+    const qWithRange = q as { range?: (a: number, b: number) => typeof q };
+    const { data, error } = await (qWithRange.range
+      ? qWithRange.range(offset, offset + limit - 1)
+      : q);
+
     if (error || !data) {
       // eslint-disable-next-line no-console
       console.warn('Failed to load vehicles from backend.', error);
-      return [];
+      return { items: [], page, pageSize, hasMore: false };
     }
 
-    return (data as VehicleListDbRow[]).map(rowToVehicleSummary);
+    const items = (data as VehicleListDbRow[]).map(rowToVehicleSummary);
+    const hasMore = items.length === limit;
+    return { items, page, pageSize, hasMore };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Vehicles service unavailable.', err);
-    return [];
+    return { items: [], page, pageSize, hasMore: false };
   }
 }
 

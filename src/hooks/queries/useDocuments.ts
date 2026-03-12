@@ -6,11 +6,12 @@ import {
   uploadDocumentFile,
   deleteDocument,
 } from '../../services/documents';
+import type { PaginatedParams } from '../../lib/pagination';
 
-export function useDocuments(accountId: string | null) {
+export function useDocuments(accountId: string | null, params?: PaginatedParams) {
   return useQuery({
-    queryKey: queryKeys.documents.list(accountId ?? ''),
-    queryFn: () => fetchAccountDocuments(accountId!),
+    queryKey: [...queryKeys.documents.list(accountId ?? ''), params ?? {}],
+    queryFn: () => fetchAccountDocuments(accountId!, params),
     enabled: !!accountId,
   });
 }
@@ -18,10 +19,11 @@ export function useDocuments(accountId: string | null) {
 export function useVehicleDocuments(
   accountId: string | null,
   vehicleId: string | null,
+  params?: PaginatedParams,
 ) {
   return useQuery({
-    queryKey: [...queryKeys.documents.list(accountId ?? ''), 'vehicle', vehicleId ?? ''],
-    queryFn: () => fetchVehicleDocuments(accountId!, vehicleId!),
+    queryKey: [...queryKeys.documents.list(accountId ?? ''), 'vehicle', vehicleId ?? '', params ?? {}],
+    queryFn: () => fetchVehicleDocuments(accountId!, vehicleId!, params),
     enabled: !!accountId && !!vehicleId,
   });
 }

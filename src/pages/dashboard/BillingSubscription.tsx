@@ -1,43 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { CreditCardIcon, CheckIcon } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import {
-  fetchBillingOverview,
-  type BillingOverview,
-} from '../../services/billing';
+import { useBillingOverview } from '../../hooks/queries';
 import { useAccount } from '../../account/AccountProvider';
 import { LoadingState } from '../../components/states/LoadingState';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/states/ErrorState';
 
 export function BillingSubscription() {
   const { accountId, loading: accountLoading } = useAccount();
-  const [billing, setBilling] = useState<BillingOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!accountId) {
-      return;
-    }
-
-    let isMounted = true;
-
-    fetchBillingOverview(accountId)
-      .then((overview) => {
-        if (isMounted) {
-          setBilling(overview);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [accountId]);
+  const { data: billing, isLoading: loading, isError, error: queryError, refetch } =
+    useBillingOverview(accountId);
 
   const plan = billing?.plan;
 
@@ -51,6 +26,15 @@ export function BillingSubscription() {
           Manage your plan and payment methods.
         </p>
       </div>
+
+      {isError && !accountLoading && !loading && (
+        <ErrorState
+          title="Billing information failed to load"
+          description={queryError instanceof Error ? queryError.message : 'We could not load your billing information right now. Please try again.'}
+          onRetry={() => refetch()}
+          className="max-w-3xl"
+        />
+      )}
 
       <Card className="p-8 border-2 border-primary-100 bg-primary-50/30">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -161,7 +145,16 @@ export function BillingSubscription() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {billing.invoices.map((invoice) =>
+              {billing.invoices.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center">
+                    <EmptyState
+                      title="No billing history yet"
+                      description="Invoices will appear here once you have an active subscription."
+                    />
+                  </td>
+                </tr>
+              ) : billing.invoices.map((invoice) =>
               <tr key={invoice.id}>
                   <td className="px-6 py-4 text-sm text-slate-900">
                     {invoice.date}
