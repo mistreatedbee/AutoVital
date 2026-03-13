@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { getUserConsents, updateMarketingConsent } from '../../services/consents';
 import { changePassword, changeEmail } from '../../services/authSettings';
 import { fetchCurrentProfile, updateProfile } from '../../services/profile';
+import { deriveMeasurementSystemFromUnits } from '../../services/profile';
 import { queryKeys } from '../../lib/queryKeys';
 import { useAuth } from '../../auth/AuthProvider';
 import { useAccount } from '../../account/AccountProvider';
@@ -31,6 +32,7 @@ function formatDate(iso: string): string {
 
 const CURRENCIES = [{ value: 'ZAR', label: 'ZAR (South African Rand)' }, { value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }];
 const TIMEZONES = ['Africa/Johannesburg', 'Africa/Cairo', 'Europe/London', 'America/New_York', 'Asia/Dubai'];
+const LOCALES = [{ value: 'en', label: 'English' }, { value: 'af', label: 'Afrikaans' }, { value: 'zu', label: 'Zulu' }, { value: 'xh', label: 'Xhosa' }];
 
 export function ProfileSettings() {
   const { user, reauthWithPassword } = useAuth();
@@ -59,6 +61,9 @@ export function ProfileSettings() {
   const [postalCode, setPostalCode] = useState('');
   const [currency, setCurrency] = useState('ZAR');
   const [timezone, setTimezone] = useState('Africa/Johannesburg');
+  const [locale, setLocale] = useState('en');
+  const [mileageUnit, setMileageUnit] = useState('km');
+  const [fuelUnit, setFuelUnit] = useState('litres');
   const [measurementSystem, setMeasurementSystem] = useState<'metric' | 'imperial'>('metric');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -79,7 +84,16 @@ export function ProfileSettings() {
       setPostalCode(profile.postalCode ?? '');
       setCurrency(profile.currency ?? 'ZAR');
       setTimezone(profile.timezone ?? 'Africa/Johannesburg');
-      setMeasurementSystem(profile.measurementSystem ?? 'metric');
+      setLocale(profile.locale ?? 'en');
+      setMileageUnit(profile.mileageUnit ?? 'km');
+      setFuelUnit(profile.fuelUnit ?? 'litres');
+      setMeasurementSystem(
+        deriveMeasurementSystemFromUnits({
+          measurementSystem: profile.measurementSystem,
+          mileageUnit: profile.mileageUnit,
+          fuelUnit: profile.fuelUnit,
+        }),
+      );
     }
   }, [profile]);
 
@@ -197,6 +211,9 @@ export function ProfileSettings() {
         postalCode: postalCode.trim() || null,
         currency: currency || 'ZAR',
         timezone: timezone || 'Africa/Johannesburg',
+        locale: locale || 'en',
+        mileageUnit: mileageUnit || 'km',
+        fuelUnit: fuelUnit || 'litres',
         measurementSystem,
       });
       if (ok) {
@@ -234,7 +251,7 @@ export function ProfileSettings() {
         <div className="flex items-start gap-8 mb-8">
           <div className="flex flex-col items-center gap-3">
             <img
-              src="https://i.pravatar.cc/150?img=11"
+              src={profile?.avatarUrl || 'https://i.pravatar.cc/150?img=11'}
               alt="Profile"
               className="w-24 h-24 rounded-full object-cover border-4 border-slate-50 shadow-sm" />
 
@@ -378,16 +395,67 @@ export function ProfileSettings() {
                 </select>
               </div>
               <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Language</label>
+                <select
+                  className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm"
+                  value={locale}
+                  onChange={(e) => setLocale(e.target.value)}
+                >
+                  {LOCALES.map((item) => (
+                    <option key={item.value} value={item.value}>{item.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Units</label>
                 <select
                   className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm"
                   value={measurementSystem}
-                  onChange={(e) => setMeasurementSystem(e.target.value as 'metric' | 'imperial')}
+                  onChange={(e) => {
+                    const next = e.target.value as 'metric' | 'imperial';
+                    setMeasurementSystem(next);
+                    setMileageUnit(next === 'imperial' ? 'miles' : 'km');
+                    setFuelUnit(next === 'imperial' ? 'gallons' : 'litres');
+                  }}
                 >
                   <option value="metric">Metric (km, litres)</option>
                   <option value="imperial">Imperial (miles, gallons)</option>
                 </select>
                 <p className="text-xs text-slate-500 mt-1">Default: Metric for South Africa.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Mileage unit</label>
+                <select
+                  className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm"
+                  value={mileageUnit}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setMileageUnit(next);
+                    setMeasurementSystem(
+                      deriveMeasurementSystemFromUnits({ mileageUnit: next, fuelUnit }),
+                    );
+                  }}
+                >
+                  <option value="km">Kilometres</option>
+                  <option value="miles">Miles</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Fuel unit</label>
+                <select
+                  className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm"
+                  value={fuelUnit}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setFuelUnit(next);
+                    setMeasurementSystem(
+                      deriveMeasurementSystemFromUnits({ mileageUnit, fuelUnit: next }),
+                    );
+                  }}
+                >
+                  <option value="litres">Litres</option>
+                  <option value="gallons">Gallons</option>
+                </select>
               </div>
             </div>
           </div>

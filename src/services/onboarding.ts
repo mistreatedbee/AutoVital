@@ -150,7 +150,15 @@ export async function resetOnboardingProgress(userId: string): Promise<boolean> 
   }
 }
 
-export async function completeOnboarding(userId: string): Promise<boolean> {
+export async function completeOnboarding(
+  userId: string,
+  flags?: {
+    vehicleAdded?: boolean;
+    profileCompleted?: boolean;
+    serviceBaselineCompleted?: boolean;
+    remindersCompleted?: boolean;
+  },
+): Promise<boolean> {
   try {
     const client = getInsforgeClient();
     const now = new Date().toISOString();
@@ -161,10 +169,10 @@ export async function completeOnboarding(userId: string): Promise<boolean> {
           user_id: userId,
           current_step: 5,
           completed_at: now,
-          profile_completed: true,
-          vehicle_added: true,
-          service_baseline_completed: true,
-          reminders_completed: true,
+          profile_completed: flags?.profileCompleted ?? true,
+          vehicle_added: flags?.vehicleAdded ?? true,
+          service_baseline_completed: flags?.serviceBaselineCompleted ?? true,
+          reminders_completed: flags?.remindersCompleted ?? true,
           step_data: null,
           updated_at: now,
         },

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -44,12 +44,12 @@ export function VehicleDetails() {
   const { accountId } = useAccount();
   const { user } = useAuth();
 
-  const { data: vehicleDetails, isLoading, error, refetch } = useVehicleDetails(accountId, id);
-  const { data: serviceHistoryResult } = useVehicleMaintenanceLogs(accountId, id);
+  const { data: vehicleDetails, isLoading, error, refetch } = useVehicleDetails(accountId, id ?? null);
+  const { data: serviceHistoryResult } = useVehicleMaintenanceLogs(accountId, id ?? null);
   const serviceHistory = serviceHistoryResult?.items ?? [];
   const { data: documentsResult, isLoading: documentsLoading } = useVehicleDocuments(
     accountId,
-    id,
+    id ?? null,
   );
   const documents = documentsResult?.items ?? [];
   const queryClient = useQueryClient();
@@ -180,14 +180,14 @@ export function VehicleDetails() {
                   <p className="text-slate-300 text-sm mb-1">Current Mileage</p>
                   <p className="text-2xl font-bold font-heading">
                     {vehicle.currentMileage != null
-                      ? `${vehicle.currentMileage.toLocaleString()} mi`
+                      ? `${vehicle.currentMileage.toLocaleString()} km`
                       : '—'}
                   </p>
                 </div>
                 <div>
                   <p className="text-slate-300 text-sm mb-1">Engine Type</p>
                   <p className="text-2xl font-bold font-heading">
-                    {vehicle.fuelType ? vehicle.fuelType.toString() : '—'}
+                    {vehicle.engineType || '—'}
                   </p>
                 </div>
               </div>
@@ -360,6 +360,29 @@ export function VehicleDetails() {
           </div>
 
           <div className="space-y-6">
+            <Card className="p-6">
+              <h3 className="text-lg font-bold text-slate-900 font-heading mb-4">
+                Vehicle Details
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between gap-4 border-b border-slate-100 pb-2">
+                  <span className="text-slate-500">Fuel type</span>
+                  <span className="font-medium text-slate-900">{vehicle.fuelType || '—'}</span>
+                </div>
+                <div className="flex justify-between gap-4 border-b border-slate-100 pb-2">
+                  <span className="text-slate-500">Transmission</span>
+                  <span className="font-medium text-slate-900">{vehicle.transmission || '—'}</span>
+                </div>
+                <div className="flex justify-between gap-4 border-b border-slate-100 pb-2">
+                  <span className="text-slate-500">Color</span>
+                  <span className="font-medium text-slate-900">{vehicle.color || '—'}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500">Registration</span>
+                  <span className="font-medium text-slate-900">{vehicle.licensePlate || '—'}</span>
+                </div>
+              </div>
+            </Card>
             <Card className="p-6">
               <h3 className="text-lg font-bold text-slate-900 font-heading mb-4">
                 Documents

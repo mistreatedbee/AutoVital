@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,6 +36,7 @@ import {
 } from '../../services/onboarding';
 import { recordOnboardingEvent } from '../../services/onboardingAnalytics';
 import { validateYear, validateOdometerKm } from '../../lib/validation';
+import { queryKeys } from '../../lib/queryKeys';
 
 const COMMON_MAKES = [
   'Toyota', 'Ford', 'BMW', 'Mercedes-Benz', 'Volkswagen', 'Honda', 'Nissan',
@@ -86,15 +87,18 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
   ]);
 }
 
+type FieldErrors = Record<string, string>;
+
 export function OnboardingFlow() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { accountId } = useAccount();
+  const { accountId, refresh: refreshAccount } = useAccount();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   // Profile state
   const [displayName, setDisplayName] = useState('');
@@ -148,6 +152,36 @@ export function OnboardingFlow() {
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const stepDataRef = useRef<OnboardingStepData>({});
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fieldRefs = useRef<Record<string, HTMLElement | HTMLInputElement | HTMLSelectElement | null>>({});
+
+  const registerFieldRef = useCallback(
+    (field: string) => (node: HTMLElement | HTMLInputElement | HTMLSelectElement | null) => {
+      fieldRefs.current[field] = node;
+    },
+    [],
+  );
+
+  const focusFirstInvalidField = useCallback((errors: FieldErrors) => {
+    const [firstField] = Object.keys(errors);
+    if (!firstField) return;
+    const target = fieldRefs.current[firstField];
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if ('focus' in target) {
+      target.focus();
+    }
+  }, []);
+
+  const applyFieldErrors = useCallback(
+    (errors: FieldErrors, fallbackMessage?: string | null) => {
+      setFieldErrors(errors);
+      setError(fallbackMessage ?? null);
+      if (Object.keys(errors).length > 0) {
+        focusFirstInvalidField(errors);
+      }
+    },
+    [focusFirstInvalidField],
+  );
 
   const loadInitialData = useCallback(async () => {
     if (!user?.id) {
@@ -179,7 +213,7 @@ export function OnboardingFlow() {
         setStep(Math.min(progress.currentStep, 5));
         setVehicleSkipped(progress.currentStep > 2 && !progress.vehicleAdded);
         const stepData = progress.stepData;
-        if (stepData && profile) {
+        if (stepData) {
           const sd1 = stepData[1 as keyof OnboardingStepData];
           const sd2 = stepData[2 as keyof OnboardingStepData];
           const sd3 = stepData[3 as keyof OnboardingStepData];
@@ -243,6 +277,10 @@ export function OnboardingFlow() {
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
+
+  useEffect(() => {
+    setFieldErrors({});
+  }, [step]);
 
   const persistStepData = useCallback(async () => {
     if (!user?.id || step >= 5) return;
@@ -331,6 +369,83 @@ export function OnboardingFlow() {
     }
   }, [user?.id, queryClient]);
 
+  const validateProfileStep = useCallback((): FieldErrors => {
+    const nextErrors: FieldErrors = {};
+    if (!country.trim()) {
+      nextErrors.country = 'Country is required.';
+    }
+    if (!currency.trim()) {
+      nextErrors.currency = 'Currency is required.';
+    }
+    if (!timezone.trim()) {
+      nextErrors.timezone = 'Timezone is required.';
+    }
+    if (!locale.trim()) {
+      nextErrors.locale = 'Notification language is required.';
+    }
+    return nextErrors;
+  }, [country, currency, timezone, locale]);
+
+  const validateVehicleStep = useCallback((): FieldErrors => {
+    const nextErrors: FieldErrors = {};
+    if (vehicleSkipped) {
+      return nextErrors;
+    }
+    if (!make.trim()) {
+      nextErrors.make = 'Select a vehicle make.';
+    }
+    if (!model.trim()) {
+      nextErrors.model = 'Model is required.';
+    }
+    if (year) {
+      const yearError = validateYear(year);
+      if (yearError) {
+        nextErrors.year = yearError;
+      }
+    }
+    if (currentMileage) {
+      const mileageError = validateOdometerKm(currentMileage);
+      if (mileageError) {
+        nextErrors.currentMileage = mileageError;
+      }
+    }
+    return nextErrors;
+  }, [vehicleSkipped, make, model, year, currentMileage]);
+
+  const validateServiceStep = useCallback((): FieldErrors => {
+    const nextErrors: FieldErrors = {};
+    const numericMileageFields: Array<[string, string]> = [
+      ['lastServiceMileage', lastServiceMileage],
+      ['lastOilChangeMileage', lastOilChangeMileage],
+      ['serviceIntervalMileage', serviceIntervalMileage],
+    ];
+    for (const [field, value] of numericMileageFields) {
+      if (!value) continue;
+      const mileageError = validateOdometerKm(value);
+      if (mileageError) {
+        nextErrors[field] = mileageError;
+      }
+    }
+    const positiveNumberFields: Array<[string, string, string]> = [
+      ['serviceIntervalMonths', serviceIntervalMonths, 'Service interval months must be greater than 0.'],
+    ];
+    for (const [field, value, message] of positiveNumberFields) {
+      if (!value) continue;
+      if (Number.isNaN(Number(value)) || Number(value) <= 0) {
+        nextErrors[field] = message;
+      }
+    }
+    return nextErrors;
+  }, [lastOilChangeMileage, lastServiceMileage, serviceIntervalMileage, serviceIntervalMonths]);
+
+  const resolveAccountId = useCallback(async () => {
+    if (!user?.id) return null;
+    if (accountId) return accountId;
+    await refreshAccount();
+    const profile = await fetchCurrentProfile(user.id);
+    return profile?.defaultAccountId ?? null;
+  }, [accountId, refreshAccount, user?.id]);
+
   const saveProfileStep = useCallback(async () => {
     if (!user?.id) return false;
     setError(null);
@@ -354,7 +469,8 @@ export function OnboardingFlow() {
 
   const saveVehicleStep = useCallback(async () => {
     if (vehicleSkipped || !user?.id) return true;
-    if (!accountId) {
+    const resolvedAccountId = await resolveAccountId();
+    if (!resolvedAccountId) {
       setError('Account setup is still pending. Skip vehicle for now and continue.');
       return false;
     }
@@ -381,7 +497,7 @@ export function OnboardingFlow() {
     }
     const vehicle = await upsertVehicle({
       id: vehicleId ?? undefined,
-      accountId,
+      accountId: resolvedAccountId,
       ownerUserId: user.id,
       nickname: nickname.trim() || null,
       make: make.trim(),
@@ -399,7 +515,7 @@ export function OnboardingFlow() {
     const withHealth = await recomputeAndPersistVehicleHealth(vehicle, null);
     if (vehicleImageFile && withHealth) {
       await uploadVehicleImageFile({
-        accountId,
+        accountId: resolvedAccountId,
         vehicleId: withHealth.id,
         file: vehicleImageFile,
       });
@@ -407,12 +523,13 @@ export function OnboardingFlow() {
     setVehicleId(withHealth.id);
     return true;
   }, [
-    vehicleSkipped, accountId, user?.id, vehicleId, nickname, make, model, year,
+    vehicleSkipped, resolveAccountId, user?.id, vehicleId, nickname, make, model, year,
     registration, vin, currentMileage, fuelType, transmission, engineType, color, vehicleImageFile,
   ]);
 
   const saveServiceStep = useCallback(async () => {
-    if (!accountId) return false;
+    const resolvedAccountId = await resolveAccountId();
+    if (!resolvedAccountId) return false;
     const lastDate = lastServiceDate || null;
     const lastMileage = lastServiceMileage ? Number(lastServiceMileage) : null;
     const intervalMonths = serviceIntervalMonths ? Number(serviceIntervalMonths) : null;
@@ -422,8 +539,8 @@ export function OnboardingFlow() {
     const brakeDate = lastBrakeServiceDate || null;
     const batteryDate = lastBatteryDate || null;
     const tireDate = lastTireRotationDate || null;
-    await upsertServicePreferences({
-      accountId,
+    const result = await upsertServicePreferences({
+      accountId: resolvedAccountId,
       vehicleId: vehicleId ?? null,
       lastServiceDate: lastDate,
       lastServiceMileage: lastMileage,
@@ -437,35 +554,37 @@ export function OnboardingFlow() {
       knownIssues: knownIssues.trim() || null,
       workshopName: workshopName.trim() || null,
     });
-    return true;
+    return Boolean(result);
   }, [
-    accountId, vehicleId, lastServiceDate, lastServiceMileage, serviceIntervalMonths,
+    resolveAccountId, vehicleId, lastServiceDate, lastServiceMileage, serviceIntervalMonths,
     serviceIntervalMileage, lastOilChangeDate, lastOilChangeMileage, lastBrakeServiceDate,
     lastBatteryDate, lastTireRotationDate, knownIssues, workshopName,
   ]);
 
   const saveRemindersStep = useCallback(async () => {
-    if (!user?.id || !accountId) return false;
-    await upsertAlertPreference({
+    if (!user?.id) return false;
+    const resolvedAccountId = await resolveAccountId();
+    if (!resolvedAccountId) return false;
+    const emailOk = await upsertAlertPreference({
       userId: user.id,
-      accountId,
+      accountId: resolvedAccountId,
       channel: 'email',
       enabled: emailReminders,
       maintenanceLeadDaysArray: leadDays.length ? leadDays : [14, 7, 0],
       reminderBasis: reminderBasis,
       weeklySummaryEmail: weeklySummary,
     });
-    await upsertAlertPreference({
+    const inAppOk = await upsertAlertPreference({
       userId: user.id,
-      accountId,
+      accountId: resolvedAccountId,
       channel: 'in_app',
       enabled: inAppReminders,
       maintenanceLeadDaysArray: leadDays.length ? leadDays : [14, 7, 0],
       reminderBasis: reminderBasis,
       weeklySummaryEmail: weeklySummary,
     });
-    return true;
-  }, [user?.id, accountId, emailReminders, inAppReminders, leadDays, reminderBasis, weeklySummary]);
+    return emailOk && inAppOk;
+  }, [user?.id, resolveAccountId, emailReminders, inAppReminders, leadDays, reminderBasis, weeklySummary]);
 
   const toggleLeadDay = (day: number) => {
     setLeadDays((prev) =>
@@ -475,28 +594,48 @@ export function OnboardingFlow() {
 
   const handleNext = useCallback(async () => {
     setError(null);
+    setFieldErrors({});
     setLoading(true);
     try {
       if (step === 1) {
+        const nextErrors = validateProfileStep();
+        if (Object.keys(nextErrors).length > 0) {
+          applyFieldErrors(nextErrors, 'Please review the highlighted profile fields.');
+          setLoading(false);
+          return;
+        }
         const ok = await saveProfileStep();
         if (!ok) {
           setError('Failed to save profile.');
           setLoading(false);
           return;
         }
+        await queryClient.invalidateQueries({ queryKey: queryKeys.profile.current(user!.id) });
         await upsertOnboardingProgress(user!.id, {
           currentStep: 2,
           profileCompleted: true,
         });
         recordOnboardingEvent(user!.id, 'step_1_done', 1);
       } else if (step === 2) {
+        const nextErrors = validateVehicleStep();
+        if (Object.keys(nextErrors).length > 0) {
+          applyFieldErrors(nextErrors, 'Please review the highlighted vehicle fields.');
+          setLoading(false);
+          return;
+        }
         if (!vehicleSkipped) {
           const ok = await saveVehicleStep();
           if (!ok) {
-            setError('Please enter make and model, or skip for now.');
+            if (!error) {
+              setError('Unable to save the vehicle. Please review the highlighted fields.');
+            }
             setLoading(false);
             return;
           }
+        }
+        if (accountId) {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.list(accountId) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
         }
         await upsertOnboardingProgress(user!.id, {
           currentStep: 3,
@@ -504,14 +643,30 @@ export function OnboardingFlow() {
         });
         recordOnboardingEvent(user!.id, 'step_2_done', 2);
       } else if (step === 3) {
-        await saveServiceStep();
+        const nextErrors = validateServiceStep();
+        if (Object.keys(nextErrors).length > 0) {
+          applyFieldErrors(nextErrors, 'Please review the highlighted service fields.');
+          setLoading(false);
+          return;
+        }
+        const ok = await saveServiceStep();
+        if (!ok) {
+          setError('Failed to save service baseline.');
+          setLoading(false);
+          return;
+        }
         await upsertOnboardingProgress(user!.id, {
           currentStep: 4,
           serviceBaselineCompleted: true,
         });
         recordOnboardingEvent(user!.id, 'step_3_done', 3);
       } else if (step === 4) {
-        await saveRemindersStep();
+        const ok = await saveRemindersStep();
+        if (!ok) {
+          setError('Failed to save reminder preferences.');
+          setLoading(false);
+          return;
+        }
         await upsertOnboardingProgress(user!.id, {
           currentStep: 5,
           remindersCompleted: true,
@@ -525,7 +680,9 @@ export function OnboardingFlow() {
       setLoading(false);
     }
   }, [
-    step, user, vehicleSkipped, saveProfileStep, saveVehicleStep, saveServiceStep, saveRemindersStep,
+    step, user, vehicleSkipped, accountId, error, queryClient, applyFieldErrors,
+    validateProfileStep, validateVehicleStep, validateServiceStep,
+    saveProfileStep, saveVehicleStep, saveServiceStep, saveRemindersStep,
   ]);
 
   const handleBack = useCallback(() => {
@@ -551,10 +708,18 @@ export function OnboardingFlow() {
     setError(null);
     setLoading(true);
     try {
-      const ok = await completeOnboarding(user!.id);
+      const ok = await completeOnboarding(user!.id, {
+        vehicleAdded: !vehicleSkipped && Boolean(vehicleId || make.trim() || model.trim()),
+      });
       if (ok) {
         recordOnboardingEvent(user!.id, 'completed', 5);
         await queryClient.invalidateQueries({ queryKey: ['onboarding', user!.id] });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.profile.current(user!.id) });
+        if (accountId) {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.list(accountId) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.alerts.preferences(accountId) });
+        }
         navigate('/dashboard', { replace: true });
       } else {
         setError('Failed to complete. Please try again.');
@@ -564,7 +729,7 @@ export function OnboardingFlow() {
     } finally {
       setLoading(false);
     }
-  }, [user, navigate, queryClient]);
+  }, [user, vehicleSkipped, vehicleId, make, model, accountId, navigate, queryClient]);
 
   if (!user) return null;
   if (initializing) {
@@ -660,6 +825,8 @@ export function OnboardingFlow() {
                       placeholder="South Africa"
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
+                      error={fieldErrors.country}
+                      ref={registerFieldRef('country')}
                     />
                     <Input
                       label="City / Region"
@@ -692,6 +859,8 @@ export function OnboardingFlow() {
                         placeholder="e.g. 2000"
                         value={postalCode}
                         onChange={(e) => setPostalCode(e.target.value)}
+                        error={fieldErrors.postalCode}
+                        ref={registerFieldRef('postalCode')}
                       />
                     </div>
                     <Input
@@ -699,6 +868,8 @@ export function OnboardingFlow() {
                       placeholder="ZAR"
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value)}
+                      error={fieldErrors.currency}
+                      ref={registerFieldRef('currency')}
                     />
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -727,7 +898,8 @@ export function OnboardingFlow() {
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Timezone</label>
                       <select
-                        className="w-full rounded-md border border-slate-300 py-2 px-3 text-sm"
+                        ref={registerFieldRef('timezone')}
+                        className={`w-full rounded-md py-2 px-3 text-sm ${fieldErrors.timezone ? 'border border-red-300 focus:border-red-400' : 'border border-slate-300'}`}
                         value={timezone}
                         onChange={(e) => setTimezone(e.target.value)}
                       >
@@ -735,11 +907,13 @@ export function OnboardingFlow() {
                           <option key={tz} value={tz}>{tz}</option>
                         ))}
                       </select>
+                      {fieldErrors.timezone && <p className="mt-1 text-sm text-red-600">{fieldErrors.timezone}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Notification language</label>
                       <select
-                        className="w-full rounded-md border border-slate-300 py-2 px-3 text-sm"
+                        ref={registerFieldRef('locale')}
+                        className={`w-full rounded-md py-2 px-3 text-sm ${fieldErrors.locale ? 'border border-red-300 focus:border-red-400' : 'border border-slate-300'}`}
                         value={locale}
                         onChange={(e) => setLocale(e.target.value)}
                       >
@@ -747,6 +921,7 @@ export function OnboardingFlow() {
                           <option key={l.value} value={l.value}>{l.label}</option>
                         ))}
                       </select>
+                      {fieldErrors.locale && <p className="mt-1 text-sm text-red-600">{fieldErrors.locale}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Profile photo (optional)</label>
@@ -783,7 +958,8 @@ export function OnboardingFlow() {
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Make</label>
                       <select
-                        className="w-full rounded-md border border-slate-300 py-2 px-3 text-sm"
+                        ref={registerFieldRef('make')}
+                        className={`w-full rounded-md py-2 px-3 text-sm ${fieldErrors.make ? 'border border-red-300 focus:border-red-400' : 'border border-slate-300'}`}
                         value={make}
                         onChange={(e) => setMake(e.target.value)}
                       >
@@ -792,12 +968,15 @@ export function OnboardingFlow() {
                           <option key={m} value={m}>{m}</option>
                         ))}
                       </select>
+                      {fieldErrors.make && <p className="mt-1 text-sm text-red-600">{fieldErrors.make}</p>}
                     </div>
                     <Input
                       label="Model"
                       placeholder="e.g. Corolla"
                       value={model}
                       onChange={(e) => setModel(e.target.value)}
+                      error={fieldErrors.model}
+                      ref={registerFieldRef('model')}
                     />
                     <div className="grid grid-cols-2 gap-4">
                       <Input
@@ -806,6 +985,8 @@ export function OnboardingFlow() {
                         placeholder="2020"
                         value={year}
                         onChange={(e) => setYear(e.target.value)}
+                        error={fieldErrors.year}
+                        ref={registerFieldRef('year')}
                       />
                       <Input
                         label="Registration"
@@ -826,6 +1007,8 @@ export function OnboardingFlow() {
                       placeholder="45000"
                       value={currentMileage}
                       onChange={(e) => setCurrentMileage(e.target.value)}
+                      error={fieldErrors.currentMileage}
+                      ref={registerFieldRef('currentMileage')}
                     />
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Fuel type</label>
@@ -900,6 +1083,8 @@ export function OnboardingFlow() {
                       placeholder="45000"
                       value={lastServiceMileage}
                       onChange={(e) => setLastServiceMileage(e.target.value)}
+                      error={fieldErrors.lastServiceMileage}
+                      ref={registerFieldRef('lastServiceMileage')}
                     />
                     <div className="grid grid-cols-2 gap-4">
                       <Input
@@ -908,6 +1093,8 @@ export function OnboardingFlow() {
                         placeholder="12"
                         value={serviceIntervalMonths}
                         onChange={(e) => setServiceIntervalMonths(e.target.value)}
+                        error={fieldErrors.serviceIntervalMonths}
+                        ref={registerFieldRef('serviceIntervalMonths')}
                       />
                       <Input
                         label="Service interval (km)"
@@ -915,6 +1102,8 @@ export function OnboardingFlow() {
                         placeholder="15000"
                         value={serviceIntervalMileage}
                         onChange={(e) => setServiceIntervalMileage(e.target.value)}
+                        error={fieldErrors.serviceIntervalMileage}
+                        ref={registerFieldRef('serviceIntervalMileage')}
                       />
                     </div>
                     <button
@@ -942,6 +1131,8 @@ export function OnboardingFlow() {
                           type="number"
                           value={lastOilChangeMileage}
                           onChange={(e) => setLastOilChangeMileage(e.target.value)}
+                          error={fieldErrors.lastOilChangeMileage}
+                          ref={registerFieldRef('lastOilChangeMileage')}
                         />
                         <Input
                           label="Last brake service date"

@@ -56,7 +56,7 @@ export async function fetchAccountVehicles(
     const client = getInsforgeClient();
     const q = client.database
       .from('vehicles')
-      .select('id, make, model, year, current_mileage, fuel_type, health_score, hero_image_url, archived_at')
+      .select('id, nickname, make, model, year, current_mileage, fuel_type, health_score, hero_image_url, archived_at')
       .eq('account_id', accountId)
       .is('archived_at', null)
       .order('created_at', { ascending: false });

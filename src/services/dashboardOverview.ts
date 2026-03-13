@@ -1,8 +1,6 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
 import { formatCurrencyZAR } from '../lib/formatters';
 import type { BillingInvoice } from './billing';
-import type { FuelLogEntry } from './fuel';
-import type { MaintenanceEntry } from './maintenance';
 import type { UserAlert } from './alerts';
 
 export interface OverviewStats {
@@ -39,6 +37,17 @@ export interface OverviewVehicle {
   currentMileage: number | null;
   heroImageUrl: string | null;
   nextServiceDue: string | null;
+}
+
+interface AlertRow {
+  id: string;
+  kind: string;
+  status: string;
+  title: string;
+  message: string;
+  vehicle_id: string | null;
+  created_at?: string | null;
+  vehicles?: { make?: string | null; model?: string | null } | null;
 }
 
 export interface DashboardOverviewData {
@@ -86,13 +95,13 @@ export async function fetchDashboardOverview(
   ] = await Promise.allSettled([
     client.database
       .from('vehicles')
-      .select('id, make, model, year, health_score, current_mileage, hero_image_url')
+      .select('id, nickname, make, model, year, health_score, current_mileage, hero_image_url')
       .eq('account_id', accountId)
       .is('archived_at', null)
       .order('created_at', { ascending: false }),
     client.database
       .from('alerts')
-      .select('id, kind, status, title, message, vehicle_id, vehicles(make, model)')
+      .select('id, kind, status, title, message, vehicle_id, created_at, vehicles(make, model)')
       .eq('account_id', accountId)
       .in('status', ['pending', 'sent'])
       .order('created_at', { ascending: false }),
@@ -134,9 +143,9 @@ export async function fetchDashboardOverview(
       ? (vehiclesResult.value.data as any[])
       : [];
 
-  const alertsRows =
+  const alertsRows: AlertRow[] =
     alertsResult.status === 'fulfilled' && !alertsResult.value.error
-      ? (alertsResult.value.data as any[])
+      ? (alertsResult.value.data as AlertRow[])
       : [];
 
   const maintenanceRows =
@@ -184,7 +193,7 @@ export async function fetchDashboardOverview(
     const nextAlert = openAlertsByVehicle.get(v.id) ?? openAlertsByVehicle.get('__account__');
     return {
       id: v.id as string,
-      name: `${v.year ?? ''} ${v.make} ${v.model}`.trim(),
+      name: (v.nickname as string | null | undefined)?.trim() || `${v.year ?? ''} ${v.make} ${v.model}`.trim(),
       healthScore: v.health_score != null ? Number(v.health_score) : null,
       currentMileage: v.current_mileage != null ? Number(v.current_mileage) : null,
       heroImageUrl: (v.hero_image_url as string) ?? null,
@@ -192,7 +201,7 @@ export async function fetchDashboardOverview(
     };
   });
 
-  const alerts: UserAlert[] = alertsRows.map((row) => {
+  const alerts = alertsRows.map((row) => {
     const vehicleName =
       row.vehicles?.make && row.vehicles?.model
         ? `${row.vehicles.make} ${row.vehicles.model}`
@@ -210,19 +219,20 @@ export async function fetchDashboardOverview(
 
     return {
       id: row.id,
+      kind: row.kind,
       title: row.title,
       description: row.message,
       vehicle: vehicleName,
       severity,
       status,
       meta: '',
-    };
+    } as UserAlert & { kind: string };
   });
 
   const openAlerts = alerts.filter((a) => a.status === 'open');
   const upcomingMaintenance = alerts.filter((a) =>
     ['maintenance_due', 'maintenance_overdue', 'document_expiring'].includes(
-      (a as any).kind ?? '',
+      a.kind ?? '',
     ),
   );
 

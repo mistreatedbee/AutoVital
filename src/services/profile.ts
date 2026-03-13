@@ -17,6 +17,20 @@ export interface ProfileUpdatePayload {
   measurementSystem?: 'imperial' | 'metric';
 }
 
+export function deriveMeasurementSystemFromUnits(input: {
+  measurementSystem?: 'imperial' | 'metric' | null;
+  mileageUnit?: string | null;
+  fuelUnit?: string | null;
+}): 'imperial' | 'metric' {
+  if (input.measurementSystem) {
+    return input.measurementSystem;
+  }
+  if (input.mileageUnit === 'miles' || input.fuelUnit === 'gallons') {
+    return 'imperial';
+  }
+  return 'metric';
+}
+
 export async function fetchCurrentProfile(userIdInput: string | { id?: string } | null | undefined): Promise<Profile | null> {
   const userId =
     typeof userIdInput === 'string'
@@ -67,8 +81,15 @@ export async function updateProfile(
 ): Promise<boolean> {
   try {
     const client = getInsforgeClient();
+    const measurementSystem = deriveMeasurementSystemFromUnits({
+      measurementSystem: payload.measurementSystem,
+      mileageUnit: payload.mileageUnit,
+      fuelUnit: payload.fuelUnit,
+    });
     const dbPayload: Record<string, unknown> = {
+      user_id: userId,
       updated_at: new Date().toISOString(),
+      measurement_system: measurementSystem,
     };
     if (payload.displayName !== undefined) dbPayload.display_name = payload.displayName;
     if (payload.country !== undefined) dbPayload.country = payload.country;
@@ -82,13 +103,10 @@ export async function updateProfile(
     if (payload.locale !== undefined) dbPayload.locale = payload.locale;
     if (payload.avatarUrl !== undefined) dbPayload.avatar_url = payload.avatarUrl;
     if (payload.phoneNumber !== undefined) dbPayload.phone_number = payload.phoneNumber;
-    if (payload.measurementSystem !== undefined)
-      dbPayload.measurement_system = payload.measurementSystem;
 
     const { error } = await client.database
       .from('profiles')
-      .update(dbPayload)
-      .eq('user_id', userId);
+      .upsert(dbPayload, { onConflict: 'user_id' });
 
     return !error;
   } catch (err) {

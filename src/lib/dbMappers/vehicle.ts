@@ -1,4 +1,5 @@
 import type { Vehicle, VehicleImage, VehicleHealthSnapshot } from '../../domain/models';
+import type { FuelType } from '../../domain/models';
 
 export interface VehicleSummary {
   id: string;
@@ -38,6 +39,7 @@ export interface VehicleDbRow {
 export interface VehicleListDbRow
   extends Pick<
     VehicleDbRow,
+    | 'nickname'
     | 'id'
     | 'make'
     | 'model'
@@ -87,7 +89,7 @@ export function rowToVehicle(row: VehicleDbRow): Vehicle {
     year: row.year ?? null,
     vin: row.vin ?? null,
     licensePlate: row.license_plate ?? null,
-    fuelType: row.fuel_type ?? null,
+    fuelType: (row.fuel_type as FuelType | null | undefined) ?? null,
     currentMileage:
       row.current_mileage != null ? Number(row.current_mileage) : null,
     transmission: row.transmission ?? null,
@@ -111,7 +113,7 @@ export function rowToVehicleSummary(
 
   return {
     id: row.id,
-    name: `${row.year ?? ''} ${row.make} ${row.model}`.trim(),
+    name: row.nickname?.trim() || `${row.year ?? ''} ${row.make} ${row.model}`.trim(),
     year: row.year ?? null,
     mileage,
     type: row.fuel_type ?? null,

@@ -36,6 +36,9 @@ export function VehicleForm({ mode }: VehicleFormProps) {
   const [licensePlate, setLicensePlate] = useState('');
   const [fuelType, setFuelType] = useState<string>('');
   const [currentMileage, setCurrentMileage] = useState<string>('');
+  const [transmission, setTransmission] = useState('');
+  const [engineType, setEngineType] = useState('');
+  const [color, setColor] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
 
   useEffect(() => {
@@ -54,6 +57,9 @@ export function VehicleForm({ mode }: VehicleFormProps) {
           setLicensePlate(v.licensePlate ?? '');
           setFuelType(v.fuelType ?? '');
           setCurrentMileage(v.currentMileage != null ? String(v.currentMileage) : '');
+          setTransmission(v.transmission ?? '');
+          setEngineType(v.engineType ?? '');
+          setColor(v.color ?? '');
         })
         .catch((err: any) => {
           // eslint-disable-next-line no-console
@@ -118,6 +124,9 @@ export function VehicleForm({ mode }: VehicleFormProps) {
         licensePlate: licensePlate.trim() || null,
         fuelType: fuelType || null,
         currentMileage: currentMileage ? Number(currentMileage.replace(/,/g, '')) : null,
+        transmission: transmission.trim() || null,
+        engineType: engineType.trim() || null,
+        color: color.trim() || null,
       });
 
       if (!vehicleWithHealth) {
@@ -231,6 +240,24 @@ export function VehicleForm({ mode }: VehicleFormProps) {
                 placeholder="24500"
                 value={currentMileage}
                 onChange={(e) => setCurrentMileage(e.target.value)}
+              />
+              <Input
+                label="Transmission"
+                placeholder="e.g. Automatic"
+                value={transmission}
+                onChange={(e) => setTransmission(e.target.value)}
+              />
+              <Input
+                label="Engine Type"
+                placeholder="e.g. 2.0L Turbo"
+                value={engineType}
+                onChange={(e) => setEngineType(e.target.value)}
+              />
+              <Input
+                label="Color"
+                placeholder="e.g. White"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
               />
             </div>
 

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   CarIcon,
   WrenchIcon,
@@ -32,11 +33,18 @@ import { ErrorState } from '../../components/states/ErrorState';
 import { DashboardHomeSkeleton } from '../../components/states/pageSkeletons';
 import { useDashboardOverview } from '../../hooks/queries';
 import { formatCurrencyZAR } from '../../lib/formatters';
+import { queryKeys } from '../../lib/queryKeys';
+import { fetchCurrentProfile } from '../../services/profile';
 
 export function DashboardHome() {
   const { user } = useAuth();
   const { accountId, loading: accountLoading, error: accountError, refresh } = useAccount();
   const { data: overview, isLoading, error, refetch } = useDashboardOverview(accountId);
+  const { data: profile } = useQuery({
+    queryKey: queryKeys.profile.current(user?.id ?? ''),
+    queryFn: () => fetchCurrentProfile(user!.id),
+    enabled: !!user?.id,
+  });
 
   const today = new Date().toLocaleDateString('en-ZA', {
     weekday: 'long',
@@ -84,7 +92,11 @@ export function DashboardHome() {
           <p className="text-sm font-medium text-primary-600 mb-1">{today}</p>
           <h1 className="text-3xl font-bold text-slate-900 font-heading tracking-tight">
             {greeting}
-            {user?.email ? `, ${user.email}` : ''}
+            {profile?.displayName?.trim()
+              ? `, ${profile.displayName}`
+              : user?.email
+                ? `, ${user.email}`
+                : ''}
           </h1>
           <p className="text-slate-500 mt-1">
             Here's what's happening with your garage today.

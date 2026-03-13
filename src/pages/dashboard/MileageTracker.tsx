@@ -17,6 +17,7 @@ import { Input } from '../../components/ui/Input';
 import { useAccount } from '../../account/AccountProvider';
 import { useAuth } from '../../auth/AuthProvider';
 import { LoadingState } from '../../components/states/LoadingState';
+import { ErrorState } from '../../components/states/ErrorState';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { fetchAccountVehicles, type VehicleSummary } from '../../services/vehicles';
 import {
@@ -30,7 +31,7 @@ import { chartColors, cssVarHsl } from '../../lib/tokens';
 import { validateOdometerKm } from '../../lib/validation';
 
 export function MileageTracker() {
-  const { accountId, loading: accountLoading } = useAccount();
+  const { accountId, loading: accountLoading, error: accountError, refresh } = useAccount();
   const { user } = useAuth();
 
   const [vehicles, setVehicles] = useState<VehicleSummary[]>([]);
@@ -45,22 +46,32 @@ export function MileageTracker() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!accountId || !user) return;
+    if (accountLoading) return;
+    if (!accountId || !user) {
+      setVehicles([]);
+      setSelectedVehicleId('');
+      setHistory([]);
+      setLoading(false);
+      return;
+    }
 
     let isMounted = true;
     setLoading(true);
+    setError(null);
 
     Promise.all([fetchAccountVehicles(accountId), fetchCurrentProfile(user.id)])
       .then(([vehsResult, profile]) => {
         if (!isMounted) return;
         const vehs = vehsResult.items;
         setVehicles(vehs);
-        if (vehs.length > 0) {
-          setSelectedVehicleId(vehs[0].id);
-        }
+        setSelectedVehicleId((current) => current || vehs[0]?.id || '');
         if (profile?.measurementSystem) {
           setMeasurementSystem(profile.measurementSystem);
         }
+      })
+      .catch((err: unknown) => {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : 'Unable to load vehicles.');
       })
       .finally(() => {
         if (isMounted) {
@@ -71,18 +82,28 @@ export function MileageTracker() {
     return () => {
       isMounted = false;
     };
-  }, [accountId, user]);
+  }, [accountId, accountLoading, user]);
 
   useEffect(() => {
-    if (!accountId || !selectedVehicleId) return;
+    if (!accountId || !selectedVehicleId) {
+      setHistory([]);
+      setLoading(false);
+      return;
+    }
 
     let isMounted = true;
     setLoading(true);
+    setError(null);
 
     fetchVehicleMileageHistory(accountId, selectedVehicleId)
       .then((points) => {
         if (!isMounted) return;
         setHistory(points);
+      })
+      .catch((err: unknown) => {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : 'Unable to load mileage history.');
+        setHistory([]);
       })
       .finally(() => {
         if (isMounted) {
@@ -105,6 +126,12 @@ export function MileageTracker() {
   );
 
   const latestOdometer = history.length ? history[history.length - 1].odometer : null;
+  const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null;
+  const latestKnownMileage =
+    latestOdometer ??
+    (selectedVehicle?.mileage != null
+      ? Number(String(selectedVehicle.mileage).replace(/,/g, ''))
+      : null);
 
   const distanceKmLast30d = useMemo(() => {
     if (!history.length) return null;
@@ -194,11 +221,27 @@ export function MileageTracker() {
   };
 
   if (!accountId || !user) {
-    return <LoadingState label="Loading account..." />;
+    return (
+      <ErrorState
+        title="Account not ready"
+        description={accountError ?? 'We could not resolve your account for mileage tracking yet.'}
+        onRetry={() => refresh()}
+      />
+    );
   }
 
   if (accountLoading || loading) {
     return <LoadingState label="Loading mileage data..." />;
+  }
+
+  if (vehicles.length === 0) {
+    return (
+      <EmptyState
+        icon={<ActivityIcon className="w-16 h-16" />}
+        title="No vehicles available"
+        description="Add a vehicle first, then you can log and chart mileage readings here."
+      />
+    );
   }
 
   return (
@@ -234,8 +277,8 @@ export function MileageTracker() {
         <StatCard
           title="Current Odometer"
           value={
-            latestOdometer != null
-              ? `${latestOdometer.toLocaleString()} ${
+            latestKnownMileage != null
+              ? `${latestKnownMileage.toLocaleString()} ${
                   measurementSystem === 'imperial' ? 'mi' : 'km'
                 }`
               : '—'
@@ -274,7 +317,11 @@ export function MileageTracker() {
               <EmptyState
                 icon={<ActivityIcon className="w-16 h-16" />}
                 title="No mileage history yet"
-                description="Add your first odometer reading below to start tracking."
+                description={
+                  latestKnownMileage != null
+                    ? `Current vehicle mileage is ${latestKnownMileage.toLocaleString()} ${measurementSystem === 'imperial' ? 'mi' : 'km'}. Add your first log below to start history tracking.`
+                    : 'Add your first odometer reading below to start tracking.'
+                }
               />
             </div>
           ) : (
