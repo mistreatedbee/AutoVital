@@ -38,6 +38,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     queryFn: () => fetchCurrentProfile(user!.id),
     enabled: !!user?.id,
   });
+  const avatarSrc = profile?.avatarUrl || 'https://i.pravatar.cc/150?img=11';
+  const displayName = profile?.displayName?.trim() || user?.name || user?.email || 'Account';
+  const profileAlt = profile?.displayName?.trim() || user?.name || user?.email || 'Profile';
   // Close sidebar on route change (mobile)
   useEffect(() => {
     setSidebarOpen(false);
@@ -129,10 +132,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
   const SidebarContent = () =>
   {
-    const avatarSrc = profile?.avatarUrl || 'https://i.pravatar.cc/150?img=11';
-    const displayName = profile?.displayName?.trim() || user?.name || user?.email || 'Account';
-    const profileAlt = profile?.displayName?.trim() || user?.name || user?.email || 'Profile';
-
     return (
   <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
       {/* Brand */}
