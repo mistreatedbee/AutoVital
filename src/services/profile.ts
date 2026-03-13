@@ -17,7 +17,15 @@ export interface ProfileUpdatePayload {
   measurementSystem?: 'imperial' | 'metric';
 }
 
-export async function fetchCurrentProfile(userId: string): Promise<Profile | null> {
+export async function fetchCurrentProfile(userIdInput: string | { id?: string } | null | undefined): Promise<Profile | null> {
+  const userId =
+    typeof userIdInput === 'string'
+      ? userIdInput
+      : typeof userIdInput?.id === 'string'
+        ? userIdInput.id
+        : null;
+  if (!userId) return null;
+
   const client = getInsforgeClient();
 
   const { data, error } = await client.database

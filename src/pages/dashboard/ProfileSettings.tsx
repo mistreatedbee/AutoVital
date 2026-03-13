@@ -65,7 +65,7 @@ export function ProfileSettings() {
 
   const { data: profile } = useQuery({
     queryKey: queryKeys.profile.current(user?.id ?? ''),
-    queryFn: () => fetchCurrentProfile(user!),
+    queryFn: () => fetchCurrentProfile(user!.id),
     enabled: !!user?.id,
   });
 
