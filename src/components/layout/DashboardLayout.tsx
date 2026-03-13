@@ -131,6 +131,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   {
     const avatarSrc = profile?.avatarUrl || 'https://i.pravatar.cc/150?img=11';
     const displayName = profile?.displayName?.trim() || user?.name || user?.email || 'Account';
+    const profileAlt = profile?.displayName?.trim() || user?.name || user?.email || 'Profile';
 
     return (
   <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
@@ -295,7 +296,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <Link to="/dashboard/settings" className="hidden sm:block">
               <img
                 src={profile?.avatarUrl || 'https://i.pravatar.cc/150?img=11'}
-                alt={profile?.displayName?.trim() || user?.name ?? user?.email ?? 'Profile'}
+                alt={profileAlt}
                 className="w-9 h-9 rounded-full border border-border" />
 
             </Link>
