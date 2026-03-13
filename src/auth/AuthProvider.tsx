@@ -141,6 +141,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const requireActiveSessionUser = useCallback(async (): Promise<AuthUser> => {
+    const client = getInsforgeClient();
+    let lastError: unknown = null;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { data, error: sessionError } = await client.auth.getCurrentSession();
+      const sessionUser = data?.session?.user as any;
+
+      if (!sessionError && sessionUser) {
+        const mapped = mapUserFromApi(sessionUser);
+        setUser(mapped);
+        return mapped;
+      }
+
+      lastError = sessionError ?? new Error('Authenticated session was not established.');
+      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error('Authenticated session was not established.');
+  }, []);
+
   const reauthWithPassword = useCallback(async (email: string, password: string) => {
     const client = getInsforgeClient();
     const { error: signInError } = await client.auth.signInWithPassword({
@@ -166,8 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw signInError ?? new Error('Unable to sign in.');
       }
 
-      const mapped = mapUserFromApi(data.user as any);
-      setUser(mapped);
+      const mapped = await requireActiveSessionUser();
       auditLogin(
         { userId: mapped.id, email: mapped.email },
         { email: mapped.email }
@@ -186,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [requireActiveSessionUser]);
 
   const signOut = useCallback(async () => {
     setError(null);
@@ -231,8 +253,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data?.user && data?.accessToken) {
-        setUser(mapUserFromApi(data.user as any));
-        return { user: mapUserFromApi(data.user as any) };
+        const mapped = await requireActiveSessionUser();
+        return { user: mapped };
       }
 
       return {};
@@ -243,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Sign-up failed', err);
       throw err;
     }
-  }, []);
+  }, [requireActiveSessionUser]);
 
   const verifyEmail = useCallback(async (params: VerifyEmailParams): Promise<AuthUser> => {
     setError(null);
@@ -259,9 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw verifyError ?? new Error('Unable to verify email.');
       }
 
-      const mappedUser = mapUserFromApi(data.user as any);
-      setUser(mappedUser);
-      return mappedUser;
+      return await requireActiveSessionUser();
     } catch (err: any) {
       const message: string = err?.message ?? 'Failed to verify email. Please try again.';
       setError(message);
@@ -271,7 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [requireActiveSessionUser]);
 
   const resendVerificationEmail = useCallback(async (params: { email: string }): Promise<void> => {
     setError(null);
@@ -388,4 +408,3 @@ export function useAuth(): AuthContextValue {
   }
   return ctx;
 }
-
