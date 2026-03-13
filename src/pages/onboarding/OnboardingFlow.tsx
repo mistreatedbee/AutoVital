@@ -112,6 +112,8 @@ export function OnboardingFlow() {
   const [timezone, setTimezone] = useState('Africa/Johannesburg');
   const [locale, setLocale] = useState('en');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
 
   // Vehicle state
   const [vehicleSkipped, setVehicleSkipped] = useState(false);
@@ -208,6 +210,7 @@ export function OnboardingFlow() {
         setFuelUnit(profile.fuelUnit ?? 'litres');
         setTimezone(profile.timezone ?? 'Africa/Johannesburg');
         setLocale(profile.locale ?? 'en');
+        setAvatarUrl(profile.avatarUrl ?? null);
       }
       if (progress) {
         setStep(Math.min(progress.currentStep, 5));
@@ -282,6 +285,13 @@ export function OnboardingFlow() {
     setFieldErrors({});
   }, [step]);
 
+  useEffect(() => {
+    if (!avatarFile) return undefined;
+    const objectUrl = URL.createObjectURL(avatarFile);
+    setAvatarUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [avatarFile]);
+
   const persistStepData = useCallback(async () => {
     if (!user?.id || step >= 5) return;
     const next: OnboardingStepData = { ...stepDataRef.current };
@@ -333,6 +343,9 @@ export function OnboardingFlow() {
         setFuelUnit('litres');
         setTimezone('Africa/Johannesburg');
         setLocale('en');
+        setAvatarFile(null);
+        setAvatarUrl(null);
+        setAvatarUploadError(null);
         setNickname('');
         setMake('');
         setModel('');
@@ -449,6 +462,7 @@ export function OnboardingFlow() {
   const saveProfileStep = useCallback(async () => {
     if (!user?.id) return false;
     setError(null);
+    setAvatarUploadError(null);
     const ok = await updateProfile(user.id, {
       displayName: displayName.trim() || null,
       country: country || 'ZA',
@@ -461,11 +475,20 @@ export function OnboardingFlow() {
       timezone: timezone || 'Africa/Johannesburg',
       locale: locale || 'en',
     });
-    if (ok && avatarFile) {
-      await uploadAvatarFile(user.id, avatarFile);
+    if (!ok) {
+      return false;
     }
-    return ok;
-  }, [user?.id, displayName, country, city, province, postalCode, currency, mileageUnit, fuelUnit, timezone, locale, avatarFile]);
+    if (avatarFile) {
+      const uploaded = await uploadAvatarFile(user.id, avatarFile);
+      if (!uploaded?.url) {
+        setAvatarUploadError('Failed to upload profile photo.');
+        return false;
+      }
+      setAvatarUrl(uploaded.url);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.current(user.id) });
+    }
+    return true;
+  }, [user?.id, displayName, country, city, province, postalCode, currency, mileageUnit, fuelUnit, timezone, locale, avatarFile, queryClient]);
 
   const saveVehicleStep = useCallback(async () => {
     if (vehicleSkipped || !user?.id) return true;
@@ -925,12 +948,44 @@ export function OnboardingFlow() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Profile photo (optional)</label>
+                      {avatarUrl && (
+                        <div className="mb-3 flex items-center gap-3">
+                          <img
+                            src={avatarUrl}
+                            alt="Profile preview"
+                            className="h-16 w-16 rounded-full border border-slate-200 object-cover"
+                          />
+                          <div className="text-sm text-slate-500">
+                            <p>{avatarFile?.name ?? 'Current profile photo'}</p>
+                            {avatarFile && (
+                              <button
+                                type="button"
+                                className="mt-1 text-primary-600 hover:text-primary-500"
+                                onClick={() => {
+                                  setAvatarFile(null);
+                                  setAvatarUrl(null);
+                                  setAvatarUploadError(null);
+                                  void loadInitialData();
+                                }}
+                              >
+                                Clear selection
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+                        onChange={(e) => {
+                          setAvatarUploadError(null);
+                          setAvatarFile(e.target.files?.[0] ?? null);
+                        }}
                         className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-slate-200 file:bg-slate-50"
                       />
+                      {avatarUploadError && (
+                        <p className="mt-1 text-sm text-red-600">{avatarUploadError}</p>
+                      )}
                     </div>
                   </div>
                 </motion.div>
