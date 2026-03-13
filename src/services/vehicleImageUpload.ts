@@ -2,13 +2,19 @@ import { getInsforgeClient } from '../lib/insforgeClient';
 import { createVehicleImage, setPrimaryVehicleImage } from './vehicleImages';
 
 const VEHICLE_IMAGES_BUCKET =
-  (import.meta.env.VITE_VEHICLE_IMAGES_BUCKET as string | undefined) ?? 'vehicle-images';
+  (import.meta.env.VITE_VEHICLE_IMAGES_BUCKET as string | undefined)?.trim() || '';
 
 export async function uploadVehicleImageFile(params: {
   accountId: string;
   vehicleId: string;
   file: File;
 }): Promise<{ url: string } | null> {
+  if (!VEHICLE_IMAGES_BUCKET) {
+    // eslint-disable-next-line no-console
+    console.warn('Vehicle image upload skipped: VITE_VEHICLE_IMAGES_BUCKET is not configured.');
+    return null;
+  }
+
   const client = getInsforgeClient();
 
   const { data, error } = await client.storage.from(VEHICLE_IMAGES_BUCKET).uploadAuto(params.file);

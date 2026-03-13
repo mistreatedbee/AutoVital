@@ -353,7 +353,11 @@ export function OnboardingFlow() {
   }, [user?.id, displayName, country, city, province, postalCode, currency, mileageUnit, fuelUnit, timezone, locale, avatarFile]);
 
   const saveVehicleStep = useCallback(async () => {
-    if (vehicleSkipped || !accountId || !user?.id) return true;
+    if (vehicleSkipped || !user?.id) return true;
+    if (!accountId) {
+      setError('Account setup is still pending. Skip vehicle for now and continue.');
+      return false;
+    }
     if (!make.trim() || !model.trim()) return false;
 
     let yearNum: number | null = null;
@@ -563,7 +567,7 @@ export function OnboardingFlow() {
   }, [user, navigate, queryClient]);
 
   if (!user) return null;
-  if (initializing || (step === 2 && !vehicleSkipped && !accountId)) {
+  if (initializing) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <LoadingState label="Loading…" />

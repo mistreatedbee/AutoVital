@@ -2,12 +2,18 @@ import { getInsforgeClient } from '../lib/insforgeClient';
 import { updateProfile } from './profile';
 
 const AVATARS_BUCKET =
-  (import.meta.env.VITE_AVATARS_BUCKET as string | undefined) ?? 'avatars';
+  (import.meta.env.VITE_AVATARS_BUCKET as string | undefined)?.trim() || '';
 
 export async function uploadAvatarFile(
   userId: string,
   file: File,
 ): Promise<{ url: string } | null> {
+  if (!AVATARS_BUCKET) {
+    // eslint-disable-next-line no-console
+    console.warn('Avatar upload skipped: VITE_AVATARS_BUCKET is not configured.');
+    return null;
+  }
+
   const client = getInsforgeClient();
 
   const { data, error } = await client.storage
