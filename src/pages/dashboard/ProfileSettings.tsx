@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '../../components/ui/Card';
@@ -72,6 +72,7 @@ export function ProfileSettings() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const { toast } = useToast();
 
   const { data: profile } = useQuery({
@@ -251,7 +252,7 @@ export function ProfileSettings() {
     setAvatarError(null);
     setAvatarUploading(true);
     try {
-      expectMutationResult(
+      const uploaded = expectMutationResult(
         await uploadAvatarFile(user.id, file),
         'Failed to upload profile picture.',
       );
@@ -287,17 +288,25 @@ export function ProfileSettings() {
               alt="Profile"
               className="w-24 h-24 rounded-full object-cover border-4 border-slate-50 shadow-sm" />
 
-            <label className="inline-flex">
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarChange}
-              />
-              <Button variant="ghost" size="sm" disabled={avatarUploading} type="button">
-                <span>{avatarUploading ? 'Uploading…' : 'Change Photo'}</span>
-              </Button>
-            </label>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={avatarUploading}
+              type="button"
+              onClick={() => {
+                setAvatarError(null);
+                avatarInputRef.current?.click();
+              }}
+            >
+              <span>{avatarUploading ? 'Uploading…' : 'Change Photo'}</span>
+            </Button>
             {avatarError && (
               <p className="max-w-[10rem] text-center text-xs text-rose-600">{avatarError}</p>
             )}

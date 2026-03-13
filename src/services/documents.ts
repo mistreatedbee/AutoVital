@@ -4,7 +4,12 @@ import {
   type DocumentCard,
   type DocumentCardDbRow,
 } from '../lib/dbMappers';
-import { toLimitOffset, type PaginatedParams, type PaginatedResult, DEFAULT_PAGE_SIZE } from '../lib/pagination';
+import {
+  toLimitOffset,
+  type PaginatedParams,
+  type PaginatedResult,
+  DEFAULT_PAGE_SIZE,
+} from '../lib/pagination';
 
 export type { DocumentCard };
 
@@ -22,7 +27,9 @@ export async function fetchAccountDocuments(
     const client = getInsforgeClient();
     const q = client.database
       .from('documents')
-      .select('id, name, type, size_bytes, created_at, public_url, mime_type, expires_at, vehicles(make, model)')
+      .select(
+        'id, name, type, size_bytes, created_at, public_url, mime_type, expires_at, vehicles(make, model)',
+      )
       .eq('account_id', accountId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
@@ -48,8 +55,9 @@ export async function fetchAccountDocuments(
   }
 }
 
+const rawDocumentsBucket = (import.meta.env.VITE_DOCUMENTS_BUCKET as string | undefined)?.trim();
 const DOCUMENTS_BUCKET =
-  (import.meta.env.VITE_DOCUMENTS_BUCKET as string | undefined) ?? 'vehicle-documents';
+  rawDocumentsBucket && rawDocumentsBucket.length > 0 ? rawDocumentsBucket : null;
 
 interface UploadDocumentParams {
   accountId: string;
@@ -60,15 +68,28 @@ interface UploadDocumentParams {
   expiresAt?: string | null;
 }
 
-export async function uploadDocumentFile(params: UploadDocumentParams) {
-  const client = getInsforgeClient();
+export async function uploadDocumentFile(
+  params: UploadDocumentParams,
+): Promise<{ id: string; url: string | null }> {
+  if (!DOCUMENTS_BUCKET) {
+    throw new Error('Document storage bucket is not configured. Please contact support.');
+  }
+
+  let client;
+  try {
+    client = getInsforgeClient();
+  } catch (err) {
+    throw new Error(
+      'File uploads are currently unavailable because the backend is not configured. Please try again later.',
+    );
+  }
 
   const { data, error } = await client.storage.from(DOCUMENTS_BUCKET).uploadAuto(params.file);
 
   if (error || !data) {
     // eslint-disable-next-line no-console
     console.warn('Failed to upload document file.', error);
-    return null;
+    throw new Error('Failed to upload document file. Please try again in a moment.');
   }
 
   const { url, key, size, mimeType, name } = data as any;
@@ -98,7 +119,7 @@ export async function uploadDocumentFile(params: UploadDocumentParams) {
   if (insertError || !rows || !rows[0]) {
     // eslint-disable-next-line no-console
     console.warn('Failed to create document record.', insertError);
-    return null;
+    throw new Error('Failed to save document record. Please try again.');
   }
 
   const row = rows[0] as any;

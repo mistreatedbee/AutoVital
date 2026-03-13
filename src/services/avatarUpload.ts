@@ -1,35 +1,39 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
 import { updateProfile } from './profile';
 
-const AVATARS_BUCKET =
-  (import.meta.env.VITE_AVATARS_BUCKET as string | undefined)?.trim() || 'avatars';
+const rawAvatarsBucket = (import.meta.env.VITE_AVATARS_BUCKET as string | undefined)?.trim();
+const AVATARS_BUCKET = rawAvatarsBucket && rawAvatarsBucket.length > 0 ? rawAvatarsBucket : null;
 
 export async function uploadAvatarFile(
   userId: string,
   file: File,
-): Promise<{ url: string } | null> {
+): Promise<{ url: string }> {
   if (!AVATARS_BUCKET) {
-    // eslint-disable-next-line no-console
-    console.warn('Avatar upload skipped: VITE_AVATARS_BUCKET is not configured.');
-    return null;
+    throw new Error('Avatar storage bucket is not configured. Please contact support.');
   }
 
-  const client = getInsforgeClient();
+  let client;
+  try {
+    client = getInsforgeClient();
+  } catch (err) {
+    throw new Error(
+      'File uploads are currently unavailable because the backend is not configured. Please try again later.',
+    );
+  }
 
-  const { data, error } = await client.storage
-    .from(AVATARS_BUCKET)
-    .uploadAuto(file);
+  const { data, error } = await client.storage.from(AVATARS_BUCKET).uploadAuto(file);
 
   if (error || !data) {
     // eslint-disable-next-line no-console
     console.warn('Failed to upload avatar file.', error);
-    return null;
+    throw new Error('Failed to upload profile picture. Please try again in a moment.');
   }
 
-  const { url } = data;
+  const { url } = data as { url: string };
   const ok = await updateProfile(userId, { avatarUrl: url });
   if (!ok) {
-    return null;
+    throw new Error('Failed to save profile picture. Please try again.');
   }
+
   return { url };
 }

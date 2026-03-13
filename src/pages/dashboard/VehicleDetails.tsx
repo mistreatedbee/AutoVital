@@ -437,6 +437,7 @@ export function VehicleDetails() {
                     <Button
                       variant="secondary"
                       size="sm"
+                      disabled={!accountId || !user}
                       icon={<UploadCloudIcon className="w-4 h-4" />}
                     >
                       Add Document
@@ -449,7 +450,26 @@ export function VehicleDetails() {
                     <form
                       onSubmit={async (e) => {
                         e.preventDefault();
-                        if (!accountId || !user || !vehicleDetails || !docFile) return;
+                        if (!user) {
+                          setDocumentUploadError('You must be signed in to upload documents.');
+                          return;
+                        }
+                        if (!accountId) {
+                          setDocumentUploadError(
+                            'Your account details are still loading. Please try again in a moment.',
+                          );
+                          return;
+                        }
+                        if (!vehicleDetails) {
+                          setDocumentUploadError(
+                            'Vehicle details are still loading. Please try again in a moment.',
+                          );
+                          return;
+                        }
+                        if (!docFile) {
+                          setDocumentUploadError('Please choose a file to upload.');
+                          return;
+                        }
                         setDocumentUploadError(null);
                         try {
                           await uploadDocMutation.mutateAsync({
@@ -527,7 +547,10 @@ export function VehicleDetails() {
                         <Button
                           type="button"
                           variant="ghost"
-                          onClick={() => setDocumentUploadOpen(false)}
+                          onClick={() => {
+                            if (uploadDocMutation.isPending) return;
+                            setDocumentUploadOpen(false);
+                          }}
                         >
                           Cancel
                         </Button>

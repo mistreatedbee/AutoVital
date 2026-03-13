@@ -79,7 +79,18 @@ export function Documents() {
 
   async function handleUploadSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!accountId || !user || !selectedFile) return;
+    if (!user) {
+      setUploadError('You must be signed in to upload documents.');
+      return;
+    }
+    if (!accountId) {
+      setUploadError('Your account details are still loading. Please try again in a moment.');
+      return;
+    }
+    if (!selectedFile) {
+      setUploadError('Please choose a file to upload.');
+      return;
+    }
 
     setUploadError(null);
 
@@ -102,6 +113,7 @@ export function Documents() {
       setSelectedFile(null);
       setExpiresAt('');
       setUploadOpen(false);
+      await refetch();
     } catch (err: unknown) {
       // eslint-disable-next-line no-console
       console.error('Document upload failed', err);
@@ -124,7 +136,15 @@ export function Documents() {
             Securely store receipts, insurance, and registrations.
           </p>
         </div>
-        <Modal open={uploadOpen} onOpenChange={setUploadOpen}>
+        <Modal
+          open={uploadOpen}
+          onOpenChange={(open) => {
+            setUploadOpen(open);
+            if (open) {
+              setUploadError(null);
+            }
+          }}
+        >
           <ModalTrigger asChild>
             <Button
               variant="primary"
@@ -212,7 +232,10 @@ export function Documents() {
       </div>
 
       {/* Dropzone */}
-      <div className="border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 p-12 text-center hover:bg-slate-100 transition-colors">
+      <div
+        className="border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 p-12 text-center hover:bg-slate-100 transition-colors cursor-pointer"
+        onClick={() => setUploadOpen(true)}
+      >
         <div className="w-16 h-16 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center mx-auto mb-4">
           <UploadCloudIcon className="w-8 h-8" />
         </div>

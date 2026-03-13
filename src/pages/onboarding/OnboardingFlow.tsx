@@ -483,12 +483,19 @@ export function OnboardingFlow() {
       return false;
     }
     if (avatarFile) {
-      const uploaded = expectMutationResult(
-        await uploadAvatarFile(user.id, avatarFile),
-        'Failed to upload profile photo.',
-      );
-      setAvatarUrl(uploaded.url);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.current(user.id) });
+      try {
+        const uploaded = expectMutationResult(
+          await uploadAvatarFile(user.id, avatarFile),
+          'Failed to upload profile photo.',
+        );
+        setAvatarUrl(uploaded.url);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.profile.current(user.id) });
+      } catch (err) {
+        setAvatarUploadError(
+          err instanceof Error ? err.message : 'Failed to upload profile photo.',
+        );
+        return false;
+      }
     }
     return true;
   }, [user?.id, displayName, country, city, province, postalCode, currency, mileageUnit, fuelUnit, timezone, locale, avatarFile, queryClient]);
