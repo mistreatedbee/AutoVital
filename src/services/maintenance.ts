@@ -88,7 +88,7 @@ export async function createMaintenanceLogWithHealthUpdate(
   if (error) {
     // eslint-disable-next-line no-console
     console.warn('Failed to create maintenance log.', error);
-    return;
+    throw new Error('Could not save maintenance record.');
   }
 
   const { data: vehicleRows, error: vehicleError } = await client.database
@@ -219,4 +219,3 @@ export async function updateMaintenanceLog(
 
   return true;
 }
-

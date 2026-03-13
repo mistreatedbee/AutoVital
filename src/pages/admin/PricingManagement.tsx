@@ -14,6 +14,7 @@ import {
 } from '../../services/adminPlans';
 import { useAuth } from '../../auth/AuthProvider';
 import { auditPlanCreated, auditPlanUpdated } from '../../lib/auditEvents';
+import { useToast } from '../../components/ui/Toast';
 
 export function PricingManagement() {
   const { user } = useAuth();
@@ -22,6 +23,7 @@ export function PricingManagement() {
   const [subscriptionCounts, setSubscriptionCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [planModal, setPlanModal] = useState<{ mode: 'create' | 'edit'; plan?: AdminPlanRow } | null>(null);
+  const { toast } = useToast();
 
   const loadPlans = useCallback(async () => {
     setLoading(true);
@@ -171,6 +173,7 @@ export function PricingManagement() {
           onSaved={() => {
             setPlanModal(null);
             void loadPlans();
+            toast({ variant: 'success', description: 'Plan saved successfully.' });
           }}
           actor={actor}
         />
@@ -285,7 +288,7 @@ function PlanModal({
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" loading={loading}>
+            <Button type="submit" variant="primary" loading={loading} loadingText="Saving plan...">
               {mode === 'create' ? 'Create' : 'Save'}
             </Button>
           </div>

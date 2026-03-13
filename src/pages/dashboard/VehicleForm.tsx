@@ -10,6 +10,7 @@ import { fetchVehicleDetails } from '../../services/vehicles';
 import { uploadVehicleImageFile } from '../../services/vehicleImageUpload';
 import { useUpsertVehicle } from '../../hooks/queries';
 import { validateYear, validateOdometerKm } from '../../lib/validation';
+import { expectMutationResult } from '../../lib/mutations';
 
 type VehicleFormMode = 'create' | 'edit';
 
@@ -25,7 +26,6 @@ export function VehicleForm({ mode }: VehicleFormProps) {
   const upsertMutation = useUpsertVehicle(accountId);
 
   const [loading, setLoading] = useState(mode === 'edit');
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [nickname, setNickname] = useState('');
@@ -84,13 +84,11 @@ export function VehicleForm({ mode }: VehicleFormProps) {
 
   const onSubmit: React.FormEventHandler = async (e) => {
     e.preventDefault();
-    setSaving(true);
     setError(null);
 
     try {
       if (!make.trim() || !model.trim()) {
         setError('Make and model are required.');
-        setSaving(false);
         return;
       }
 
@@ -98,7 +96,6 @@ export function VehicleForm({ mode }: VehicleFormProps) {
         const yearError = validateYear(year);
         if (yearError) {
           setError(yearError);
-          setSaving(false);
           return;
         }
       }
@@ -107,12 +104,11 @@ export function VehicleForm({ mode }: VehicleFormProps) {
         const mileageError = validateOdometerKm(currentMileage);
         if (mileageError) {
           setError(mileageError);
-          setSaving(false);
           return;
         }
       }
 
-      const vehicleWithHealth = await upsertMutation.mutateAsync({
+      const vehicleWithHealth = expectMutationResult(await upsertMutation.mutateAsync({
         id: mode === 'edit' ? id : undefined,
         accountId: accountId!,
         ownerUserId: user.id,
@@ -127,20 +123,14 @@ export function VehicleForm({ mode }: VehicleFormProps) {
         transmission: transmission.trim() || null,
         engineType: engineType.trim() || null,
         color: color.trim() || null,
-      });
-
-      if (!vehicleWithHealth) {
-        setError('Unable to save vehicle. Please try again.');
-        setSaving(false);
-        return;
-      }
+      }), 'Unable to save vehicle. Please try again.');
 
       if (imageFile) {
-        await uploadVehicleImageFile({
+        expectMutationResult(await uploadVehicleImageFile({
           accountId,
           vehicleId: vehicleWithHealth.id,
           file: imageFile,
-        });
+        }), 'Vehicle saved, but the photo upload failed.');
       }
 
       navigate(`/dashboard/vehicles/${vehicleWithHealth.id}`);
@@ -148,7 +138,6 @@ export function VehicleForm({ mode }: VehicleFormProps) {
       // eslint-disable-next-line no-console
       console.error('Vehicle save failed', err);
       setError(err?.message ?? 'Unable to save vehicle.');
-      setSaving(false);
     }
   };
 
@@ -280,10 +269,16 @@ export function VehicleForm({ mode }: VehicleFormProps) {
               <Button
                 type="button"
                 variant="ghost"
+                disabled={upsertMutation.isPending}
                 onClick={() => navigate('/dashboard/vehicles')}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" loading={saving || upsertMutation.isPending}>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={upsertMutation.isPending}
+                loadingText={mode === 'create' ? 'Saving vehicle...' : 'Saving changes...'}
+              >
                 {mode === 'create' ? 'Add Vehicle' : 'Save Changes'}
               </Button>
             </div>
@@ -293,4 +288,3 @@ export function VehicleForm({ mode }: VehicleFormProps) {
     </div>
   );
 }
-

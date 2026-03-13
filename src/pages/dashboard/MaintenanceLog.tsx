@@ -22,6 +22,7 @@ import { uploadDocumentFile } from '../../services/documents';
 import { useAuth } from '../../auth/AuthProvider';
 import { validateOdometerKm, validateZarAmount } from '../../lib/validation';
 import { formatDateShort } from '../../lib/formatters';
+import { expectMutationResult } from '../../lib/mutations';
 
 type FormMode = 'create' | 'edit';
 
@@ -144,24 +145,6 @@ export function MaintenanceLog() {
     setFormOpen(true);
   };
 
-  const openEditForm = (entry: MaintenanceEntry) => {
-    setFormMode('edit');
-    setFormState({
-      id: entry.id,
-      vehicleId: entry.vehicleId ?? '',
-      type: entry.service,
-      serviceDate: entry.date,
-      mileage: entry.mileage ? entry.mileage.replace(/,/g, '') : '',
-      cost: entry.cost ? entry.cost.replace(/[^0-9.]/g, '') : '',
-      currency: 'ZAR',
-      vendorName: entry.shop ?? '',
-      description: '',
-      documentFile: null,
-    });
-    setError(null);
-    setFormOpen(true);
-  };
-
   const handleSubmit: React.FormEventHandler = async (e) => {
     e.preventDefault();
     if (!accountId || !user) return;
@@ -197,13 +180,13 @@ export function MaintenanceLog() {
       let documentId: string | null | undefined = undefined;
 
       if (formState.documentFile) {
-        const uploaded = await uploadDocumentFile({
+        const uploaded = expectMutationResult(await uploadDocumentFile({
           accountId,
           vehicleId: formState.vehicleId,
           userId: user.id,
           type: 'receipt',
           file: formState.documentFile,
-        });
+        }), 'Receipt upload failed. Please try again.');
         documentId = uploaded?.id ?? null;
       }
 
@@ -403,7 +386,10 @@ export function MaintenanceLog() {
               <Button
                 type="submit"
                 variant="primary"
-                loading={createMutation.isPending || updateMutation.isPending}>
+                loading={createMutation.isPending || updateMutation.isPending}
+                loadingText={
+                  formMode === 'create' ? 'Saving service...' : 'Saving changes...'
+                }>
                 {formMode === 'create' ? 'Save Service' : 'Save Changes'}
               </Button>
             </div>

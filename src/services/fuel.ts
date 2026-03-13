@@ -174,7 +174,7 @@ export async function createFuelLogWithMileage(
   if (error) {
     // eslint-disable-next-line no-console
     console.warn('Failed to create fuel log.', error);
-    return;
+    throw new Error('Unable to save fuel record.');
   }
 
   if (input.odometer != null && input.odometer >= 0) {
@@ -198,4 +198,3 @@ export async function createFuelLogWithMileage(
     }
   }
 }
-

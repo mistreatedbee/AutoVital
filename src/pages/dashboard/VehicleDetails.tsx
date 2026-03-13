@@ -37,6 +37,8 @@ import {
   ModalTrigger,
 } from '../../components/ui/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { useToast } from '../../components/ui/Toast';
+import { expectMutationResult } from '../../lib/mutations';
 
 export function VehicleDetails() {
   const navigate = useNavigate();
@@ -64,6 +66,7 @@ export function VehicleDetails() {
   const [docFile, setDocFile] = useState<File | null>(null);
   const [docType, setDocType] = useState<string>('other');
   const [docExpiresAt, setDocExpiresAt] = useState<string>('');
+  const { toast } = useToast();
 
   const columns = [
     {
@@ -215,14 +218,15 @@ export function VehicleDetails() {
                       setUploadError(null);
                       setImageUploading(true);
                       try {
-                        await uploadVehicleImageFile({
+                        expectMutationResult(await uploadVehicleImageFile({
                           accountId,
                           vehicleId: vehicle.id,
                           file,
-                        });
+                        }), 'Unable to upload photo. Please try again.');
                         queryClient.invalidateQueries({
                           queryKey: ['vehicles', 'detail', id],
                         });
+                        toast({ variant: 'success', description: 'Vehicle photo uploaded successfully.' });
                       } catch (err: unknown) {
                         // eslint-disable-next-line no-console
                         console.error('Vehicle photo upload failed', err);
@@ -258,6 +262,7 @@ export function VehicleDetails() {
                         queryClient.invalidateQueries({
                           queryKey: ['vehicles', 'detail', id],
                         });
+                        toast({ variant: 'success', description: 'Primary vehicle photo updated.' });
                       } catch (err: unknown) {
                         // eslint-disable-next-line no-console
                         console.error('Failed to set primary vehicle image', err);
@@ -530,8 +535,10 @@ export function VehicleDetails() {
                           type="submit"
                           variant="primary"
                           disabled={!docFile || uploadDocMutation.isPending}
+                          loading={uploadDocMutation.isPending}
+                          loadingText="Uploading..."
                         >
-                          {uploadDocMutation.isPending ? 'Uploading…' : 'Upload'}
+                          Upload
                         </Button>
                       </ModalFooter>
                     </form>

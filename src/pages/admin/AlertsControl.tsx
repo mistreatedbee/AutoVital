@@ -17,6 +17,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { auditTemplateUpdated } from '../../lib/auditEvents';
 import { LoadingState } from '../../components/states/LoadingState';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { useToast } from '../../components/ui/Toast';
 
 export function AlertsControl() {
   const { user } = useAuth();
@@ -25,6 +26,7 @@ export function AlertsControl() {
   const [activeTab, setActiveTab] = useState('email');
   const [editEmail, setEditEmail] = useState<EmailTemplate | null>(null);
   const [editInApp, setEditInApp] = useState<InAppTemplate | null>(null);
+  const { toast } = useToast();
 
   const { data: emailTemplates = [], isLoading: emailLoading } = useQuery({
     queryKey: ['admin', 'emailTemplates'],
@@ -188,6 +190,7 @@ export function AlertsControl() {
           onSaved={() => {
             setEditEmail(null);
             void queryClient.invalidateQueries({ queryKey: ['admin', 'emailTemplates'] });
+            toast({ variant: 'success', description: 'Email template saved successfully.' });
           }}
           actor={actor}
         />
@@ -199,6 +202,7 @@ export function AlertsControl() {
           onSaved={() => {
             setEditInApp(null);
             void queryClient.invalidateQueries({ queryKey: ['admin', 'inAppTemplates'] });
+            toast({ variant: 'success', description: 'In-app template saved successfully.' });
           }}
           actor={actor}
         />
@@ -222,16 +226,22 @@ function EmailTemplateModal({
   const [subject, setSubject] = useState(template.subject);
   const [status, setStatus] = useState(template.status);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
     try {
       const ok = await updateEmailTemplate(template.id, { name, subject, status });
       if (ok) {
         await auditTemplateUpdated(actor, String(template.id), { type: 'email', name });
         onSaved();
+      } else {
+        setError('Could not save email template.');
       }
+    } catch (err) {
+      setError((err as Error).message ?? 'Could not save email template.');
     } finally {
       setLoading(false);
     }
@@ -249,14 +259,15 @@ function EmailTemplateModal({
             <select
               className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm"
               value={status}
-              onChange={(e) => setStatus(e.target.value)}>
+              onChange={(e) => setStatus(e.target.value as EmailTemplate['status'])}>
               <option value="active">Active</option>
               <option value="draft">Draft</option>
             </select>
           </div>
+          {error && <p className="text-sm text-rose-600">{error}</p>}
           <div className="flex gap-2 justify-end pt-4">
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button type="submit" variant="primary" loading={loading}>Save</Button>
+            <Button type="submit" variant="primary" loading={loading} loadingText="Saving template...">Save</Button>
           </div>
         </form>
       </div>
@@ -279,16 +290,22 @@ function InAppTemplateModal({
   const [message, setMessage] = useState(template.message);
   const [type, setType] = useState(template.type);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
     try {
       const ok = await updateInAppTemplate(template.id, { name, message, type });
       if (ok) {
         await auditTemplateUpdated(actor, String(template.id), { type: 'in_app', name });
         onSaved();
+      } else {
+        setError('Could not save in-app template.');
       }
+    } catch (err) {
+      setError((err as Error).message ?? 'Could not save in-app template.');
     } finally {
       setLoading(false);
     }
@@ -314,15 +331,16 @@ function InAppTemplateModal({
             <select
               className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm"
               value={type}
-              onChange={(e) => setType(e.target.value)}>
+              onChange={(e) => setType(e.target.value as InAppTemplate['type'])}>
               <option value="Warning">Warning</option>
               <option value="Alert">Alert</option>
               <option value="Info">Info</option>
             </select>
           </div>
+          {error && <p className="text-sm text-rose-600">{error}</p>}
           <div className="flex gap-2 justify-end pt-4">
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button type="submit" variant="primary" loading={loading}>Save</Button>
+            <Button type="submit" variant="primary" loading={loading} loadingText="Saving template...">Save</Button>
           </div>
         </form>
       </div>

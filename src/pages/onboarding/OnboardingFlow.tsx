@@ -37,6 +37,8 @@ import {
 import { recordOnboardingEvent } from '../../services/onboardingAnalytics';
 import { validateYear, validateOdometerKm } from '../../lib/validation';
 import { queryKeys } from '../../lib/queryKeys';
+import { useToast } from '../../components/ui/Toast';
+import { expectMutationResult } from '../../lib/mutations';
 
 const COMMON_MAKES = [
   'Toyota', 'Ford', 'BMW', 'Mercedes-Benz', 'Volkswagen', 'Honda', 'Nissan',
@@ -94,6 +96,7 @@ export function OnboardingFlow() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { accountId, refresh: refreshAccount } = useAccount();
+  const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
@@ -375,12 +378,13 @@ export function OnboardingFlow() {
         setLeadDays([14, 7, 0]);
         setReminderBasis('both');
         setWeeklySummary(false);
+        toast({ variant: 'success', description: 'Onboarding progress reset successfully.' });
       }
     } finally {
       setLoading(false);
       setShowStartOverConfirm(false);
     }
-  }, [user?.id, queryClient]);
+  }, [user?.id, queryClient, toast]);
 
   const validateProfileStep = useCallback((): FieldErrors => {
     const nextErrors: FieldErrors = {};
@@ -479,11 +483,10 @@ export function OnboardingFlow() {
       return false;
     }
     if (avatarFile) {
-      const uploaded = await uploadAvatarFile(user.id, avatarFile);
-      if (!uploaded?.url) {
-        setAvatarUploadError('Failed to upload profile photo.');
-        return false;
-      }
+      const uploaded = expectMutationResult(
+        await uploadAvatarFile(user.id, avatarFile),
+        'Failed to upload profile photo.',
+      );
       setAvatarUrl(uploaded.url);
       await queryClient.invalidateQueries({ queryKey: queryKeys.profile.current(user.id) });
     }
@@ -518,7 +521,7 @@ export function OnboardingFlow() {
       }
       mileageNum = Number(currentMileage.replace(/,/g, ''));
     }
-    const vehicle = await upsertVehicle({
+    const vehicle = expectMutationResult(await upsertVehicle({
       id: vehicleId ?? undefined,
       accountId: resolvedAccountId,
       ownerUserId: user.id,
@@ -533,15 +536,14 @@ export function OnboardingFlow() {
       transmission: transmission.trim() || null,
       engineType: engineType.trim() || null,
       color: color.trim() || null,
-    });
-    if (!vehicle) return false;
+    }), 'Unable to save vehicle.');
     const withHealth = await recomputeAndPersistVehicleHealth(vehicle, null);
     if (vehicleImageFile && withHealth) {
-      await uploadVehicleImageFile({
+      expectMutationResult(await uploadVehicleImageFile({
         accountId: resolvedAccountId,
         vehicleId: withHealth.id,
         file: vehicleImageFile,
-      });
+      }), 'Vehicle saved, but the photo upload failed.');
     }
     setVehicleId(withHealth.id);
     return true;
@@ -639,6 +641,7 @@ export function OnboardingFlow() {
           profileCompleted: true,
         });
         recordOnboardingEvent(user!.id, 'step_1_done', 1);
+        toast({ variant: 'success', description: 'Profile saved successfully.' });
       } else if (step === 2) {
         const nextErrors = validateVehicleStep();
         if (Object.keys(nextErrors).length > 0) {
@@ -665,6 +668,7 @@ export function OnboardingFlow() {
           vehicleAdded: !vehicleSkipped,
         });
         recordOnboardingEvent(user!.id, 'step_2_done', 2);
+        toast({ variant: 'success', description: 'Vehicle details saved successfully.' });
       } else if (step === 3) {
         const nextErrors = validateServiceStep();
         if (Object.keys(nextErrors).length > 0) {
@@ -683,6 +687,7 @@ export function OnboardingFlow() {
           serviceBaselineCompleted: true,
         });
         recordOnboardingEvent(user!.id, 'step_3_done', 3);
+        toast({ variant: 'success', description: 'Service baseline saved successfully.' });
       } else if (step === 4) {
         const ok = await saveRemindersStep();
         if (!ok) {
@@ -695,6 +700,7 @@ export function OnboardingFlow() {
           remindersCompleted: true,
         });
         recordOnboardingEvent(user!.id, 'step_4_done', 4);
+        toast({ variant: 'success', description: 'Reminder preferences saved successfully.' });
       }
       if (step < 5) setStep(step + 1);
     } catch (err) {
@@ -705,7 +711,7 @@ export function OnboardingFlow() {
   }, [
     step, user, vehicleSkipped, accountId, error, queryClient, applyFieldErrors,
     validateProfileStep, validateVehicleStep, validateServiceStep,
-    saveProfileStep, saveVehicleStep, saveServiceStep, saveRemindersStep,
+    saveProfileStep, saveVehicleStep, saveServiceStep, saveRemindersStep, toast,
   ]);
 
   const handleBack = useCallback(() => {
@@ -722,10 +728,11 @@ export function OnboardingFlow() {
         vehicleAdded: false,
       });
       setStep(3);
+      toast({ variant: 'success', description: 'Vehicle step skipped for now.' });
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, toast]);
 
   const handleFinish = useCallback(async () => {
     setError(null);
@@ -743,6 +750,7 @@ export function OnboardingFlow() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
           await queryClient.invalidateQueries({ queryKey: queryKeys.alerts.preferences(accountId) });
         }
+        toast({ variant: 'success', description: 'Onboarding completed successfully.' });
         navigate('/dashboard', { replace: true });
       } else {
         setError('Failed to complete. Please try again.');
@@ -752,7 +760,7 @@ export function OnboardingFlow() {
     } finally {
       setLoading(false);
     }
-  }, [user, vehicleSkipped, vehicleId, make, model, accountId, navigate, queryClient]);
+  }, [user, vehicleSkipped, vehicleId, make, model, accountId, navigate, queryClient, toast]);
 
   if (!user) return null;
   if (initializing) {
@@ -1344,12 +1352,12 @@ export function OnboardingFlow() {
                   <Button variant="ghost" onClick={handleSkipVehicle} disabled={loading}>
                     Skip for now
                   </Button>
-                  <Button variant="primary" onClick={handleNext} loading={loading}>
+                  <Button variant="primary" onClick={handleNext} loading={loading} loadingText="Saving and continuing...">
                     Continue <ArrowRightIcon className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
               ) : step < 5 ? (
-                <Button variant="primary" onClick={handleNext} loading={loading}>
+                <Button variant="primary" onClick={handleNext} loading={loading} loadingText="Saving and continuing...">
                   Continue <ArrowRightIcon className="w-4 h-4 ml-2" />
                 </Button>
               ) : (
@@ -1359,6 +1367,7 @@ export function OnboardingFlow() {
                   className="w-full"
                   onClick={handleFinish}
                   loading={loading}
+                  loadingText="Finishing setup..."
                 >
                   Go to Dashboard
                 </Button>

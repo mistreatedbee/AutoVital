@@ -19,6 +19,8 @@ import {
   getStrengthWidth,
 } from '../../lib/passwordStrength';
 import { validatePhoneWithSaHint } from '../../lib/validation';
+import { useToast } from '../../components/ui/Toast';
+import { expectMutationResult } from '../../lib/mutations';
 
 function formatDate(iso: string): string {
   try {
@@ -70,6 +72,7 @@ export function ProfileSettings() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const { data: profile } = useQuery({
     queryKey: queryKeys.profile.current(user?.id ?? ''),
@@ -162,6 +165,7 @@ export function ProfileSettings() {
       setVerifiedPassword(null);
       setNewPassword('');
       setConfirmPassword('');
+      toast({ variant: 'success', description: 'Password updated successfully.' });
     } catch (err: unknown) {
       setPasswordError(
         err instanceof Error ? err.message : 'Failed to change password'
@@ -189,6 +193,7 @@ export function ProfileSettings() {
       await changeEmail(verifiedPassword, trimmed);
       setVerifiedPassword(null);
       setNewEmail('');
+      toast({ variant: 'success', description: 'Email update requested successfully.' });
     } catch (err: unknown) {
       setEmailError(
         err instanceof Error ? err.message : 'Failed to change email'
@@ -226,6 +231,7 @@ export function ProfileSettings() {
           queryClient.invalidateQueries({ queryKey: queryKeys.fuel.all });
           queryClient.invalidateQueries({ queryKey: queryKeys.maintenance.all });
         }
+        toast({ variant: 'success', description: 'Profile updated successfully.' });
       } else {
         setProfileError('Failed to save profile.');
       }
@@ -245,13 +251,13 @@ export function ProfileSettings() {
     setAvatarError(null);
     setAvatarUploading(true);
     try {
-      const uploaded = await uploadAvatarFile(user.id, file);
-      if (!uploaded?.url) {
-        setAvatarError('Failed to upload profile picture.');
-        return;
-      }
+      expectMutationResult(
+        await uploadAvatarFile(user.id, file),
+        'Failed to upload profile picture.',
+      );
 
       await queryClient.invalidateQueries({ queryKey: queryKeys.profile.current(user.id) });
+      toast({ variant: 'success', description: 'Profile picture updated successfully.' });
     } catch (err) {
       setAvatarError(err instanceof Error ? err.message : 'Failed to upload profile picture.');
     } finally {
@@ -341,6 +347,7 @@ export function ProfileSettings() {
                     variant="primary"
                     size="sm"
                     loading={emailLoading}
+                    loadingText="Updating email..."
                   >
                     Update Email
                   </Button>
@@ -499,7 +506,12 @@ export function ProfileSettings() {
         </div>
         {profileError && <p className="text-sm text-rose-600 mb-4">{profileError}</p>}
         <div className="flex justify-end pt-4 border-t border-slate-100">
-          <Button variant="primary" onClick={handleSaveProfile} loading={profileSaving}>
+          <Button
+            variant="primary"
+            onClick={handleSaveProfile}
+            loading={profileSaving}
+            loadingText="Saving profile..."
+          >
             Save Changes
           </Button>
         </div>
@@ -624,6 +636,7 @@ export function ProfileSettings() {
                 type="submit"
                 variant="primary"
                 loading={passwordLoading}
+                loadingText="Updating password..."
               >
                 Update Password
               </Button>

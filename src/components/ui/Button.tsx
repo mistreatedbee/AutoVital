@@ -22,6 +22,7 @@ interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'ref'> {
   size?: ButtonSize;
   icon?: React.ReactNode;
   loading?: boolean;
+  loadingText?: React.ReactNode;
 }
 export function Button({
   variant = 'default',
@@ -30,6 +31,7 @@ export function Button({
   children,
   icon,
   loading,
+  loadingText,
   disabled,
   ...props
 }: ButtonProps) {
@@ -81,11 +83,12 @@ export function Button({
       }
       className={cn(baseStyles, variants[variant], sizes[size], className)}
       disabled={disabled || loading}
+      aria-busy={loading}
       {...props}>
 
       {loading && <Loader2Icon className="w-5 h-5 mr-2 animate-spin" />}
       {!loading && icon && <span className="mr-2">{icon}</span>}
-      {children}
+      {loading && loadingText ? loadingText : (children as React.ReactNode)}
     </motion.button>);
 
 }

@@ -28,6 +28,7 @@ import {
 import { useAuth } from '../../auth/AuthProvider';
 import { auditUserStatusUpdated, auditUserFlagged, auditUserProfileUpdated } from '../../lib/auditEvents';
 import { fetchAdminPlans } from '../../services/adminPlans';
+import { useToast } from '../../components/ui/Toast';
 
 type RoleFilterValue = AccountRole | 'all';
 
@@ -82,6 +83,7 @@ export function UserManagement() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [flagModalUser, setFlagModalUser] = useState<AdminUserListItem | null>(null);
   const [editModalUser, setEditModalUser] = useState<AdminUserListItem | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchAdminPlans().then((p) => setPlans(p));
@@ -126,6 +128,7 @@ export function UserManagement() {
       setActionMenuOpen(null);
       try {
         await adminResendVerification(user.email);
+        toast({ variant: 'success', description: 'Verification email resent successfully.' });
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Resend verification failed', err);
@@ -148,6 +151,13 @@ export function UserManagement() {
         setUsers((prev) =>
           prev.map((u) => (u.id === user.id ? { ...u, accountStatus: newStatus } : u)),
         );
+        toast({
+          variant: 'success',
+          description:
+            newStatus === 'suspended'
+              ? 'User suspended successfully.'
+              : 'User reactivated successfully.',
+        });
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Set status failed', err);
@@ -183,6 +193,10 @@ export function UserManagement() {
           ),
         );
         setFlagModalUser(null);
+        toast({
+          variant: 'success',
+          description: flagged ? 'User flagged successfully.' : 'User flag removed successfully.',
+        });
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Flag update failed', err);
@@ -258,7 +272,7 @@ export function UserManagement() {
         header: 'Flagged',
         render: (_: unknown, row: AdminUserListItem) =>
           row.flaggedAt ? (
-            <Badge variant="warning" title={row.flaggedReason ?? undefined}>
+            <Badge variant="warning">
               Yes
             </Badge>
           ) : (
@@ -570,6 +584,7 @@ export function UserManagement() {
               prev.map((u) => (u.id === editModalUser.id ? { ...u, fullName: updated.fullName } : u))
             );
             setEditModalUser(null);
+            toast({ variant: 'success', description: 'User updated successfully.' });
           }}
           actor={actor}
         />
@@ -624,8 +639,10 @@ function FlagModal({
             variant="primary"
             onClick={() => onSubmit(true, reason.trim() || undefined)}
             disabled={loading}
+            loading={loading}
+            loadingText="Saving..."
           >
-            {loading ? 'Saving...' : 'Flag user'}
+            Flag user
           </Button>
         </div>
       </div>
@@ -716,7 +733,13 @@ function EditUserModal({
               <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" disabled={loading} loading={loading}>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={loading}
+                loading={loading}
+                loadingText="Saving user..."
+              >
                 Save
               </Button>
             </div>

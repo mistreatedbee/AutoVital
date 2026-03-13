@@ -206,10 +206,12 @@ export async function updateAlertStatus(
     if (error) {
       // eslint-disable-next-line no-console
       console.warn('Failed to update alert status.', error);
+      throw new Error('Could not update the alert.');
     }
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Alerts service unavailable, status not updated.', err);
+    throw err instanceof Error ? err : new Error('Could not update the alert.');
   }
 }
 
@@ -325,4 +327,3 @@ export async function updateInAppTemplate(
     return false;
   }
 }
-

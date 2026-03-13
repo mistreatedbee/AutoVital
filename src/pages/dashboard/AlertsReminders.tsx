@@ -18,6 +18,7 @@ import { LoadingState } from '../../components/states/LoadingState';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/states/ErrorState';
 import { useAuth } from '../../auth/AuthProvider';
+import { useToast } from '../../components/ui/Toast';
 
 export function AlertsReminders() {
   const { accountId, loading: accountLoading } = useAccount();
@@ -27,8 +28,9 @@ export function AlertsReminders() {
   const alerts = data?.alerts ?? [];
   const preferences = data?.preferences ?? null;
   const updateStatusMutation = useUpdateAlertStatus(accountId);
-  const upsertPrefMutation = useUpsertAlertPreference(accountId);
+  const upsertPrefMutation = useUpsertAlertPreference(accountId, { successMessage: false });
   const savingPrefs = upsertPrefMutation.isPending;
+  const { toast } = useToast();
 
   const openAlerts = alerts.filter((a) => a.status === 'open');
   const resolvedAlerts = alerts.filter((a) => a.status === 'resolved');
@@ -75,7 +77,11 @@ export function AlertsReminders() {
         maintenanceLeadDaysArray: inAppPref?.maintenanceLeadDaysArray,
         documentExpiryLeadDays: days,
       }),
-    ]).catch(() => {});
+    ])
+      .then(() => {
+        toast({ variant: 'success', description: 'Reminder settings updated successfully.' });
+      })
+      .catch(() => {});
   };
 
   return (

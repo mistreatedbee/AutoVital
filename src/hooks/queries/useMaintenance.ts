@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryKeys';
 import {
   fetchAccountMaintenanceLogs,
@@ -7,6 +7,8 @@ import {
   updateMaintenanceLog,
 } from '../../services/maintenance';
 import type { CreateMaintenanceLogInput, UpdateMaintenanceLogInput } from '../../services/maintenance';
+import { useAppMutation } from '../useAppMutation';
+import { expectMutationResult } from '../../lib/mutations';
 
 export function useMaintenanceLogs(accountId: string | null, params?: { page?: number; pageSize?: number }) {
   return useQuery({
@@ -29,42 +31,52 @@ export function useVehicleMaintenanceLogs(
 }
 
 export function useCreateMaintenanceLog(accountId: string | null) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
+  return useAppMutation({
     mutationFn: (input: CreateMaintenanceLogInput) =>
       createMaintenanceLogWithHealthUpdate(input),
-    onSuccess: () => {
-      if (accountId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.maintenance.list(accountId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.maintenance.all });
-        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.reports.monthly(accountId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.reports.vehicles(accountId) });
-      }
-    },
+    successMessage: 'Maintenance record saved successfully.',
+    errorMessage: 'Could not save maintenance record.',
+    invalidateQueryKeys: accountId
+      ? [
+          queryKeys.maintenance.list(accountId),
+          queryKeys.maintenance.all,
+          queryKeys.dashboard.overview(accountId),
+          queryKeys.reports.monthly(accountId),
+          queryKeys.reports.vehicles(accountId),
+          queryKeys.mileage.all,
+          queryKeys.vehicles.all,
+          queryKeys.documents.all,
+        ]
+      : [queryKeys.maintenance.all],
   });
 }
 
 export function useUpdateMaintenanceLog(accountId: string | null) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
+  return useAppMutation({
+    mutationFn: async ({
       logId,
       input,
     }: {
       logId: string;
       input: UpdateMaintenanceLogInput;
-    }) => updateMaintenanceLog(accountId!, logId, input),
-    onSuccess: () => {
-      if (accountId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.maintenance.list(accountId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.maintenance.all });
-        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(accountId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.reports.monthly(accountId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.reports.vehicles(accountId) });
-      }
-    },
+    }) =>
+      expectMutationResult(
+        await updateMaintenanceLog(accountId!, logId, input),
+        'Could not update maintenance record.',
+      ),
+    successMessage: 'Maintenance record updated successfully.',
+    errorMessage: 'Could not update maintenance record.',
+    invalidateQueryKeys: accountId
+      ? [
+          queryKeys.maintenance.list(accountId),
+          queryKeys.maintenance.all,
+          queryKeys.dashboard.overview(accountId),
+          queryKeys.reports.monthly(accountId),
+          queryKeys.reports.vehicles(accountId),
+          queryKeys.mileage.all,
+          queryKeys.vehicles.all,
+          queryKeys.documents.all,
+        ]
+      : [queryKeys.maintenance.all],
   });
 }

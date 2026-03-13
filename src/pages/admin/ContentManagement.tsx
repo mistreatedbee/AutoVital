@@ -1,59 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import {
-  EditIcon,
-  LayoutTemplateIcon,
-  MessageSquareIcon,
-  FileTextIcon } from
-'lucide-react';
+import React from 'react';
+import { LayoutTemplateIcon } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { DataTable } from '../../components/ui/DataTable';
-import type { BlogPost } from '../../services/blog';
-import { getInsforgeClient } from '../../lib/insforgeClient';
 export function ContentManagement() {
   // Phase 4: CMS editing is deferred. This screen is intentionally read-only and
   // communicates that inline so admins are not misled into expecting full CRUD.
-
-  const blogColumns = [
-    {
-      key: 'title',
-      header: 'Title',
-      render: (value: any) => <span className="font-medium text-slate-900">{value}</span>,
-    },
-    {
-      key: 'slug',
-      header: 'Slug',
-    },
-    {
-      key: 'category',
-      header: 'Category',
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (value: any) => (
-        <span
-          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-            value === 'published'
-              ? 'bg-emerald-50 text-emerald-700'
-              : 'bg-slate-100 text-slate-700'
-          }`}
-        >
-          {value}
-        </span>
-      ),
-    },
-    {
-      key: 'published_at',
-      header: 'Published',
-      render: (value: any) => {
-        if (!value) return <span className="text-slate-400 text-xs">Draft</span>;
-        const d = new Date(value);
-        if (Number.isNaN(d.getTime())) return '';
-        return d.toLocaleDateString();
-      },
-    },
-  ];
 
   return (
     <div className="space-y-8">
@@ -81,5 +31,4 @@ export function ContentManagement() {
       </Card>
     </div>
   );
-
 }

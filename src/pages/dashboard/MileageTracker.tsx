@@ -29,6 +29,8 @@ import {
 import { fetchCurrentProfile } from '../../services/profile';
 import { chartColors, cssVarHsl } from '../../lib/tokens';
 import { validateOdometerKm } from '../../lib/validation';
+import { useToast } from '../../components/ui/Toast';
+import { expectMutationResult } from '../../lib/mutations';
 
 export function MileageTracker() {
   const { accountId, loading: accountLoading, error: accountError, refresh } = useAccount();
@@ -44,6 +46,7 @@ export function MileageTracker() {
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (accountLoading) return;
@@ -188,7 +191,7 @@ export function MileageTracker() {
     setError(null);
 
     try {
-      const mileageLog = await createMileageLog({
+      expectMutationResult(await createMileageLog({
         accountId,
         vehicleId: selectedVehicleId,
         userId: user.id,
@@ -196,21 +199,20 @@ export function MileageTracker() {
         odometer: odometerNumber,
         source: 'manual',
         note: note || null,
-      });
+      }), 'Unable to save mileage log.');
 
-      if (mileageLog) {
-        await updateVehicleCurrentMileageIfHigher(
-          accountId,
-          selectedVehicleId,
-          odometerNumber,
-        );
-      }
+      await updateVehicleCurrentMileageIfHigher(
+        accountId,
+        selectedVehicleId,
+        odometerNumber,
+      );
 
       const refreshed = await fetchVehicleMileageHistory(accountId, selectedVehicleId);
       setHistory(refreshed);
       setLogDate('');
       setOdometer('');
       setNote('');
+      toast({ variant: 'success', description: 'Mileage log added successfully.' });
     } catch (err: any) {
       // eslint-disable-next-line no-console
       console.error('Failed to save mileage log', err);
@@ -434,7 +436,13 @@ export function MileageTracker() {
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
-              <Button type="submit" variant="primary" loading={saving} className="w-full">
+              <Button
+                type="submit"
+                variant="primary"
+                loading={saving}
+                loadingText="Saving reading..."
+                className="w-full"
+              >
                 Save Reading
               </Button>
             </form>
@@ -444,4 +452,3 @@ export function MileageTracker() {
     </div>
   );
 }
-

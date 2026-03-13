@@ -21,7 +21,6 @@ import {
   useCreateFuelLog,
 } from '../../hooks/queries';
 import { useVehicles } from '../../hooks/queries';
-import type { EfficiencyPoint } from '../../services/fuel';
 import {
   calculateFuelEfficiencyWithUnits,
   type CreateFuelLogInput,
@@ -35,6 +34,7 @@ import { FuelTrackerSkeleton } from '../../components/states/pageSkeletons';
 import { useAuth } from '../../auth/AuthProvider';
 import { Input } from '../../components/ui/Input';
 import { validateOdometerKm, validateZarAmount, parsePositiveNumber } from '../../lib/validation';
+import { formatCurrencyZAR } from '../../lib/formatters';
 
 export function FuelTracker() {
   const { accountId, loading: accountLoading } = useAccount();
@@ -355,7 +355,12 @@ export function FuelTracker() {
               >
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" loading={createMutation.isPending}>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={createMutation.isPending}
+                loadingText="Saving fuel record..."
+              >
                 Save Fuel Record
               </Button>
             </div>

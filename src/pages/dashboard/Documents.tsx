@@ -200,8 +200,10 @@ export function Documents() {
                   type="submit"
                   variant="primary"
                   disabled={!selectedFile || uploadMutation.isPending}
+                  loading={uploadMutation.isPending}
+                  loadingText="Uploading..."
                 >
-                  {uploadMutation.isPending ? 'Uploading…' : 'Upload'}
+                  Upload
                 </Button>
               </ModalFooter>
             </form>
@@ -233,30 +235,26 @@ export function Documents() {
 
         </div>
         <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0">
-          <Badge
-            variant="primary"
-            className="px-4 py-2 text-sm cursor-pointer"
-            onClick={() => setTypeFilter('All')}>
-            All
-          </Badge>
-          <Badge
-            variant="neutral"
-            className="px-4 py-2 text-sm cursor-pointer bg-white"
-            onClick={() => setTypeFilter('Insurance')}>
-            Insurance
-          </Badge>
-          <Badge
-            variant="neutral"
-            className="px-4 py-2 text-sm cursor-pointer bg-white"
-            onClick={() => setTypeFilter('Receipt')}>
-            Receipts
-          </Badge>
-          <Badge
-            variant="neutral"
-            className="px-4 py-2 text-sm cursor-pointer bg-white"
-            onClick={() => setTypeFilter('Registration')}>
-            Registration
-          </Badge>
+          <button type="button" onClick={() => setTypeFilter('All')}>
+            <Badge variant="primary" className="px-4 py-2 text-sm cursor-pointer">
+              All
+            </Badge>
+          </button>
+          <button type="button" onClick={() => setTypeFilter('Insurance')}>
+            <Badge variant="neutral" className="px-4 py-2 text-sm cursor-pointer bg-white">
+              Insurance
+            </Badge>
+          </button>
+          <button type="button" onClick={() => setTypeFilter('Receipt')}>
+            <Badge variant="neutral" className="px-4 py-2 text-sm cursor-pointer bg-white">
+              Receipts
+            </Badge>
+          </button>
+          <button type="button" onClick={() => setTypeFilter('Registration')}>
+            <Badge variant="neutral" className="px-4 py-2 text-sm cursor-pointer bg-white">
+              Registration
+            </Badge>
+          </button>
         </div>
       </div>
 
