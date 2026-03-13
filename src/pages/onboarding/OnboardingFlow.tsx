@@ -143,7 +143,10 @@ export function OnboardingFlow() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadInitialData = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setInitializing(false);
+      return;
+    }
     setInitializing(true);
     try {
       const [progress, profile] = await Promise.all([
