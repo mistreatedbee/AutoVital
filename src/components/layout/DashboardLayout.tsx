@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { useAccount } from '../../account/AccountProvider';
 import { fetchUserAlerts } from '../../services/alerts';
+import { fetchCurrentProfile } from '../../services/profile';
+import { queryKeys } from '../../lib/queryKeys';
 import {
   HomeIcon,
   CarIcon,
@@ -30,6 +33,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { accountId } = useAccount();
+  const { data: profile } = useQuery({
+    queryKey: queryKeys.profile.current(user?.id ?? ''),
+    queryFn: () => fetchCurrentProfile(user!.id),
+    enabled: !!user?.id,
+  });
   // Close sidebar on route change (mobile)
   useEffect(() => {
     setSidebarOpen(false);
@@ -120,6 +128,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     navigate('/dashboard/alerts');
   };
   const SidebarContent = () =>
+  {
+    const avatarSrc = profile?.avatarUrl || 'https://i.pravatar.cc/150?img=11';
+    const displayName = profile?.displayName?.trim() || user?.name || user?.email || 'Account';
+
+    return (
   <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
       {/* Brand */}
       <div className="h-20 flex items-center px-6 border-b border-sidebar-border">
@@ -166,13 +179,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-4 py-3 mb-2">
           <img
-          src="https://i.pravatar.cc/150?img=11"
-          alt={user?.name ?? user?.email ?? 'User'}
+          src={avatarSrc}
+          alt={displayName}
           className="w-10 h-10 rounded-full border-2 border-sidebar-border" />
 
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">
-              {user?.name ?? user?.email ?? 'Account'}
+              {displayName}
             </p>
             <p className="text-xs text-sidebar-muted truncate">
               {accountId ? 'AutoVital' : 'Loading…'}
@@ -189,7 +202,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           Log Out
         </button>
       </div>
-    </div>;
+    </div>);
+  };
 
   return (
     <div className="min-h-screen flex bg-surfaceToken font-body text-foreground">
@@ -280,8 +294,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </button>
             <Link to="/dashboard/settings" className="hidden sm:block">
               <img
-                src="https://i.pravatar.cc/150?img=11"
-                alt={user?.name ?? user?.email ?? 'Profile'}
+                src={profile?.avatarUrl || 'https://i.pravatar.cc/150?img=11'}
+                alt={profile?.displayName?.trim() || user?.name ?? user?.email ?? 'Profile'}
                 className="w-9 h-9 rounded-full border border-border" />
 
             </Link>

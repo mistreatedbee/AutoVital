@@ -8,6 +8,7 @@ import { getUserConsents, updateMarketingConsent } from '../../services/consents
 import { changePassword, changeEmail } from '../../services/authSettings';
 import { fetchCurrentProfile, updateProfile } from '../../services/profile';
 import { deriveMeasurementSystemFromUnits } from '../../services/profile';
+import { uploadAvatarFile } from '../../services/avatarUpload';
 import { queryKeys } from '../../lib/queryKeys';
 import { useAuth } from '../../auth/AuthProvider';
 import { useAccount } from '../../account/AccountProvider';
@@ -67,6 +68,8 @@ export function ProfileSettings() {
   const [measurementSystem, setMeasurementSystem] = useState<'metric' | 'imperial'>('metric');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   const { data: profile } = useQuery({
     queryKey: queryKeys.profile.current(user?.id ?? ''),
@@ -233,6 +236,29 @@ export function ProfileSettings() {
     }
   };
 
+  const handleAvatarChange: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
+    if (!user?.id) return;
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setAvatarError(null);
+    setAvatarUploading(true);
+    try {
+      const uploaded = await uploadAvatarFile(user.id, file);
+      if (!uploaded?.url) {
+        setAvatarError('Failed to upload profile picture.');
+        return;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.current(user.id) });
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Failed to upload profile picture.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-3xl">
       <div>
@@ -255,9 +281,20 @@ export function ProfileSettings() {
               alt="Profile"
               className="w-24 h-24 rounded-full object-cover border-4 border-slate-50 shadow-sm" />
 
-            <Button variant="ghost" size="sm">
-              Change Photo
-            </Button>
+            <label className="inline-flex">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
+              <Button variant="ghost" size="sm" disabled={avatarUploading} type="button">
+                <span>{avatarUploading ? 'Uploading…' : 'Change Photo'}</span>
+              </Button>
+            </label>
+            {avatarError && (
+              <p className="max-w-[10rem] text-center text-xs text-rose-600">{avatarError}</p>
+            )}
           </div>
           <div className="flex-1 space-y-4">
             <Input

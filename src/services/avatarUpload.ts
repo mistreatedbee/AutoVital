@@ -2,7 +2,7 @@ import { getInsforgeClient } from '../lib/insforgeClient';
 import { updateProfile } from './profile';
 
 const AVATARS_BUCKET =
-  (import.meta.env.VITE_AVATARS_BUCKET as string | undefined)?.trim() || '';
+  (import.meta.env.VITE_AVATARS_BUCKET as string | undefined)?.trim() || 'avatars';
 
 export async function uploadAvatarFile(
   userId: string,
