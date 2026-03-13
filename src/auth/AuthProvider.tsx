@@ -55,6 +55,7 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const SESSION_BOOTSTRAP_TIMEOUT_MS = 10000;
 
 function mapUserFromApi(user: {
   id: string;
@@ -89,7 +90,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function bootstrapSession() {
       try {
         const client = getInsforgeClient();
-        const { data, error: sessionError } = await client.auth.getCurrentSession();
+        const sessionResult = await Promise.race<
+          | { data: Awaited<ReturnType<typeof client.auth.getCurrentSession>>['data']; error: Awaited<ReturnType<typeof client.auth.getCurrentSession>>['error'] }
+          | { data: null; error: Error }
+        >([
+          client.auth.getCurrentSession(),
+          new Promise((resolve) => {
+            setTimeout(() => {
+              resolve({
+                data: null,
+                error: new Error('Session bootstrap timed out'),
+              });
+            }, SESSION_BOOTSTRAP_TIMEOUT_MS);
+          }),
+        ]);
+        const data = sessionResult.data;
+        const sessionError = sessionResult.error;
 
         if (!isMounted) return;
 

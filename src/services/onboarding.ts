@@ -1,4 +1,5 @@
 import { getInsforgeClient } from '../lib/insforgeClient';
+const ONBOARDING_QUERY_TIMEOUT_MS = 10000;
 
 export interface OnboardingStepData {
   1?: Record<string, unknown>;
@@ -33,11 +34,29 @@ export async function fetchOnboardingProgress(
 ): Promise<OnboardingProgress | null> {
   try {
     const client = getInsforgeClient();
-    const { data, error } = await client.database
-      .from('onboarding_progress')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
+    const result = await Promise.race<
+      | { data: unknown; error: unknown }
+      | { data: null; error: Error }
+    >([
+      client.database
+        .from('onboarding_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle(),
+      new Promise((resolve) =>
+        setTimeout(
+          () =>
+            resolve({
+              data: null,
+              error: new Error('fetchOnboardingProgress timed out'),
+            }),
+          ONBOARDING_QUERY_TIMEOUT_MS,
+        ),
+      ),
+    ]);
+
+    const data = result.data as any;
+    const error = result.error as any;
 
     if (error || !data) {
       return null;

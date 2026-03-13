@@ -79,6 +79,13 @@ const STEPS = [
   { id: 5, title: 'Complete', icon: CheckCircle2Icon },
 ];
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return Promise.race<T>([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(fallback), timeoutMs)),
+  ]);
+}
+
 export function OnboardingFlow() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -150,8 +157,8 @@ export function OnboardingFlow() {
     setInitializing(true);
     try {
       const [progress, profile] = await Promise.all([
-        fetchOnboardingProgress(user.id),
-        fetchCurrentProfile(user.id),
+        withTimeout(fetchOnboardingProgress(user.id), 10000, null),
+        withTimeout(fetchCurrentProfile(user.id), 10000, null),
       ]);
       if (!progress && user?.id) {
         recordOnboardingEvent(user.id, 'started', 1);
