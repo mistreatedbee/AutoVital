@@ -1,6 +1,10 @@
 -- Ensure RLS policies exist for account bootstrap (signup / ensureAccountForUser).
 -- Run if you see: "new row violates row-level security policy for table 'accounts'"
--- Usage: insforge db query "$(Get-Content db/migrations/2026-03-15-ensure-accounts-bootstrap-rls.sql -Raw)"
+--
+-- Usage (from project root):
+--   insforge db import db/migrations/2026-03-15-ensure-accounts-bootstrap-rls.sql
+--
+-- If your CLI has no "db import", run each block below in the InsForge SQL editor in the dashboard.
 
 -- 1. SECURITY DEFINER helpers (avoid recursion between accounts and account_members)
 CREATE OR REPLACE FUNCTION user_owns_account(p_account_id UUID)

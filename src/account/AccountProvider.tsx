@@ -107,15 +107,37 @@ export function AccountProvider({ children }: { children: ReactNode }) {
           }
         }
         if (!id) {
-          await ensureAccountForUser(user.id, user.name ?? user.email ?? 'User');
-          id = await resolveDefaultAccountId(user.id);
+          try {
+            await ensureAccountForUser(user.id, user.name ?? user.email ?? 'User');
+            id = await resolveDefaultAccountId(user.id);
+          } catch (fallbackErr: any) {
+            const msg = fallbackErr?.message ?? '';
+            if (msg.includes('row-level security') || (msg.includes('violates') && msg.includes('accounts'))) {
+              setError(
+                'Account setup was blocked. Run: insforge db import db/migrations/2026-03-15-ensure-accounts-bootstrap-rls.sql (see db/migrations/README-RLS-BOOTSTRAP.md).',
+              );
+            } else {
+              setError(msg || 'Account could not be created. Try again or contact support.');
+            }
+            setAccountId(null);
+            setLoading(false);
+            return;
+          }
         }
       }
       setAccountId(id);
     } catch (err: any) {
       // eslint-disable-next-line no-console
       console.error('Failed to resolve default account', err);
-      setError(err?.message ?? 'Unable to load account');
+      const raw = err?.message ?? 'Unable to load account';
+      const isRls =
+        typeof raw === 'string' &&
+        (raw.includes('row-level security') || raw.includes('violates') && raw.includes('accounts'));
+      setError(
+        isRls
+          ? 'Account setup was blocked by database security. If you run this app: deploy the ensure-account function, set the service key secret, or run the RLS migration (see db/migrations/2026-03-15-ensure-accounts-bootstrap-rls.sql).'
+          : raw,
+      );
       setAccountId(null);
     } finally {
       setLoading(false);
