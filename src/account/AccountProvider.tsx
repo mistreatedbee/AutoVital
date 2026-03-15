@@ -17,46 +17,57 @@ interface AccountContextValue {
 }
 
 const AccountContext = createContext<AccountContextValue | undefined>(undefined);
+const ACCOUNT_RESOLVE_TIMEOUT_MS = 12_000;
 
 async function resolveDefaultAccountId(userId: string): Promise<string | null> {
   const client = getInsforgeClient();
 
-  // 1) Try profile.default_account_id
-  const { data: profile, error: profileError } = await client.database
-    .from('profiles')
-    .select('default_account_id')
-    .eq('user_id', userId)
-    .maybeSingle();
+  const resolve = async (): Promise<string | null> => {
+    // 1) Try profile.default_account_id
+    const { data: profile, error: profileError } = await client.database
+      .from('profiles')
+      .select('default_account_id')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  if (!profileError && profile?.default_account_id) {
-    return profile.default_account_id as string;
-  }
+    if (!profileError && profile?.default_account_id) {
+      return profile.default_account_id as string;
+    }
 
-  // 2) Try accounts where user is owner
-  const { data: ownedAccounts } = await client.database
-    .from('accounts')
-    .select('id')
-    .eq('owner_user_id', userId)
-    .order('created_at', { ascending: true })
-    .limit(1);
+    // 2) Try accounts where user is owner
+    const { data: ownedAccounts } = await client.database
+      .from('accounts')
+      .select('id')
+      .eq('owner_user_id', userId)
+      .order('created_at', { ascending: true })
+      .limit(1);
 
-  if (ownedAccounts && ownedAccounts.length > 0) {
-    return ownedAccounts[0].id as string;
-  }
+    if (ownedAccounts && ownedAccounts.length > 0) {
+      return ownedAccounts[0].id as string;
+    }
 
-  // 3) Fallback to first membership
-  const { data: memberships } = await client.database
-    .from('account_members')
-    .select('account_id')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true })
-    .limit(1);
+    // 3) Fallback to first membership
+    const { data: memberships } = await client.database
+      .from('account_members')
+      .select('account_id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+      .limit(1);
 
-  if (memberships && memberships.length > 0) {
-    return memberships[0].account_id as string;
-  }
+    if (memberships && memberships.length > 0) {
+      return memberships[0].account_id as string;
+    }
 
-  return null;
+    return null;
+  };
+
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error('Account loading took too long. Please check your connection and try again.'));
+    }, ACCOUNT_RESOLVE_TIMEOUT_MS);
+  });
+
+  return Promise.race([resolve(), timeout]);
 }
 
 export function AccountProvider({ children }: { children: ReactNode }) {

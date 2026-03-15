@@ -84,6 +84,36 @@ export function DashboardHome() {
     return <DashboardHomeSkeleton />;
   }
 
+  if (accountError) {
+    return (
+      <div className="rounded-2xl border border-border bg-cardToken p-6">
+        <ErrorState
+          title="Unable to load your account"
+          description={accountError}
+          onRetry={() => refresh()}
+        />
+        <Button variant="secondary" className="mt-4" onClick={() => refresh()}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  if (!accountId) {
+    return (
+      <div className="rounded-2xl border border-border bg-cardToken p-6">
+        <ErrorState
+          title="No account found"
+          description="Your account could not be found. If you just signed up, try refreshing the page. Otherwise contact support."
+          onRetry={() => refresh()}
+        />
+        <Button variant="secondary" className="mt-4" onClick={() => refresh()}>
+          Refresh
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-10">
       {/* Header */}
