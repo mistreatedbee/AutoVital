@@ -91,8 +91,25 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     try {
       let id = await resolveDefaultAccountId(user.id);
       if (!id) {
-        await ensureAccountForUser(user.id, user.name ?? user.email ?? 'User');
-        id = await resolveDefaultAccountId(user.id);
+        const baseUrl = (import.meta.env.VITE_INSFORGE_URL as string | undefined)?.replace(/\/+$/, '');
+        const client = getInsforgeClient();
+        const { data: sessionData } = await client.auth.getCurrentSession();
+        const accessToken = sessionData?.session?.access_token;
+
+        if (baseUrl && accessToken) {
+          const res = await fetch(`${baseUrl}/functions/ensure-account`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          const json = await res.json().catch(() => ({}));
+          if (res.ok && json?.ok) {
+            id = json.accountId ?? (await resolveDefaultAccountId(user.id));
+          }
+        }
+        if (!id) {
+          await ensureAccountForUser(user.id, user.name ?? user.email ?? 'User');
+          id = await resolveDefaultAccountId(user.id);
+        }
       }
       setAccountId(id);
     } catch (err: any) {
