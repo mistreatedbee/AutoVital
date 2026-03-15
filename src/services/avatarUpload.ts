@@ -2,16 +2,12 @@ import { getInsforgeClient } from '../lib/insforgeClient';
 import { updateProfile } from './profile';
 
 const rawAvatarsBucket = (import.meta.env.VITE_AVATARS_BUCKET as string | undefined)?.trim();
-const AVATARS_BUCKET = rawAvatarsBucket && rawAvatarsBucket.length > 0 ? rawAvatarsBucket : null;
+const AVATARS_BUCKET = rawAvatarsBucket && rawAvatarsBucket.length > 0 ? rawAvatarsBucket : 'avatars';
 
 export async function uploadAvatarFile(
   userId: string,
   file: File,
 ): Promise<{ url: string }> {
-  if (!AVATARS_BUCKET) {
-    throw new Error('Avatar storage bucket is not configured. Please contact support.');
-  }
-
   let client;
   try {
     client = getInsforgeClient();
