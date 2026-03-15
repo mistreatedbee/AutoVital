@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 import type { ReactNode } from 'react';
 import { getInsforgeClient } from '../lib/insforgeClient';
+import { ensureAccountForUser } from '../lib/authBootstrap';
 import { useAuth } from '../auth/AuthProvider';
 
 interface AccountContextValue {
@@ -88,7 +89,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const id = await resolveDefaultAccountId(user.id);
+      let id = await resolveDefaultAccountId(user.id);
+      if (!id) {
+        await ensureAccountForUser(user.id, user.name ?? user.email ?? 'User');
+        id = await resolveDefaultAccountId(user.id);
+      }
       setAccountId(id);
     } catch (err: any) {
       // eslint-disable-next-line no-console
